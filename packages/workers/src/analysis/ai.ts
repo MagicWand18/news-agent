@@ -1,6 +1,6 @@
 import Anthropic from "@anthropic-ai/sdk";
 import { config } from "@mediabot/shared";
-import type { AIAnalysisResult, OnboardingResult, PreFilterResult } from "@mediabot/shared";
+import type { AIAnalysisResult, OnboardingResult, PreFilterResult, ResponseGenerationResult } from "@mediabot/shared";
 
 const anthropic = new Anthropic({
   apiKey: config.anthropic.apiKey,
@@ -218,6 +218,91 @@ Solo responde con el JSON, sin markdown ni texto adicional.`,
       sensitiveTopics: [],
       actionLines: ["Configurar keywords manualmente"],
       recentMentions: [],
+    };
+  }
+}
+
+export async function generateResponse(params: {
+  articleTitle: string;
+  articleContent: string;
+  source: string;
+  sentiment: string;
+  relevance: number;
+  clientName: string;
+  clientDescription: string;
+  clientIndustry: string;
+  aiSummary?: string;
+  requestedTone?: "PROFESSIONAL" | "DEFENSIVE" | "CLARIFICATION" | "CELEBRATORY";
+}): Promise<ResponseGenerationResult> {
+  const toneInstruction = params.requestedTone
+    ? `El tono DEBE ser ${params.requestedTone}.`
+    : `Selecciona el tono mas apropiado basado en el sentimiento del articulo.`;
+
+  const message = await anthropic.messages.create({
+    model: config.anthropic.model,
+    max_tokens: 1200,
+    messages: [
+      {
+        role: "user",
+        content: `Eres un experto en comunicacion corporativa y relaciones publicas.
+Genera un borrador de comunicado de prensa en respuesta a esta mencion en medios.
+
+Cliente: ${params.clientName}
+Industria: ${params.clientIndustry || "No especificada"}
+Descripcion: ${params.clientDescription || "No disponible"}
+
+Articulo original:
+Titulo: ${params.articleTitle}
+Fuente: ${params.source}
+Contenido: ${params.articleContent?.slice(0, 1500) || "No disponible"}
+
+Analisis previo:
+Sentimiento: ${params.sentiment}
+Relevancia: ${params.relevance}/10
+Resumen: ${params.aiSummary || "No disponible"}
+
+${toneInstruction}
+
+Genera un comunicado en JSON con este formato exacto:
+{
+  "title": "Titulo del comunicado (conciso y profesional)",
+  "body": "Cuerpo completo del comunicado (3-4 parrafos, incluye contexto, posicion del cliente, datos relevantes y cierre)",
+  "tone": "PROFESSIONAL|DEFENSIVE|CLARIFICATION|CELEBRATORY",
+  "audience": "Publico objetivo principal (ej: medios generales, prensa especializada, stakeholders)",
+  "callToAction": "Siguiente paso recomendado para el equipo de PR",
+  "keyMessages": ["Mensaje clave 1", "Mensaje clave 2", "Mensaje clave 3"]
+}
+
+Solo responde con el JSON, sin markdown ni texto adicional.`,
+      },
+    ],
+  });
+
+  const content = message.content[0];
+  if (content.type !== "text") {
+    throw new Error("Unexpected response type from Claude");
+  }
+
+  const rawText = content.text;
+  console.log("[AI] Raw generateResponse response:", rawText.slice(0, 300));
+
+  try {
+    const cleaned = cleanJsonResponse(rawText);
+    const result = JSON.parse(cleaned) as ResponseGenerationResult;
+    // Validate tone
+    if (!["PROFESSIONAL", "DEFENSIVE", "CLARIFICATION", "CELEBRATORY"].includes(result.tone)) {
+      result.tone = "PROFESSIONAL";
+    }
+    return result;
+  } catch {
+    console.error("[AI] Failed to parse generateResponse response:", rawText);
+    return {
+      title: `Comunicado sobre: ${params.articleTitle.slice(0, 50)}`,
+      body: "Error al generar el comunicado automatico. Por favor, redacte manualmente.",
+      tone: "PROFESSIONAL",
+      audience: "Medios generales",
+      callToAction: "Revisar y completar manualmente",
+      keyMessages: ["Revisar articulo original", "Definir posicion del cliente"],
     };
   }
 }

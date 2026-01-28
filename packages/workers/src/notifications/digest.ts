@@ -74,14 +74,38 @@ export function startDigestWorker() {
           message += `💬 Resumen ejecutivo:\n"${aiSummary}"\n\n`;
         }
 
-        if (topMentions.length > 0) {
-          message += `🏆 Top menciones:\n`;
-          for (const m of topMentions) {
+        // Group mentions by cluster
+        const clusters = new Map<string, typeof mentions>();
+        for (const mention of mentions) {
+          const clusterId = mention.parentMentionId || mention.id;
+          if (!clusters.has(clusterId)) {
+            clusters.set(clusterId, []);
+          }
+          clusters.get(clusterId)!.push(mention);
+        }
+
+        // Sort clusters by total relevance
+        const sortedClusters = [...clusters.entries()].sort((a, b) => {
+          const maxRelA = Math.max(...a[1].map(m => m.relevance));
+          const maxRelB = Math.max(...b[1].map(m => m.relevance));
+          return maxRelB - maxRelA;
+        });
+
+        if (sortedClusters.length > 0) {
+          message += `🏆 Top noticias:\n`;
+          for (const [, clusterMentions] of sortedClusters.slice(0, 5)) {
+            const primary = clusterMentions.reduce((a, b) => a.relevance > b.relevance ? a : b);
+            const sources = [...new Set(clusterMentions.map(m => m.article.source))];
             const sentIcon =
-              m.sentiment === "POSITIVE" ? "🟢" :
-              m.sentiment === "NEGATIVE" ? "🔴" : "⚪";
-            message += `${sentIcon} ${m.title.slice(0, 70)}...\n`;
-            message += `   ${m.source} | Relevancia: ${m.relevance}/10\n`;
+              primary.sentiment === "POSITIVE" ? "🟢" :
+              primary.sentiment === "NEGATIVE" ? "🔴" : "⚪";
+
+            message += `${sentIcon} ${primary.article.title.slice(0, 70)}...\n`;
+            if (sources.length > 1) {
+              message += `   📰 ${sources.length} fuentes: ${sources.slice(0, 3).join(", ")}${sources.length > 3 ? "..." : ""}\n`;
+            } else {
+              message += `   ${primary.article.source} | Relevancia: ${primary.relevance}/10\n`;
+            }
           }
         }
 
@@ -99,13 +123,20 @@ export function startDigestWorker() {
             clientMessage += `💬 ${aiSummary}\n\n`;
           }
 
-          if (topMentions.length > 0) {
+          if (sortedClusters.length > 0) {
             clientMessage += `📰 Menciones destacadas:\n`;
-            for (const m of topMentions.slice(0, 3)) {
+            for (const [, clusterMentions] of sortedClusters.slice(0, 3)) {
+              const primary = clusterMentions.reduce((a, b) => a.relevance > b.relevance ? a : b);
+              const sources = [...new Set(clusterMentions.map(m => m.article.source))];
               const sentIcon =
-                m.sentiment === "POSITIVE" ? "🟢" :
-                m.sentiment === "NEGATIVE" ? "🔴" : "⚪";
-              clientMessage += `${sentIcon} ${m.title.slice(0, 70)}...\n`;
+                primary.sentiment === "POSITIVE" ? "🟢" :
+                primary.sentiment === "NEGATIVE" ? "🔴" : "⚪";
+
+              if (sources.length > 1) {
+                clientMessage += `${sentIcon} ${primary.article.title.slice(0, 60)}... (${sources.length} fuentes)\n`;
+              } else {
+                clientMessage += `${sentIcon} ${primary.article.title.slice(0, 70)}...\n`;
+              }
             }
           }
 

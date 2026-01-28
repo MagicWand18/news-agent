@@ -3,6 +3,7 @@ import { connection, QUEUE_NAMES, getQueue } from "../queues.js";
 import { prisma, config, getSettingNumber } from "@mediabot/shared";
 import { analyzeMention } from "./ai.js";
 import { processMentionForCrisis } from "./crisis-detector.js";
+import { findClusterParent } from "./clustering.js";
 import type { Urgency, Sentiment } from "@prisma/client";
 
 // High-reach Spanish-language media sources
@@ -66,6 +67,31 @@ export function startAnalysisWorker() {
           urgency: urgency as Urgency,
         },
       });
+
+      // Run clustering for relevant mentions
+      if (analysis.relevance >= 5) {
+        try {
+          const cluster = await findClusterParent({
+            mentionId,
+            clientId: mention.clientId,
+            articleTitle: mention.article.title,
+            aiSummary: analysis.summary,
+          });
+
+          if (cluster.parentId) {
+            await prisma.mention.update({
+              where: { id: mentionId },
+              data: {
+                parentMentionId: cluster.parentId,
+                clusterScore: cluster.score,
+              },
+            });
+            console.log(`[Analysis] Mention ${mentionId} clustered with parent ${cluster.parentId} (score: ${cluster.score.toFixed(2)})`);
+          }
+        } catch (error) {
+          console.error(`[Analysis] Clustering failed for mention ${mentionId}:`, error);
+        }
+      }
 
       // Enqueue notification if urgent enough
       if (urgency === "CRITICAL" || urgency === "HIGH") {

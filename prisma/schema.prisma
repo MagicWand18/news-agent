@@ -103,7 +103,15 @@ model Mention {
   createdAt      DateTime  @default(now())
   tasks          Task[]
 
+  // Clustering
+  parentMentionId String?
+  parentMention   Mention?  @relation("MentionCluster", fields: [parentMentionId], references: [id])
+  childMentions   Mention[] @relation("MentionCluster")
+  clusterScore    Float?
+
   @@index([clientId, createdAt])
+  @@index([parentMentionId])
+  @@index([clientId, parentMentionId, createdAt])
 }
 
 enum Sentiment {

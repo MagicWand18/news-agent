@@ -3,6 +3,8 @@
 import { trpc } from "@/lib/trpc";
 import { MentionRow } from "@/components/mention-row";
 import { useState } from "react";
+import { Download } from "lucide-react";
+import { exportMentionsToCsv } from "@/lib/csv-export";
 
 const SENTIMENTS = ["", "POSITIVE", "NEGATIVE", "NEUTRAL", "MIXED"] as const;
 
@@ -17,9 +19,25 @@ export default function MentionsPage() {
     limit: 30,
   });
 
+  const handleExport = () => {
+    if (mentions.data?.mentions) {
+      exportMentionsToCsv(mentions.data.mentions);
+    }
+  };
+
   return (
     <div className="space-y-6">
-      <h2 className="text-2xl font-bold">Menciones</h2>
+      <div className="flex items-center justify-between">
+        <h2 className="text-2xl font-bold">Menciones</h2>
+        <button
+          onClick={handleExport}
+          disabled={!mentions.data?.mentions.length}
+          className="flex items-center gap-2 rounded-lg bg-gray-100 px-4 py-2 text-sm font-medium text-gray-700 transition-colors hover:bg-gray-200 disabled:cursor-not-allowed disabled:opacity-50"
+        >
+          <Download className="h-4 w-4" />
+          Exportar CSV
+        </button>
+      </div>
 
       {/* Filters */}
       <div className="flex gap-4">

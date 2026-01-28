@@ -59,3 +59,12 @@ export interface PreFilterResult {
   reason: string;
   confidence: number;
 }
+
+export interface ResponseGenerationResult {
+  title: string;
+  body: string;
+  tone: "PROFESSIONAL" | "DEFENSIVE" | "CLARIFICATION" | "CELEBRATORY";
+  audience: string;
+  callToAction: string;
+  keyMessages: string[];
+}
