@@ -15,13 +15,7 @@ async function main() {
 
   const where = all
     ? {}
-    : {
-        OR: [
-          { sentiment: "NEUTRAL" as const, aiSummary: { contains: "analisis automatico no disponible" } },
-          { sentiment: "NEUTRAL" as const, aiSummary: null },
-          { sentiment: "NEUTRAL" as const },
-        ],
-      };
+    : { sentiment: "NEUTRAL" as const };
 
   const mentions = await prisma.mention.findMany({
     where,

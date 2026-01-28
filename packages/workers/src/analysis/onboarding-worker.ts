@@ -47,10 +47,16 @@ export function startOnboardingWorker() {
       for (const kw of result.suggestedKeywords) {
         if (existingWords.has(kw.word.toLowerCase())) continue;
 
+        const VALID_KEYWORD_TYPES = ["NAME", "BRAND", "COMPETITOR", "TOPIC", "ALIAS"] as const;
+        type KeywordType = (typeof VALID_KEYWORD_TYPES)[number];
+        const validType: KeywordType = VALID_KEYWORD_TYPES.includes(kw.type as KeywordType)
+          ? (kw.type as KeywordType)
+          : "TOPIC";
+
         await prisma.keyword.create({
           data: {
             word: kw.word,
-            type: kw.type as "NAME" | "BRAND" | "COMPETITOR" | "TOPIC" | "ALIAS",
+            type: validType,
             clientId: client.id,
             active: true,
           },
