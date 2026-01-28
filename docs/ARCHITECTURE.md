@@ -266,3 +266,189 @@ packages/
 | `REDIS_URL` | Workers | Colas no funcionan |
 | `ANTHROPIC_API_KEY` | Workers | AI no funciona |
 | `TELEGRAM_BOT_TOKEN` | Bot, Workers | Notificaciones fallan |
+
+## Sistema de Configuracion
+
+MediaBot utiliza un sistema de configuracion de dos niveles:
+
+```
+┌─────────────────────────────────────────────────────────────────┐
+│                 SISTEMA DE CONFIGURACION                         │
+├─────────────────────────────────────────────────────────────────┤
+│                                                                 │
+│   NIVEL 1: Variables de Entorno                                 │
+│   ─────────────────────────────                                 │
+│   - Cargadas al iniciar la app                                  │
+│   - Requieren redeploy para cambiar                             │
+│   - Configuracion de infraestructura                            │
+│                                                                 │
+│   Ejemplos:                                                     │
+│   ├── COLLECTOR_RSS_CRON      (cron patterns)                   │
+│   ├── ANALYSIS_WORKER_CONCURRENCY (workers)                     │
+│   ├── CLAUDE_MODEL            (AI)                              │
+│   └── JOB_RETRY_ATTEMPTS      (jobs)                            │
+│                                                                 │
+│   NIVEL 2: Settings Dinamicos (DB)                              │
+│   ────────────────────────────────                              │
+│   - Guardados en tabla `Setting`                                │
+│   - Editables desde /dashboard/settings                         │
+│   - Cache en memoria con TTL de 1 minuto                        │
+│   - No requieren redeploy                                       │
+│                                                                 │
+│   Ejemplos:                                                     │
+│   ├── prefilter.confidence_threshold  (0.6)                     │
+│   ├── urgency.critical_min_relevance  (8)                       │
+│   ├── crisis.negative_spike_threshold (3)                       │
+│   └── dashboard.recent_mentions_limit (10)                      │
+│                                                                 │
+└─────────────────────────────────────────────────────────────────┘
+```
+
+### Flujo de Carga de Configuracion
+
+```
+┌───────────────┐     ┌───────────────┐     ┌───────────────┐
+│  App Start    │────▶│  Load .env    │────▶│  config.ts    │
+└───────────────┘     └───────────────┘     └───────┬───────┘
+                                                    │
+                      ┌─────────────────────────────┘
+                      │
+                      ▼
+              ┌───────────────────────────────────────────────┐
+              │                 Runtime                        │
+              ├───────────────────────────────────────────────┤
+              │                                               │
+              │   getSettingValue("key", default)             │
+              │         │                                     │
+              │         ▼                                     │
+              │   ┌─────────────┐    Cache    ┌────────────┐ │
+              │   │ Check cache │────Hit─────▶│Return value│ │
+              │   └──────┬──────┘             └────────────┘ │
+              │          │ Miss                               │
+              │          ▼                                    │
+              │   ┌─────────────┐                             │
+              │   │ Query DB    │                             │
+              │   └──────┬──────┘                             │
+              │          │                                    │
+              │          ▼                                    │
+              │   ┌─────────────┐                             │
+              │   │Update cache │                             │
+              │   │ (TTL 60s)   │                             │
+              │   └──────┬──────┘                             │
+              │          │                                    │
+              │          ▼                                    │
+              │   ┌────────────┐                              │
+              │   │Return value│                              │
+              │   └────────────┘                              │
+              │                                               │
+              └───────────────────────────────────────────────┘
+```
+
+### Categorias de Settings
+
+| Categoria | Descripcion | Keys |
+|-----------|-------------|------|
+| `analysis` | Analisis AI | `prefilter.*`, `urgency.*` |
+| `notifications` | Notificaciones | `digest.*` |
+| `ui` | Interfaz | `mentions.*`, `dashboard.*` |
+| `crisis` | Deteccion de crisis | `crisis.*` |
+
+## Deteccion de Crisis
+
+El sistema detecta automaticamente situaciones de crisis mediaticas.
+
+### Flujo de Deteccion
+
+```
+┌────────────────────────────────────────────────────────────────┐
+│                    CRISIS DETECTION                             │
+├────────────────────────────────────────────────────────────────┤
+│                                                                │
+│   ┌────────────────┐                                           │
+│   │ Mention with   │                                           │
+│   │ NEGATIVE       │                                           │
+│   │ sentiment      │                                           │
+│   └───────┬────────┘                                           │
+│           │                                                    │
+│           ▼                                                    │
+│   ┌────────────────────────────────────────┐                   │
+│   │ processMentionForCrisis(mentionId)     │                   │
+│   └───────┬────────────────────────────────┘                   │
+│           │                                                    │
+│           ▼                                                    │
+│   ┌────────────────────────────────────────┐                   │
+│   │ checkForCrisis(clientId)               │                   │
+│   │                                        │                   │
+│   │ - Get threshold from settings (3)      │                   │
+│   │ - Get window from settings (60 min)    │                   │
+│   │ - Count negative mentions in window    │                   │
+│   └───────┬────────────────────────────────┘                   │
+│           │                                                    │
+│           ▼                                                    │
+│   ┌─────────────────┐    No    ┌─────────────────┐            │
+│   │ Count >= thresh?│─────────▶│ Return (no-op)  │            │
+│   └───────┬─────────┘          └─────────────────┘            │
+│           │ Yes                                                │
+│           ▼                                                    │
+│   ┌─────────────────┐    Yes   ┌─────────────────┐            │
+│   │ Active crisis   │─────────▶│ Update count    │            │
+│   │ exists?         │          └─────────────────┘            │
+│   └───────┬─────────┘                                          │
+│           │ No                                                 │
+│           ▼                                                    │
+│   ┌─────────────────────────────────────────┐                  │
+│   │ createCrisisAlert()                     │                  │
+│   │                                         │                  │
+│   │ - Determine severity (CRITICAL/HIGH/MED)│                  │
+│   │ - Save to DB                            │                  │
+│   │ - Enqueue NOTIFY_CRISIS job             │                  │
+│   └─────────────────────────────────────────┘                  │
+│                                                                │
+└────────────────────────────────────────────────────────────────┘
+```
+
+### Severidad de Crisis
+
+| Condicion | Severidad |
+|-----------|-----------|
+| `count >= threshold * 3` | CRITICAL |
+| `count >= threshold * 2` | HIGH |
+| `count >= threshold` | MEDIUM |
+
+### Acciones Disponibles
+
+- **Ver menciones**: Navegar a lista de menciones del cliente
+- **Marcar resuelta**: Cambiar estado a RESOLVED
+- **Monitorear**: Cambiar estado a MONITORING
+- **Descartar**: Cambiar estado a DISMISSED
+
+## API tRPC
+
+### Routers Disponibles
+
+| Router | Descripcion | Endpoints |
+|--------|-------------|-----------|
+| `dashboard` | Metricas principales | `stats`, `recentMentions` |
+| `clients` | Gestion de clientes | `list`, `getById`, `create`, `update`, `addKeyword`, `removeKeyword` |
+| `mentions` | Consulta de menciones | `list`, `getById` |
+| `tasks` | Gestion de tareas | `list`, `create`, `update` |
+| `team` | Gestion de equipo | `list`, `create`, `update` |
+| `settings` | Configuracion dinamica | `list`, `get`, `update`, `reset`, `seedDefaults` |
+
+### Proteccion de Endpoints
+
+- **protectedProcedure**: Requiere autenticacion (cualquier rol)
+- **adminProcedure**: Requiere autenticacion + rol ADMIN
+
+### Ejemplo de Uso (settings)
+
+```typescript
+// Listar settings por categoria
+const { data } = trpc.settings.list.useQuery({ category: "analysis" });
+
+// Actualizar un setting (ADMIN only)
+trpc.settings.update.mutate({ key: "prefilter.confidence_threshold", value: "0.7" });
+
+// Resetear a valor default (ADMIN only)
+trpc.settings.reset.mutate({ key: "prefilter.confidence_threshold" });
+```

@@ -25,6 +25,8 @@ MediaBot es un sistema de monitoreo de medios que permite a agencias de comunica
 | Onboarding AI | OK | Genera keywords automaticas |
 | Sistema de tareas | OK | CRUD basico |
 | **Pre-filtrado AI** | OK | Reduce falsos positivos (Fase 2A) |
+| **Deteccion de Crisis** | OK | Alertas automaticas (Fase 2B) |
+| **Settings Dinamicos** | OK | Configuracion sin redeploy |
 
 ### Funciones de IA
 
@@ -34,12 +36,12 @@ MediaBot es un sistema de monitoreo de medios que permite a agencias de comunica
 | `preFilterArticle` | Automatico | Antes de crear mencion | `analysis/ai.ts:94` |
 | `runOnboarding` | Automatico | Nuevo cliente | `analysis/ai.ts:156` |
 | `generateDigestSummary` | Automatico | Cron 8:00 AM | `analysis/ai.ts:225` |
+| `checkForCrisis` | Automatico | Mencion NEGATIVE | `analysis/crisis-detector.ts` |
 
 ### Pendiente / En Progreso
 
 | Feature | Prioridad | Descripcion |
 |---------|-----------|-------------|
-| Deteccion de crisis | Alta | Alertar 3+ menciones negativas en 1 hora |
 | Clustering de noticias | Media | Agrupar menciones del mismo evento |
 | Sugerencia de respuesta | Media | On-demand, borrador de comunicado |
 | Analisis de competidores | Baja | Comparar cobertura vs competidores |
@@ -76,12 +78,14 @@ MediaBot es un sistema de monitoreo de medios que permite a agencias de comunica
 - [x] Fail-open en caso de error
 - [x] Tests unitarios completos
 
-#### Fase 2B: Deteccion de Crisis - PENDIENTE
+#### Fase 2B: Deteccion de Crisis - COMPLETADA
 
-- [ ] Modelo `CrisisAlert` en Prisma
-- [ ] Funcion `detectCrisis()` en ai.ts
-- [ ] Trigger automatico al analizar mencion NEGATIVE
-- [ ] Notificacion especial en Telegram
+- [x] Modelo `CrisisAlert` en Prisma (con enums CrisisTriggerType, CrisisSeverity, CrisisStatus)
+- [x] Funcion `checkForCrisis()` en crisis-detector.ts
+- [x] Funcion `createCrisisAlert()` para crear alertas
+- [x] Trigger automatico al analizar mencion NEGATIVE
+- [x] Notificacion especial en Telegram con emoji de alerta
+- [x] Sistema de settings dinamicos para umbrales de crisis
 
 #### Fase 2C: Clustering de Noticias - PENDIENTE
 
@@ -162,10 +166,10 @@ MediaBot es un sistema de monitoreo de medios que permite a agencias de comunica
 
 ## Proximos Pasos
 
-1. **Verificar pre-filtrado en produccion**: Monitorear logs para ver reduccion de falsos positivos
-2. **Medir impacto**: Comparar conteo de menciones antes/despues del pre-filtro
-3. **Iterar umbral**: Ajustar threshold si es necesario basado en feedback
-4. **Implementar Fase 2B**: Deteccion de crisis cuando se estabilice pre-filtrado
+1. **Verificar deteccion de crisis**: Monitorear logs para ver alertas generadas
+2. **Ajustar umbrales**: Usar `/dashboard/settings` para ajustar thresholds de crisis
+3. **Implementar Fase 2C**: Clustering de noticias para agrupar menciones del mismo evento
+4. **Implementar Fase 2D**: Respuesta on-demand con generacion de borradores de comunicado
 
 ## Contacto
 

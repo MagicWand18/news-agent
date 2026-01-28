@@ -1,7 +1,8 @@
 import { Worker } from "bullmq";
 import { connection, QUEUE_NAMES, getQueue } from "../queues.js";
-import { prisma } from "@mediabot/shared";
+import { prisma, config, getSettingNumber } from "@mediabot/shared";
 import { analyzeMention } from "./ai.js";
+import { processMentionForCrisis } from "./crisis-detector.js";
 import type { Urgency, Sentiment } from "@prisma/client";
 
 // High-reach Spanish-language media sources
@@ -47,8 +48,8 @@ export function startAnalysisWorker() {
         keyword: mention.keywordMatched,
       });
 
-      // Classify urgency
-      const urgency = classifyUrgency(
+      // Classify urgency using dynamic settings
+      const urgency = await classifyUrgency(
         analysis.relevance,
         analysis.sentiment,
         mention.article.source
@@ -72,13 +73,22 @@ export function startAnalysisWorker() {
           priority: urgency === "CRITICAL" ? 1 : 2,
         });
       }
+
+      // Check for crisis if mention is negative
+      if (analysis.sentiment === "NEGATIVE") {
+        try {
+          await processMentionForCrisis(mentionId);
+        } catch (error) {
+          console.error(`Crisis check failed for mention ${mentionId}:`, error);
+        }
+      }
     },
     {
       connection,
-      concurrency: 3,
+      concurrency: config.workers.analysis.concurrency,
       limiter: {
-        max: 20,
-        duration: 60000, // Max 20 analyses per minute to control API costs
+        max: config.workers.analysis.rateLimitMax,
+        duration: config.workers.analysis.rateLimitWindowMs,
       },
     }
   );
@@ -87,26 +97,31 @@ export function startAnalysisWorker() {
     console.error(`Analysis job ${job?.id} failed:`, err);
   });
 
-  console.log("🧠 Analysis worker started");
+  console.log(`🧠 Analysis worker started (concurrency: ${config.workers.analysis.concurrency}, rate: ${config.workers.analysis.rateLimitMax}/${config.workers.analysis.rateLimitWindowMs}ms)`);
 }
 
-function classifyUrgency(
+async function classifyUrgency(
   relevance: number,
   sentiment: string,
   source: string
-): string {
+): Promise<string> {
+  // Get thresholds from settings (with fallbacks)
+  const criticalMinRelevance = await getSettingNumber("urgency.critical_min_relevance", 8);
+  const highMinRelevance = await getSettingNumber("urgency.high_min_relevance", 7);
+  const mediumMinRelevance = await getSettingNumber("urgency.medium_min_relevance", 4);
+
   const sourceLower = source.toLowerCase();
   const isHighReach = [...HIGH_REACH_SOURCES].some((s) =>
     sourceLower.includes(s)
   );
 
-  if (relevance >= 8 && sentiment === "NEGATIVE" && isHighReach) {
+  if (relevance >= criticalMinRelevance && sentiment === "NEGATIVE" && isHighReach) {
     return "CRITICAL";
   }
-  if (relevance >= 7 || sentiment === "NEGATIVE") {
+  if (relevance >= highMinRelevance || sentiment === "NEGATIVE") {
     return "HIGH";
   }
-  if (relevance >= 4) {
+  if (relevance >= mediumMinRelevance) {
     return "MEDIUM";
   }
   return "LOW";

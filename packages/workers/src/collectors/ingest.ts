@@ -1,10 +1,8 @@
 import { createHash } from "crypto";
-import { prisma } from "@mediabot/shared";
+import { prisma, config, getSettingNumber } from "@mediabot/shared";
 import type { NormalizedArticle } from "@mediabot/shared";
 import { getQueue, QUEUE_NAMES } from "../queues.js";
 import { preFilterArticle } from "../analysis/ai.js";
-
-const PRE_FILTER_CONFIDENCE_THRESHOLD = 0.6;
 
 export async function ingestArticle(article: NormalizedArticle) {
   // Dedup by URL
@@ -94,6 +92,8 @@ async function matchArticle(
   for (const [, match] of matchesByClient) {
     // Pre-filter: Use AI to validate if this is a real mention
     try {
+      const preFilterThreshold = await getSettingNumber("prefilter.confidence_threshold", 0.6);
+
       const preFilterResult = await preFilterArticle({
         articleTitle: article.title,
         articleContent: article.content || "",
@@ -102,10 +102,10 @@ async function matchArticle(
         keyword: match.keyword,
       });
 
-      if (!preFilterResult.relevant || preFilterResult.confidence < PRE_FILTER_CONFIDENCE_THRESHOLD) {
+      if (!preFilterResult.relevant || preFilterResult.confidence < preFilterThreshold) {
         console.log(
           `⏭️ Pre-filter skip: client="${match.client.name}" keyword="${match.keyword}" ` +
-          `reason="${preFilterResult.reason}" confidence=${preFilterResult.confidence.toFixed(2)}`
+          `reason="${preFilterResult.reason}" confidence=${preFilterResult.confidence.toFixed(2)} (threshold: ${preFilterThreshold})`
         );
         continue;
       }
@@ -138,8 +138,8 @@ async function matchArticle(
 
     // Enqueue for AI analysis
     await analyzeQueue.add("analyze", { mentionId: mention.id }, {
-      attempts: 3,
-      backoff: { type: "exponential", delay: 5000 },
+      attempts: config.jobs.retryAttempts,
+      backoff: { type: "exponential", delay: config.jobs.backoffDelayMs },
     });
   }
 }

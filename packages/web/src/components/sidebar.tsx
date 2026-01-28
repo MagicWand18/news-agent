@@ -9,6 +9,7 @@ import {
   Newspaper,
   CheckSquare,
   UserCog,
+  Settings,
   LogOut,
   Menu,
   X,
@@ -22,7 +23,8 @@ const navigation = [
   { name: "Menciones", href: "/dashboard/mentions", icon: Newspaper },
   { name: "Tareas", href: "/dashboard/tasks", icon: CheckSquare },
   { name: "Equipo", href: "/dashboard/team", icon: UserCog },
-];
+  { name: "Configuracion", href: "/dashboard/settings", icon: Settings, adminOnly: true },
+] as const;
 
 export function Sidebar() {
   const pathname = usePathname();
@@ -56,30 +58,32 @@ export function Sidebar() {
       </div>
 
       <nav className="flex-1 space-y-0.5 px-3 py-4">
-        {navigation.map((item) => {
-          const isActive =
-            pathname === item.href ||
-            (item.href !== "/dashboard" && pathname.startsWith(item.href));
-          return (
-            <Link
-              key={item.name}
-              href={item.href}
-              onClick={() => setMobileOpen(false)}
-              className={cn(
-                "flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition-all",
-                isActive
-                  ? "bg-white/15 text-white shadow-sm"
-                  : "text-gray-300 hover:bg-white/5 hover:text-white"
-              )}
-            >
-              <item.icon className={cn("h-5 w-5", isActive && "text-blue-300")} />
-              {item.name}
-              {isActive && (
-                <div className="ml-auto h-1.5 w-1.5 rounded-full bg-blue-400" />
-              )}
-            </Link>
-          );
-        })}
+        {navigation
+          .filter((item) => !("adminOnly" in item && item.adminOnly) || (session?.user as { role?: string })?.role === "ADMIN")
+          .map((item) => {
+            const isActive =
+              pathname === item.href ||
+              (item.href !== "/dashboard" && pathname.startsWith(item.href));
+            return (
+              <Link
+                key={item.name}
+                href={item.href}
+                onClick={() => setMobileOpen(false)}
+                className={cn(
+                  "flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition-all",
+                  isActive
+                    ? "bg-white/15 text-white shadow-sm"
+                    : "text-gray-300 hover:bg-white/5 hover:text-white"
+                )}
+              >
+                <item.icon className={cn("h-5 w-5", isActive && "text-blue-300")} />
+                {item.name}
+                {isActive && (
+                  <div className="ml-auto h-1.5 w-1.5 rounded-full bg-blue-400" />
+                )}
+              </Link>
+            );
+          })}
       </nav>
 
       <div className="border-t border-white/10 p-3">

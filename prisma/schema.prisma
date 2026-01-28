@@ -35,21 +35,22 @@ enum Role {
 }
 
 model Client {
-  id              String       @id @default(cuid())
+  id              String        @id @default(cuid())
   name            String
   description     String?
   industry        String?
   telegramGroupId String?
   clientGroupId   String?
-  active          Boolean      @default(true)
+  active          Boolean       @default(true)
   orgId           String
-  org             Organization @relation(fields: [orgId], references: [id])
+  org             Organization  @relation(fields: [orgId], references: [id])
   keywords        Keyword[]
   mentions        Mention[]
   tasks           Task[]
+  crisisAlerts    CrisisAlert[]
   onboarding      Json?
-  createdAt       DateTime     @default(now())
-  updatedAt       DateTime     @updatedAt
+  createdAt       DateTime      @default(now())
+  updatedAt       DateTime      @updatedAt
 }
 
 model Keyword {
@@ -160,4 +161,63 @@ model DigestLog {
   type         String
   articleCount Int
   sentAt       DateTime @default(now())
+}
+
+model Setting {
+  id          String      @id @default(cuid())
+  key         String      @unique
+  value       String
+  type        SettingType @default(STRING)
+  category    String      @default("general")
+  label       String?
+  description String?
+  createdAt   DateTime    @default(now())
+  updatedAt   DateTime    @updatedAt
+}
+
+enum SettingType {
+  STRING
+  NUMBER
+  BOOLEAN
+  JSON
+}
+
+model CrisisAlert {
+  id            String            @id @default(cuid())
+  clientId      String
+  client        Client            @relation(fields: [clientId], references: [id])
+  triggerType   CrisisTriggerType
+  mentionCount  Int
+  severity      CrisisSeverity    @default(HIGH)
+  status        CrisisStatus      @default(ACTIVE)
+  resolvedAt    DateTime?
+  resolvedBy    String?
+  notes         String?
+  notified      Boolean           @default(false)
+  notifiedAt    DateTime?
+  createdAt     DateTime          @default(now())
+  updatedAt     DateTime          @updatedAt
+
+  @@index([clientId, status])
+  @@index([createdAt])
+}
+
+enum CrisisTriggerType {
+  NEGATIVE_SPIKE
+  HIGH_VOLUME
+  CRITICAL_SOURCE
+  MANUAL
+}
+
+enum CrisisSeverity {
+  CRITICAL
+  HIGH
+  MEDIUM
+}
+
+enum CrisisStatus {
+  ACTIVE
+  MONITORING
+  RESOLVED
+  DISMISSED
 }
