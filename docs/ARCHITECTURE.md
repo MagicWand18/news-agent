@@ -120,6 +120,66 @@ Usa Claude 3.5 Haiku para analizar cada mencion:
 - `aiAction`: Accion sugerida
 - `urgency`: CRITICAL | HIGH | MEDIUM | LOW
 
+### 4.1 Clustering (`packages/workers/src/analysis/clustering.ts`)
+
+Agrupa menciones del mismo evento automaticamente:
+
+```
+┌────────────────────────────────────────────────────────────────┐
+│                    CLUSTERING FLOW                              │
+├────────────────────────────────────────────────────────────────┤
+│                                                                │
+│   ┌────────────────┐                                           │
+│   │ Nueva mencion  │                                           │
+│   │ relevance >= 5 │                                           │
+│   └───────┬────────┘                                           │
+│           │                                                    │
+│           ▼                                                    │
+│   ┌────────────────────────────────────────┐                   │
+│   │ findClusterParent()                    │                   │
+│   │                                        │                   │
+│   │ 1. Check cache (30 min TTL)            │                   │
+│   │ 2. Get recent mentions (24h)           │                   │
+│   │ 3. Keyword similarity (Jaccard)        │                   │
+│   │ 4. AI comparison if moderate match     │                   │
+│   └───────┬────────────────────────────────┘                   │
+│           │                                                    │
+│           ▼                                                    │
+│   ┌─────────────────┐    No match   ┌─────────────────┐       │
+│   │ Match found?    │───────────────▶│ No clustering   │       │
+│   └───────┬─────────┘               └─────────────────┘       │
+│           │ Yes                                                │
+│           ▼                                                    │
+│   ┌─────────────────────────────────────────┐                  │
+│   │ Update mention:                         │                  │
+│   │ - parentMentionId = parent.id           │                  │
+│   │ - clusterScore = similarity             │                  │
+│   └─────────────────────────────────────────┘                  │
+│                                                                │
+└────────────────────────────────────────────────────────────────┘
+```
+
+**Algoritmo de similaridad:**
+- Jaccard >= 0.7: Match directo (sin AI)
+- Jaccard >= 0.3: Candidato para AI comparison
+- AI confidence >= 0.7: Match confirmado
+
+### 4.2 Generacion de Respuesta (`packages/web/src/server/routers/mentions.ts`)
+
+Genera borradores de comunicados de prensa on-demand:
+
+**Input:**
+- Mencion con articulo y cliente
+- Tono solicitado (opcional)
+
+**Output:**
+- `title`: Titulo del comunicado
+- `body`: Cuerpo (3-4 parrafos)
+- `tone`: PROFESSIONAL | DEFENSIVE | CLARIFICATION | CELEBRATORY
+- `audience`: Publico objetivo
+- `callToAction`: Siguiente paso recomendado
+- `keyMessages`: Lista de mensajes clave
+
 ### 5. Notificaciones (`packages/workers/src/notifications/`)
 
 **Alertas inmediatas:**
@@ -430,7 +490,7 @@ El sistema detecta automaticamente situaciones de crisis mediaticas.
 |--------|-------------|-----------|
 | `dashboard` | Metricas principales | `stats`, `recentMentions` |
 | `clients` | Gestion de clientes | `list`, `getById`, `create`, `update`, `addKeyword`, `removeKeyword` |
-| `mentions` | Consulta de menciones | `list`, `getById` |
+| `mentions` | Consulta de menciones | `list`, `getById`, `generateResponse` |
 | `tasks` | Gestion de tareas | `list`, `create`, `update` |
 | `team` | Gestion de equipo | `list`, `create`, `update` |
 | `settings` | Configuracion dinamica | `list`, `get`, `update`, `reset`, `seedDefaults` |

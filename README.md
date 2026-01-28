@@ -161,11 +161,13 @@ npm run dev:bot        # Solo bot
 
 1. **Coleccion**: Workers recolectan articulos de RSS, GDELT, NewsData, Google
 2. **Ingestion**: Articulos se guardan en DB con deduplicacion por URL
-3. **Matching**: Se buscan keywords de clientes activos en cada articulo
-4. **Mencion**: Si hay match, se crea una mencion vinculada al cliente
-5. **Analisis**: AI analiza el contexto y genera: sentimiento, relevancia, resumen, acciones sugeridas
-6. **Notificacion**: Alertas se envian via Telegram segun urgencia
-7. **Digest**: Resumen diario se envia a las 8:00 AM
+3. **Pre-filtrado**: AI valida si el keyword match es relevante para el cliente
+4. **Matching**: Se buscan keywords de clientes activos en cada articulo
+5. **Mencion**: Si hay match, se crea una mencion vinculada al cliente
+6. **Analisis**: AI analiza el contexto y genera: sentimiento, relevancia, resumen, acciones sugeridas
+7. **Clustering**: Menciones similares se agrupan automaticamente (mismo evento en multiples fuentes)
+8. **Notificacion**: Alertas se envian via Telegram segun urgencia
+9. **Digest**: Resumen diario se envia a las 8:00 AM con menciones agrupadas
 
 ## Colectores
 
@@ -207,6 +209,28 @@ Al detectar una crisis:
 1. Se crea un `CrisisAlert` en la base de datos
 2. Se envia notificacion especial via Telegram con emoji de alerta
 3. El equipo puede marcar la crisis como resuelta, monitorear o descartar
+
+## Clustering de Menciones
+
+El sistema agrupa automaticamente menciones que tratan del mismo evento:
+- Usa similaridad de keywords (Jaccard) para candidatos iniciales
+- Valida con AI si dos articulos tratan del mismo evento
+- Cache en memoria para evitar comparaciones repetidas
+- El digest diario muestra "X fuentes reportaron sobre..." para eventos agrupados
+
+## Generacion de Comunicados
+
+Desde el detalle de una mencion, se puede generar un borrador de comunicado de prensa:
+- Seleccionar tono: Profesional, Defensivo, Aclaratorio, Celebratorio
+- Incluye titulo, cuerpo, mensajes clave, audiencia objetivo
+- Funcionalidad de copiar y regenerar
+
+## Exportar Menciones
+
+Desde la lista de menciones se puede exportar a CSV:
+- Aplica filtros activos (cliente, sentimiento)
+- Incluye todos los campos: titulo, fuente, sentimiento, relevancia, resumen AI
+- Compatible con Excel (UTF-8 con BOM)
 
 ## Troubleshooting
 

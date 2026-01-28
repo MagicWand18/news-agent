@@ -27,6 +27,9 @@ MediaBot es un sistema de monitoreo de medios que permite a agencias de comunica
 | **Pre-filtrado AI** | OK | Reduce falsos positivos (Fase 2A) |
 | **Deteccion de Crisis** | OK | Alertas automaticas (Fase 2B) |
 | **Settings Dinamicos** | OK | Configuracion sin redeploy |
+| **Clustering de Menciones** | OK | Agrupa menciones del mismo evento (Fase 2C) |
+| **Respuesta On-Demand** | OK | Genera borradores de comunicado (Fase 2D) |
+| **Exportar CSV** | OK | Descarga menciones filtradas (Fase 3 parcial) |
 
 ### Funciones de IA
 
@@ -35,16 +38,18 @@ MediaBot es un sistema de monitoreo de medios que permite a agencias de comunica
 | `analyzeMention` | Automatico | Nueva mencion | `analysis/ai.ts:21` |
 | `preFilterArticle` | Automatico | Antes de crear mencion | `analysis/ai.ts:94` |
 | `runOnboarding` | Automatico | Nuevo cliente | `analysis/ai.ts:156` |
+| `generateResponse` | On-demand | Boton en UI | `analysis/ai.ts:156` / `mentions.ts` |
 | `generateDigestSummary` | Automatico | Cron 8:00 AM | `analysis/ai.ts:225` |
 | `checkForCrisis` | Automatico | Mencion NEGATIVE | `analysis/crisis-detector.ts` |
+| `findClusterParent` | Automatico | Post-analisis (relevance >= 5) | `analysis/clustering.ts` |
 
 ### Pendiente / En Progreso
 
 | Feature | Prioridad | Descripcion |
 |---------|-----------|-------------|
-| Clustering de noticias | Media | Agrupar menciones del mismo evento |
-| Sugerencia de respuesta | Media | On-demand, borrador de comunicado |
+| Reporte PDF semanal | Media | Generar PDF con resumen de menciones |
 | Analisis de competidores | Baja | Comparar cobertura vs competidores |
+| Dashboard de estadisticas | Media | Graficas historicas de menciones |
 
 ## Problemas Conocidos
 
@@ -87,17 +92,21 @@ MediaBot es un sistema de monitoreo de medios que permite a agencias de comunica
 - [x] Notificacion especial en Telegram con emoji de alerta
 - [x] Sistema de settings dinamicos para umbrales de crisis
 
-#### Fase 2C: Clustering de Noticias - PENDIENTE
+#### Fase 2C: Clustering de Noticias - COMPLETADA
 
-- [ ] Campo `parentMentionId` en Mention
-- [ ] Funcion `isSameEvent()` para comparar menciones
-- [ ] Agrupar en digest ("X fuentes reportaron sobre...")
+- [x] Campos `parentMentionId`, `clusterScore` en Mention
+- [x] Modulo `clustering.ts` con `findClusterParent()`
+- [x] Algoritmo hibrido: Jaccard similarity + AI comparison
+- [x] Cache en memoria para evitar comparaciones repetidas
+- [x] Integracion en analysis worker post-analisis
+- [x] Digest agrupado ("X fuentes reportaron sobre...")
 
-#### Fase 2D: Respuesta On-Demand - PENDIENTE
+#### Fase 2D: Respuesta On-Demand - COMPLETADA
 
-- [ ] Funcion `generateResponse()`
-- [ ] Endpoint tRPC `mentions.generateResponse`
-- [ ] UI con boton y modal en dashboard
+- [x] Funcion `generateResponse()` en ai.ts
+- [x] Endpoint tRPC `mentions.generateResponse` con seleccion de tono
+- [x] UI modal con selector de tono (Professional, Defensive, Clarification, Celebratory)
+- [x] Funcionalidad de copiar y regenerar
 
 #### Fase 2E: Analisis de Competidores - PENDIENTE
 
@@ -105,11 +114,11 @@ MediaBot es un sistema de monitoreo de medios que permite a agencias de comunica
 - [ ] Endpoint tRPC `clients.analyzeCompetitors`
 - [ ] Pagina en dashboard
 
-### Fase 3: Reportes
+### Fase 3: Reportes - EN PROGRESO
 
-- [ ] Exportar menciones a CSV
+- [x] Exportar menciones a CSV (con filtros aplicados)
 - [ ] Generar reporte PDF semanal
-- [ ] Dashboard de estadisticas
+- [ ] Dashboard de estadisticas avanzadas
 
 ### Fase 4: Escala
 
@@ -166,10 +175,11 @@ MediaBot es un sistema de monitoreo de medios que permite a agencias de comunica
 
 ## Proximos Pasos
 
-1. **Verificar deteccion de crisis**: Monitorear logs para ver alertas generadas
-2. **Ajustar umbrales**: Usar `/dashboard/settings` para ajustar thresholds de crisis
-3. **Implementar Fase 2C**: Clustering de noticias para agrupar menciones del mismo evento
-4. **Implementar Fase 2D**: Respuesta on-demand con generacion de borradores de comunicado
+1. **Verificar clustering**: Monitorear logs para ver menciones agrupadas
+2. **Probar generacion de comunicados**: Usar boton "Generar Comunicado" en detalle de mencion
+3. **Exportar y validar CSV**: Descargar CSV y verificar formato en Excel
+4. **Implementar Fase 2E**: Analisis de competidores
+5. **Implementar reportes PDF**: Generacion automatica de reportes semanales
 
 ## Contacto
 
