@@ -32,7 +32,7 @@ vi.mock("@mediabot/shared", () => ({
 
 vi.mock("../queues.js", () => ({
   getQueue: () => mockQueue,
-  QUEUE_NAMES: { ANALYZE_MENTION: "analyze:mention" },
+  QUEUE_NAMES: { ANALYZE_MENTION: "analyze-mention" },
 }));
 
 // Import after mocks

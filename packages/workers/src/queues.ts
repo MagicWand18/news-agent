@@ -7,14 +7,14 @@ export const connection = new IORedis(config.redis.url, {
 });
 
 export const QUEUE_NAMES = {
-  COLLECT_GDELT: "collect:gdelt",
-  COLLECT_NEWSDATA: "collect:newsdata",
-  COLLECT_RSS: "collect:rss",
-  COLLECT_GOOGLE: "collect:google",
-  INGEST_ARTICLE: "ingest:article",
-  ANALYZE_MENTION: "analyze:mention",
-  NOTIFY_ALERT: "notify:alert",
-  DIGEST: "notify:digest",
+  COLLECT_GDELT: "collect-gdelt",
+  COLLECT_NEWSDATA: "collect-newsdata",
+  COLLECT_RSS: "collect-rss",
+  COLLECT_GOOGLE: "collect-google",
+  INGEST_ARTICLE: "ingest-article",
+  ANALYZE_MENTION: "analyze-mention",
+  NOTIFY_ALERT: "notify-alert",
+  DIGEST: "notify-digest",
   ONBOARDING: "onboarding",
 } as const;
 
