@@ -1,5 +1,5 @@
 import { Queue } from "bullmq";
-import { config } from "./config.js";
+import { config } from "./config";
 
 // Parse Redis URL to get host/port for BullMQ connection
 function parseRedisUrl(url: string): { host: string; port: number } {
