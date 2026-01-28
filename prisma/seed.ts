@@ -11,13 +11,14 @@ async function main() {
 
   // Create admin user
   const passwordHash = await bcrypt.hash("admin123", 12);
-  await prisma.user.create({
+  const admin = await prisma.user.create({
     data: {
       name: "Admin",
       email: "admin@mediabot.local",
       passwordHash,
       role: "ADMIN",
       orgId: org.id,
+      telegramUserId: "993823557",
     },
   });
 

@@ -38,14 +38,15 @@ export const config = {
     googleIntervalMs: 2 * 60 * 60 * 1000,
   },
   rssFeeds: [
-    { name: "EFE", url: "https://efe.com/feed/" },
-    { name: "Europa Press", url: "https://www.europapress.es/rss/rss.aspx" },
-    { name: "El Pais", url: "https://feeds.elpais.com/mrss-s/pages/ep/site/elpais.com/portada" },
-    { name: "El Mundo", url: "https://e00-elmundo.uecdn.es/elmundo/rss/portada.xml" },
-    { name: "La Vanguardia", url: "https://www.lavanguardia.com/rss/home.xml" },
-    { name: "20 Minutos", url: "https://www.20minutos.es/rss/" },
-    { name: "ABC", url: "https://www.abc.es/rss/feeds/abc_ultima.xml" },
-    { name: "Infobae", url: "https://www.infobae.com/feeds/rss/" },
+    // Mexico
+    { name: "Milenio", url: "https://www.milenio.com/rss" },
+    { name: "Reforma", url: "https://www.reforma.com/rss/portada.xml" },
+    { name: "Expansion", url: "https://expansion.mx/rss" },
+    { name: "La Jornada", url: "https://www.jornada.com.mx/rss/edicion.xml" },
+    { name: "Lopez Doriga", url: "https://lopezdoriga.com/feed/" },
+    { name: "Sin Embargo", url: "https://www.sinembargo.mx/feed/" },
+    { name: "Forbes MX", url: "https://www.forbes.com.mx/feed/" },
+    // International in Spanish
     { name: "CNN Espanol", url: "https://cnnespanol.cnn.com/feed/" },
     { name: "BBC Mundo", url: "https://feeds.bbci.co.uk/mundo/rss.xml" },
   ],

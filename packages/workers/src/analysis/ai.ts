@@ -6,6 +6,18 @@ const anthropic = new Anthropic({
   apiKey: config.anthropic.apiKey,
 });
 
+/**
+ * Extracts JSON from Claude responses that may be wrapped in markdown code blocks.
+ */
+function cleanJsonResponse(text: string): string {
+  // Try to extract from ```json ... ``` or ``` ... ``` blocks
+  const codeBlockMatch = text.match(/```(?:json)?\s*\n?([\s\S]*?)\n?\s*```/);
+  if (codeBlockMatch) {
+    return codeBlockMatch[1].trim();
+  }
+  return text.trim();
+}
+
 export async function analyzeMention(params: {
   articleTitle: string;
   articleContent: string;
@@ -51,8 +63,12 @@ Solo responde con el JSON, sin markdown ni texto adicional.`,
     throw new Error("Unexpected response type from Claude");
   }
 
+  const rawText = content.text;
+  console.log("[AI] Raw analyzeMention response:", rawText.slice(0, 300));
+
   try {
-    const result = JSON.parse(content.text) as AIAnalysisResult;
+    const cleaned = cleanJsonResponse(rawText);
+    const result = JSON.parse(cleaned) as AIAnalysisResult;
     // Validate and clamp
     result.relevance = Math.max(1, Math.min(10, Math.round(result.relevance)));
     if (!["POSITIVE", "NEGATIVE", "NEUTRAL", "MIXED"].includes(result.sentiment)) {
@@ -60,7 +76,7 @@ Solo responde con el JSON, sin markdown ni texto adicional.`,
     }
     return result;
   } catch {
-    console.error("Failed to parse AI response:", content.text);
+    console.error("[AI] Failed to parse AI response:", rawText);
     return {
       summary: "Mencion detectada - analisis automatico no disponible",
       sentiment: "NEUTRAL",
@@ -121,10 +137,14 @@ Solo responde con el JSON, sin markdown ni texto adicional.`,
     throw new Error("Unexpected response type from Claude");
   }
 
+  const rawText = content.text;
+  console.log("[AI] Raw onboarding response:", rawText.slice(0, 300));
+
   try {
-    return JSON.parse(content.text) as OnboardingResult;
+    const cleaned = cleanJsonResponse(rawText);
+    return JSON.parse(cleaned) as OnboardingResult;
   } catch {
-    console.error("Failed to parse onboarding response:", content.text);
+    console.error("[AI] Failed to parse onboarding response:", rawText);
     return {
       suggestedKeywords: [{ word: params.clientName, type: "NAME" }],
       competitors: [],

@@ -40,7 +40,9 @@ export async function collectGoogle(): Promise<NormalizedArticle[]> {
           console.warn("Google CSE rate limit reached");
           break;
         }
-        console.error(`Google CSE error: ${response.status}`);
+        const body = await response.text().catch(() => "");
+        console.error(`Google CSE error ${response.status} for "${word}": ${body.slice(0, 200)}`);
+        if (response.status === 403) break; // API key issue, stop all queries
         continue;
       }
 

@@ -5,7 +5,8 @@ import { config, prisma } from "@mediabot/shared";
 const parser = new Parser({
   timeout: 10000,
   headers: {
-    "User-Agent": "MediaBot/1.0",
+    "User-Agent": "Mozilla/5.0 (compatible; MediaBot/1.0)",
+    "Accept": "application/rss+xml, application/xml, text/xml, */*",
   },
 });
 
@@ -19,17 +20,22 @@ export async function collectRss(): Promise<NormalizedArticle[]> {
   if (keywordSet.size === 0) return [];
 
   const articles: NormalizedArticle[] = [];
+  let totalParsed = 0;
+  let feedsOk = 0;
 
   for (const feed of config.rssFeeds) {
     try {
       const parsed = await parser.parseURL(feed.url);
+      const items = parsed.items || [];
+      totalParsed += items.length;
+      feedsOk++;
 
-      for (const item of parsed.items || []) {
+      for (const item of items) {
         if (!item.link || !item.title) continue;
 
         // Check if any keyword matches in title or content snippet
         const text = `${item.title} ${item.contentSnippet || ""}`.toLowerCase();
-        const matches = [...keywordSet].some((kw) => text.includes(kw.toLowerCase()));
+        const matches = [...keywordSet].some((kw) => text.includes(kw));
 
         if (matches) {
           articles.push({
@@ -42,9 +48,11 @@ export async function collectRss(): Promise<NormalizedArticle[]> {
         }
       }
     } catch (error) {
-      console.error(`RSS collector error for ${feed.name}:`, error);
+      const msg = error instanceof Error ? error.message : String(error);
+      console.error(`RSS error [${feed.name}]: ${msg.slice(0, 100)}`);
     }
   }
 
+  console.log(`📰 RSS: ${feedsOk}/${config.rssFeeds.length} feeds OK, ${totalParsed} items parsed, ${articles.length} matched keywords`);
   return articles;
 }

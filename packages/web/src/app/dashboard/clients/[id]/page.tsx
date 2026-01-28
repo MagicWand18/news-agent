@@ -154,6 +154,7 @@ export default function ClientDetailPage() {
         {c.mentions.map((mention) => (
           <MentionRow
             key={mention.id}
+            id={mention.id}
             title={mention.article.title}
             source={mention.article.source}
             clientName={c.name}

@@ -15,17 +15,15 @@ export async function collectGdelt(): Promise<NormalizedArticle[]> {
   // Build query from keywords (GDELT supports OR queries)
   const uniqueWords = [...new Set(keywords.map((k) => k.word))];
   // GDELT query: combine with OR, filter by Spanish language
-  const query = uniqueWords
-    .map((w) => `"${w}"`)
-    .join(" OR ");
+  // sourcelang must be inside the query parameter, not a separate URL param
+  const queryWithLang = `(${uniqueWords.map((w) => `"${w}"`).join(" OR ")}) sourcelang:spanish`;
 
   const params = new URLSearchParams({
-    query,
-    mode: "ArtList",
+    query: queryWithLang,
+    mode: "artlist",
     maxrecords: "50",
     format: "json",
-    sourcelang: "spanish",
-    timespan: "15min",
+    timespan: "60min",
   });
 
   try {
@@ -35,7 +33,8 @@ export async function collectGdelt(): Promise<NormalizedArticle[]> {
       return [];
     }
 
-    const data = await response.json() as {
+    const text = await response.text();
+    let data: {
       articles?: Array<{
         url: string;
         title: string;
@@ -44,6 +43,13 @@ export async function collectGdelt(): Promise<NormalizedArticle[]> {
         socialimage?: string;
       }>;
     };
+    try {
+      data = JSON.parse(text);
+    } catch {
+      // GDELT sometimes returns plain text errors even with 200 status
+      console.error(`GDELT returned non-JSON: ${text.slice(0, 100)}`);
+      return [];
+    }
 
     if (!data.articles) return [];
 

@@ -54,6 +54,7 @@ export default function MentionsPage() {
         {mentions.data?.mentions.map((mention) => (
           <MentionRow
             key={mention.id}
+            id={mention.id}
             title={mention.article.title}
             source={mention.article.source}
             clientName={mention.client.name}
@@ -63,6 +64,7 @@ export default function MentionsPage() {
             date={mention.createdAt}
             url={mention.article.url}
             summary={mention.aiSummary}
+            action={mention.aiAction}
           />
         ))}
         {mentions.data?.mentions.length === 0 && (

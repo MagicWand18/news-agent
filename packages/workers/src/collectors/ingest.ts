@@ -9,7 +9,10 @@ export async function ingestArticle(article: NormalizedArticle) {
     where: { url: article.url },
   });
 
-  if (existing) return;
+  if (existing) {
+    console.log(`⏭️ Skip (dup URL): ${article.title.slice(0, 50)}`);
+    return;
+  }
 
   // Content hash for secondary dedup
   const contentHash = article.content
@@ -20,7 +23,10 @@ export async function ingestArticle(article: NormalizedArticle) {
     const hashMatch = await prisma.article.findFirst({
       where: { contentHash },
     });
-    if (hashMatch) return;
+    if (hashMatch) {
+      console.log(`⏭️ Skip (dup hash): ${article.title.slice(0, 50)}`);
+      return;
+    }
   }
 
   // Save article
@@ -34,6 +40,8 @@ export async function ingestArticle(article: NormalizedArticle) {
       publishedAt: article.publishedAt || null,
     },
   });
+
+  console.log(`💾 Saved article: ${saved.id} - ${article.title.slice(0, 60)}`);
 
   // Run matching against all active keywords
   await matchArticle(saved.id, article);
@@ -94,6 +102,8 @@ async function matchArticle(
         snippet,
       },
     });
+
+    console.log(`🔔 Mention created: client=${match.clientId} keyword="${match.keyword}"`);
 
     // Enqueue for AI analysis
     await analyzeQueue.add("analyze", { mentionId: mention.id }, {

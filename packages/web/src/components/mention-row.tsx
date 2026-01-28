@@ -1,7 +1,9 @@
 import { cn } from "@/lib/cn";
-import { ExternalLink } from "lucide-react";
+import { ExternalLink, Lightbulb } from "lucide-react";
+import Link from "next/link";
 
 interface MentionRowProps {
+  id: string;
   title: string;
   source: string;
   clientName: string;
@@ -11,6 +13,7 @@ interface MentionRowProps {
   date: Date;
   url: string;
   summary?: string | null;
+  action?: string | null;
 }
 
 const sentimentConfig: Record<string, { label: string; bg: string; text: string; dot: string }> = {
@@ -42,6 +45,7 @@ function timeAgo(date: Date): string {
 }
 
 export function MentionRow({
+  id,
   title,
   source,
   clientName,
@@ -51,6 +55,7 @@ export function MentionRow({
   date,
   url,
   summary,
+  action,
 }: MentionRowProps) {
   const sent = sentimentConfig[sentiment] || sentimentConfig.NEUTRAL;
   const urg = urgencyConfig[urgency] || urgencyConfig.MEDIUM;
@@ -59,25 +64,37 @@ export function MentionRow({
     <div className="group border-b border-gray-100 py-4 transition-colors last:border-0 hover:bg-gray-50/50">
       <div className="flex items-start justify-between gap-4">
         <div className="min-w-0 flex-1">
-          <a
-            href={url}
-            target="_blank"
-            rel="noopener noreferrer"
+          <Link
+            href={`/dashboard/mentions/${id}`}
             className="inline-flex items-center gap-1.5 font-medium text-gray-900 transition-colors hover:text-brand-600"
           >
             <span className="line-clamp-1">{title}</span>
-            <ExternalLink className="h-3.5 w-3.5 flex-shrink-0 text-gray-400 opacity-0 transition-opacity group-hover:opacity-100" />
-          </a>
+          </Link>
           <div className="mt-1.5 flex flex-wrap items-center gap-x-3 gap-y-1 text-sm text-gray-500">
             <span className="font-medium text-gray-600">{source}</span>
             <span className="hidden sm:inline text-gray-300">|</span>
             <span>{clientName}</span>
             <span className="hidden sm:inline text-gray-300">|</span>
             <span className="text-gray-400">{timeAgo(date)}</span>
+            <a
+              href={url}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="inline-flex items-center gap-1 text-brand-600 hover:text-brand-700"
+            >
+              <ExternalLink className="h-3 w-3" />
+              <span>Ver articulo</span>
+            </a>
           </div>
           {summary && (
             <p className="mt-2 line-clamp-2 text-sm leading-relaxed text-gray-600">
               {summary}
+            </p>
+          )}
+          {action && (
+            <p className="mt-1.5 flex items-start gap-1.5 text-sm text-amber-700">
+              <Lightbulb className="mt-0.5 h-3.5 w-3.5 flex-shrink-0" />
+              <span className="line-clamp-1">{action}</span>
             </p>
           )}
         </div>

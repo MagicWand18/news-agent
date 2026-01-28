@@ -87,6 +87,35 @@ export function startDigestWorker() {
 
         await bot.api.sendMessage(client.telegramGroupId, message);
 
+        // Send condensed digest to client group (if linked)
+        if (client.clientGroupId) {
+          let clientMessage =
+            `📊 Resumen diario de menciones\n` +
+            `━━━━━━━━━━━━━━━━━━━━\n\n` +
+            `📈 ${mentions.length} menciones detectadas\n` +
+            `${sentimentBar}\n\n`;
+
+          if (aiSummary) {
+            clientMessage += `💬 ${aiSummary}\n\n`;
+          }
+
+          if (topMentions.length > 0) {
+            clientMessage += `📰 Menciones destacadas:\n`;
+            for (const m of topMentions.slice(0, 3)) {
+              const sentIcon =
+                m.sentiment === "POSITIVE" ? "🟢" :
+                m.sentiment === "NEGATIVE" ? "🔴" : "⚪";
+              clientMessage += `${sentIcon} ${m.title.slice(0, 70)}...\n`;
+            }
+          }
+
+          try {
+            await bot.api.sendMessage(client.clientGroupId, clientMessage);
+          } catch (err) {
+            console.error(`Failed to send client digest to ${client.name}:`, err);
+          }
+        }
+
         // Log digest
         await prisma.digestLog.create({
           data: {

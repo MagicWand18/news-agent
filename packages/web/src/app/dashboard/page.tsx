@@ -212,6 +212,7 @@ export default function DashboardPage() {
           recent.data?.map((mention) => (
             <MentionRow
               key={mention.id}
+              id={mention.id}
               title={mention.article.title}
               source={mention.article.source}
               clientName={mention.client.name}

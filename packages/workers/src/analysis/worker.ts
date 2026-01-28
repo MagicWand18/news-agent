@@ -4,11 +4,18 @@ import { prisma } from "@mediabot/shared";
 import { analyzeMention } from "./ai.js";
 import type { Urgency, Sentiment } from "@prisma/client";
 
-// High-reach Spanish media sources
+// High-reach Spanish-language media sources
 const HIGH_REACH_SOURCES = new Set([
+  // Spain
   "elpais.com", "elmundo.es", "lavanguardia.com", "abc.es",
   "20minutos.es", "europapress.es", "efe.com", "rtve.es",
-  "infobae.com", "cnn", "bbc", "reuters", "elconfidencial.com",
+  "elconfidencial.com",
+  // Mexico
+  "milenio.com", "reforma.com", "expansion.mx", "jornada.com.mx",
+  "eluniversal.com.mx", "excelsior.com.mx", "proceso.com.mx",
+  "sinembargo.mx", "lopezdoriga.com",
+  // International
+  "infobae.com", "cnn", "bbc", "reuters",
 ]);
 
 export function startAnalysisWorker() {
