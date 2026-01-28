@@ -36,6 +36,11 @@ MediaBot es un sistema de monitoreo de medios que permite a agencias de comunica
 | **Timeline Menciones** | OK | Vista tipo red social (Sprint 5) |
 | **Sistema de Filtros** | OK | Componentes reutilizables (Sprint 5) |
 | **Animaciones UI** | OK | CountUp en KPIs (Sprint 5) |
+| **Share of Voice** | OK | Calculo SOV vs competidores (Sprint 6) |
+| **Deteccion de Temas** | OK | Extraccion automatica con IA (Sprint 6) |
+| **Scoring de Fuentes** | OK | Tiers 1/2/3 con ponderacion (Sprint 6) |
+| **Recomendaciones IA** | OK | Insights semanales automaticos (Sprint 6) |
+| **Pagina Intelligence** | OK | Dashboard de inteligencia (Sprint 6) |
 
 ### Funciones de IA
 
@@ -48,6 +53,8 @@ MediaBot es un sistema de monitoreo de medios que permite a agencias de comunica
 | `generateDigestSummary` | Automatico | Cron 8:00 AM | `analysis/ai.ts:225` |
 | `checkForCrisis` | Automatico | Mencion NEGATIVE | `analysis/crisis-detector.ts` |
 | `findClusterParent` | Automatico | Post-analisis (relevance >= 5) | `analysis/clustering.ts` |
+| `extractTopic` | Automatico | Post-analisis | `analysis/ai.ts:347` |
+| `generateWeeklyInsights` | Cron semanal | Lunes 6:00 AM | `analysis/ai.ts:407` |
 
 ### Pendiente / En Progreso
 
@@ -169,6 +176,16 @@ MediaBot es un sistema de monitoreo de medios que permite a agencias de comunica
 - Animaciones CountUp (KPIs)
 - Filtros mejorados en Menciones, Analytics, Clientes
 
+### Sprint 6 (Completado - 2026-01-28)
+- **Share of Voice**: Calculo SOV con ponderacion por tier de fuente
+- **Deteccion de Temas**: Extraccion automatica con Claude API y clustering
+- **Scoring de Fuentes**: 76+ fuentes clasificadas en Tier 1/2/3
+- **Recomendaciones IA**: Insights semanales generados automaticamente
+- **Pagina Intelligence**: Dashboard con KPIs, SOV trend, temas, insights
+- **SOV en Cliente**: Seccion con donut chart y tendencia historica
+- **Temas en Analytics**: Tag cloud y temas emergentes
+- **PDF mejorado**: Incluye SOV, temas e insights
+
 ## Metricas de Exito
 
 | Metrica | Target | Actual |
@@ -224,9 +241,11 @@ MediaBot es un sistema de monitoreo de medios que permite a agencias de comunica
 
 ## Proximos Pasos
 
-1. **Sprint 6**: Implementar dark mode y polish visual
-2. **Escala**: Agregar mas fuentes de noticias
-3. **Integraciones**: Twitter/X, YouTube mentions
+1. **Sprint 7**: Implementar dark mode y polish visual
+2. **Escala**: Agregar mas fuentes de noticias (RSS, APIs)
+3. **Integraciones**: Twitter/X API, YouTube mentions
+4. **Alertas avanzadas**: Notificaciones de temas emergentes
+5. **API publica**: Exponer endpoints para integraciones externas
 
 ## Contacto
 

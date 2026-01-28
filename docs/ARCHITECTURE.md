@@ -164,7 +164,53 @@ Agrupa menciones del mismo evento automaticamente:
 - Jaccard >= 0.3: Candidato para AI comparison
 - AI confidence >= 0.7: Match confirmado
 
-### 4.2 Generacion de Respuesta (`packages/web/src/server/routers/mentions.ts`)
+### 4.2 Extraccion de Temas (`packages/workers/src/analysis/topic-extractor.ts`)
+
+Extrae automaticamente el tema principal de cada mencion:
+
+```
+┌────────────────────────────────────────────────────────────────┐
+│                    TOPIC EXTRACTION FLOW                        │
+├────────────────────────────────────────────────────────────────┤
+│                                                                │
+│   ┌────────────────┐                                           │
+│   │ Nueva mencion  │                                           │
+│   │ analizada      │                                           │
+│   └───────┬────────┘                                           │
+│           │                                                    │
+│           ▼                                                    │
+│   ┌────────────────────────────────────────┐                   │
+│   │ extractTopic() - Claude API            │                   │
+│   │                                        │                   │
+│   │ Input: titulo, contenido, cliente      │                   │
+│   │ Output: tema, confianza, keywords      │                   │
+│   └───────┬────────────────────────────────┘                   │
+│           │                                                    │
+│           ▼                                                    │
+│   ┌─────────────────┐    < 0.3    ┌─────────────────┐         │
+│   │ Confidence OK?  │─────────────▶│ Skip topic      │         │
+│   └───────┬─────────┘             └─────────────────┘         │
+│           │ >= 0.3                                              │
+│           ▼                                                    │
+│   ┌─────────────────────────────────────────┐                  │
+│   │ Upsert TopicCluster (transaccion)       │                  │
+│   │ - Buscar/crear cluster                  │                  │
+│   │ - Actualizar mention.topic              │                  │
+│   │ - Incrementar cluster.count             │                  │
+│   └─────────────────────────────────────────┘                  │
+│                                                                │
+└────────────────────────────────────────────────────────────────┘
+```
+
+### 4.3 Share of Voice (`packages/workers/src/analysis/sov-calculator.ts`)
+
+Calcula el porcentaje de menciones de un cliente vs competidores:
+
+- **SOV basico**: `(menciones_cliente / total_menciones) * 100`
+- **SOV ponderado**: Multiplica por tier de fuente (Tier 1 = 3x, Tier 2 = 2x, Tier 3 = 1x)
+- **Historico**: Tendencia de las ultimas 8 semanas
+
+### 4.4 Generacion de Respuesta (`packages/web/src/server/routers/mentions.ts`)
 
 Genera borradores de comunicados de prensa on-demand:
 
@@ -244,6 +290,8 @@ Genera borradores de comunicados de prensa on-demand:
 │   analyze-mention  : Analizar mencion con AI                    │
 │   notify-alert     : Enviar alerta Telegram                     │
 │   onboarding       : Generar keywords iniciales para cliente    │
+│   extract-topic    : Extraer tema de mencion con AI             │
+│   weekly-insights  : Generar insights semanales (Lun 6:00 AM)   │
 │                                                                 │
 └─────────────────────────────────────────────────────────────────┘
 ```
@@ -494,6 +542,7 @@ El sistema detecta automaticamente situaciones de crisis mediaticas.
 | `tasks` | Gestion de tareas | `list`, `create`, `update` |
 | `team` | Gestion de equipo | `list`, `create`, `update` |
 | `settings` | Configuracion dinamica | `list`, `get`, `update`, `reset`, `seedDefaults` |
+| `intelligence` | Media Intelligence | `getSOV`, `getTopics`, `getWeeklyInsights`, `getSourceTiers`, `getKPIs` |
 
 ### Proteccion de Endpoints
 

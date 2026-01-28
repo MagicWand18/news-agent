@@ -168,6 +168,8 @@ npm run dev:bot        # Solo bot
 7. **Clustering**: Menciones similares se agrupan automaticamente (mismo evento en multiples fuentes)
 8. **Notificacion**: Alertas se envian via Telegram segun urgencia
 9. **Digest**: Resumen diario se envia a las 8:00 AM con menciones agrupadas
+10. **Topic Extraction**: AI extrae tema principal de cada mencion
+11. **Weekly Insights**: Lunes 6:00 AM se generan insights accionables
 
 ## Colectores
 
@@ -231,6 +233,31 @@ Desde la lista de menciones se puede exportar a CSV:
 - Aplica filtros activos (cliente, sentimiento)
 - Incluye todos los campos: titulo, fuente, sentimiento, relevancia, resumen AI
 - Compatible con Excel (UTF-8 con BOM)
+
+## Media Intelligence (Sprint 6)
+
+Dashboard avanzado de inteligencia de medios en `/dashboard/intelligence`:
+
+### Share of Voice (SOV)
+- Calcula porcentaje de menciones vs competidores
+- Ponderado por tier de fuente (Tier 1 = 3x, Tier 2 = 2x, Tier 3 = 1x)
+- Historico semanal de tendencia
+
+### Deteccion de Temas
+- Extraccion automatica de tema principal por IA
+- Clustering de temas similares
+- Deteccion de temas emergentes (>3 menciones en 24h)
+
+### Scoring de Fuentes
+- 76+ fuentes clasificadas en 3 tiers:
+  - **Tier 1**: Medios nacionales (El Pais, CNN, BBC, etc.)
+  - **Tier 2**: Regionales y especializados (Xataka, TechCrunch, etc.)
+  - **Tier 3**: Digitales y blogs
+
+### Recomendaciones IA Semanales
+- Generadas automaticamente cada lunes
+- Insights accionables basados en tendencias
+- Incluidos en reporte PDF semanal
 
 ## Troubleshooting
 
