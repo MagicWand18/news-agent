@@ -1,0 +1,163 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model Organization {
+  id        String   @id @default(cuid())
+  name      String
+  createdAt DateTime @default(now())
+  users     User[]
+  clients   Client[]
+}
+
+model User {
+  id             String       @id @default(cuid())
+  name           String
+  email          String?      @unique
+  passwordHash   String?
+  telegramUserId String?      @unique
+  role           Role         @default(ANALYST)
+  orgId          String
+  org            Organization @relation(fields: [orgId], references: [id])
+  assignedTasks  Task[]
+  createdAt      DateTime     @default(now())
+}
+
+enum Role {
+  ADMIN
+  SUPERVISOR
+  ANALYST
+}
+
+model Client {
+  id              String       @id @default(cuid())
+  name            String
+  description     String?
+  industry        String?
+  telegramGroupId String?
+  clientGroupId   String?
+  active          Boolean      @default(true)
+  orgId           String
+  org             Organization @relation(fields: [orgId], references: [id])
+  keywords        Keyword[]
+  mentions        Mention[]
+  tasks           Task[]
+  onboarding      Json?
+  createdAt       DateTime     @default(now())
+  updatedAt       DateTime     @updatedAt
+}
+
+model Keyword {
+  id       String      @id @default(cuid())
+  word     String
+  type     KeywordType @default(NAME)
+  clientId String
+  client   Client      @relation(fields: [clientId], references: [id])
+  active   Boolean     @default(true)
+
+  @@unique([word, clientId])
+}
+
+enum KeywordType {
+  NAME
+  BRAND
+  COMPETITOR
+  TOPIC
+  ALIAS
+}
+
+model Article {
+  id          String    @id @default(cuid())
+  url         String    @unique
+  title       String
+  source      String
+  content     String?
+  contentHash String?
+  publishedAt DateTime?
+  collectedAt DateTime  @default(now())
+  mentions    Mention[]
+}
+
+model Mention {
+  id             String    @id @default(cuid())
+  articleId      String
+  article        Article   @relation(fields: [articleId], references: [id])
+  clientId       String
+  client         Client    @relation(fields: [clientId], references: [id])
+  keywordMatched String
+  snippet        String?
+  sentiment      Sentiment @default(NEUTRAL)
+  relevance      Int       @default(5)
+  aiSummary      String?
+  aiAction       String?
+  urgency        Urgency   @default(MEDIUM)
+  notified       Boolean   @default(false)
+  notifiedAt     DateTime?
+  clientNotified Boolean   @default(false)
+  createdAt      DateTime  @default(now())
+  tasks          Task[]
+
+  @@index([clientId, createdAt])
+}
+
+enum Sentiment {
+  POSITIVE
+  NEGATIVE
+  NEUTRAL
+  MIXED
+}
+
+enum Urgency {
+  CRITICAL
+  HIGH
+  MEDIUM
+  LOW
+}
+
+model Task {
+  id          String     @id @default(cuid())
+  title       String
+  description String?
+  status      TaskStatus @default(PENDING)
+  priority    Priority   @default(MEDIUM)
+  deadline    DateTime?
+  clientId    String?
+  client      Client?    @relation(fields: [clientId], references: [id])
+  mentionId   String?
+  mention     Mention?   @relation(fields: [mentionId], references: [id])
+  assigneeId  String?
+  assignee    User?      @relation(fields: [assigneeId], references: [id])
+  createdAt   DateTime   @default(now())
+  updatedAt   DateTime   @updatedAt
+  completedAt DateTime?
+
+  @@index([assigneeId, status])
+  @@index([clientId, status])
+}
+
+enum TaskStatus {
+  PENDING
+  IN_PROGRESS
+  COMPLETED
+  CANCELLED
+}
+
+enum Priority {
+  URGENT
+  HIGH
+  MEDIUM
+  LOW
+}
+
+model DigestLog {
+  id           String   @id @default(cuid())
+  clientId     String
+  type         String
+  articleCount Int
+  sentAt       DateTime @default(now())
+}
