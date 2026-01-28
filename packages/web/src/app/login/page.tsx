@@ -1,8 +1,8 @@
 "use client";
 
-import { signIn } from "next-auth/react";
-import { useState } from "react";
-import { useRouter } from "next/navigation";
+import { signIn, useSession } from "next-auth/react";
+import { useState, useEffect } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
 import { Newspaper, BarChart3, Bell, Shield } from "lucide-react";
 
 export default function LoginPage() {
@@ -11,6 +11,16 @@ export default function LoginPage() {
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
   const router = useRouter();
+  const searchParams = useSearchParams();
+  const { status } = useSession();
+  const callbackUrl = searchParams.get("callbackUrl") || "/dashboard";
+
+  // If already authenticated, redirect to dashboard
+  useEffect(() => {
+    if (status === "authenticated") {
+      router.replace(callbackUrl);
+    }
+  }, [status, router, callbackUrl]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -27,7 +37,7 @@ export default function LoginPage() {
       setError("Credenciales invalidas. Verifica tu email y contrasena.");
       setLoading(false);
     } else {
-      router.push("/dashboard");
+      router.push(callbackUrl);
     }
   };
 
