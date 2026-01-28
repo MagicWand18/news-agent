@@ -5,6 +5,7 @@ import { mentionsRouter } from "./mentions";
 import { tasksRouter } from "./tasks";
 import { teamRouter } from "./team";
 import { settingsRouter } from "./settings";
+import { intelligenceRouter } from "./intelligence";
 
 export const appRouter = router({
   dashboard: dashboardRouter,
@@ -13,6 +14,7 @@ export const appRouter = router({
   tasks: tasksRouter,
   team: teamRouter,
   settings: settingsRouter,
+  intelligence: intelligenceRouter,
 });
 
 export type AppRouter = typeof appRouter;

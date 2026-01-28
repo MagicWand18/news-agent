@@ -108,6 +108,14 @@ export function startAnalysisWorker() {
           console.error(`Crisis check failed for mention ${mentionId}:`, error);
         }
       }
+
+      // Enqueue topic extraction (Sprint 6)
+      try {
+        const topicQueue = getQueue(QUEUE_NAMES.EXTRACT_TOPIC);
+        await topicQueue.add("extract", { mentionId }, { delay: 1000 });
+      } catch (error) {
+        console.error(`[Analysis] Topic extraction enqueue failed for mention ${mentionId}:`, error);
+      }
     },
     {
       connection,

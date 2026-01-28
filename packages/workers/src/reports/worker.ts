@@ -3,6 +3,7 @@ import { connection, QUEUE_NAMES } from "../queues.js";
 import { prisma } from "@mediabot/shared";
 import { generateWeeklyReport, type WeeklyReportData } from "./pdf-generator.js";
 import { generateDigestSummary } from "../analysis/ai.js";
+import { calculateSOV } from "../analysis/sov-calculator.js";
 import { bot } from "../notifications/bot-instance.js";
 import { InputFile } from "grammy";
 
@@ -95,6 +96,61 @@ export function startReportWorker() {
               `${sentimentBreakdown.neutral} neutras y ${sentimentBreakdown.mixed} mixtas.`;
           }
 
+          // Get SOV data (Sprint 6)
+          let sovData: WeeklyReportData["sovData"];
+          try {
+            const sov = await calculateSOV(client.id, 7, true);
+            // Determine trend by comparing with previous week
+            const previousSov = await calculateSOV(client.id, 14, true);
+            const trend: "up" | "down" | "stable" =
+              sov.client.sov > previousSov.client.sov * 1.05
+                ? "up"
+                : sov.client.sov < previousSov.client.sov * 0.95
+                  ? "down"
+                  : "stable";
+
+            sovData = {
+              sov: sov.client.sov,
+              weightedSov: sov.client.weightedSov,
+              trend,
+              competitors: sov.competitors.map((c) => ({ name: c.clientName, sov: c.sov })),
+            };
+          } catch (err) {
+            console.error(`[ReportWorker] SOV calculation failed for ${client.name}:`, err);
+          }
+
+          // Get top topics (Sprint 6)
+          let topTopics: WeeklyReportData["topTopics"];
+          try {
+            const topicsResult = await prisma.$queryRaw<{ topic: string; count: bigint }[]>`
+              SELECT topic, COUNT(*) as count
+              FROM "Mention"
+              WHERE "clientId" = ${client.id}
+              AND "createdAt" >= ${since}
+              AND topic IS NOT NULL
+              GROUP BY topic
+              ORDER BY count DESC
+              LIMIT 5
+            `;
+            topTopics = topicsResult.map((t) => ({ name: t.topic, count: Number(t.count) }));
+          } catch (err) {
+            console.error(`[ReportWorker] Topics fetch failed for ${client.name}:`, err);
+          }
+
+          // Get weekly insights (Sprint 6)
+          let weeklyInsights: string[] | undefined;
+          try {
+            const latestInsight = await prisma.weeklyInsight.findFirst({
+              where: { clientId: client.id },
+              orderBy: { weekStart: "desc" },
+            });
+            if (latestInsight) {
+              weeklyInsights = latestInsight.insights as string[];
+            }
+          } catch (err) {
+            console.error(`[ReportWorker] Insights fetch failed for ${client.name}:`, err);
+          }
+
           // Generate PDF
           const reportData: WeeklyReportData = {
             clientName: client.name,
@@ -104,6 +160,9 @@ export function startReportWorker() {
             topMentions,
             aiExecutiveSummary: aiSummary,
             crisisAlerts,
+            sovData,
+            topTopics,
+            weeklyInsights,
           };
 
           const pdfBuffer = await generateWeeklyReport(reportData);

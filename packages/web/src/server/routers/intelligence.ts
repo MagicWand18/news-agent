@@ -1,0 +1,388 @@
+import { z } from "zod";
+import { router, protectedProcedure } from "../trpc";
+import { prisma } from "@mediabot/shared";
+import { Prisma } from "@prisma/client";
+
+export const intelligenceRouter = router({
+  /**
+   * Obtiene el Share of Voice de un cliente vs sus competidores.
+   */
+  getSOV: protectedProcedure
+    .input(
+      z.object({
+        clientId: z.string(),
+        days: z.number().min(7).max(90).default(30),
+        includeCompetitors: z.boolean().default(true),
+      })
+    )
+    .query(async ({ input, ctx }) => {
+      const orgId = ctx.user.orgId;
+      const { clientId, days, includeCompetitors } = input;
+
+      // Verificar que el cliente pertenece a la org
+      const client = await prisma.client.findFirst({
+        where: { id: clientId, orgId },
+        include: { keywords: true },
+      });
+
+      if (!client) {
+        throw new Error("Cliente no encontrado");
+      }
+
+      const endDate = new Date();
+      const startDate = new Date();
+      startDate.setDate(startDate.getDate() - days);
+
+      // Obtener menciones del cliente con peso por tier
+      const clientMentions = await getMentionsWithTier(clientId, startDate, endDate);
+
+      // Obtener competidores (keywords tipo COMPETITOR)
+      const competitorKeywords = client.keywords.filter((k) => k.type === "COMPETITOR" && k.active);
+      const competitorData: Array<{
+        id: string;
+        name: string;
+        mentions: number;
+        weighted: number;
+        sov: number;
+        weightedSov: number;
+      }> = [];
+
+      if (includeCompetitors && competitorKeywords.length > 0) {
+        // Buscar clientes que coincidan con nombres de competidores
+        const competitorClients = await prisma.client.findMany({
+          where: {
+            orgId,
+            OR: competitorKeywords.map((k) => ({
+              name: { contains: k.word, mode: "insensitive" as const },
+            })),
+            active: true,
+            id: { not: clientId },
+          },
+        });
+
+        for (const comp of competitorClients) {
+          const mentions = await getMentionsWithTier(comp.id, startDate, endDate);
+          competitorData.push({
+            id: comp.id,
+            name: comp.name,
+            mentions: mentions.count,
+            weighted: mentions.weighted,
+            sov: 0,
+            weightedSov: 0,
+          });
+        }
+      }
+
+      // Calcular totales y SOV
+      const total = clientMentions.count + competitorData.reduce((s, c) => s + c.mentions, 0);
+      const totalWeighted = clientMentions.weighted + competitorData.reduce((s, c) => s + c.weighted, 0);
+
+      const clientSOV = {
+        id: client.id,
+        name: client.name,
+        mentions: clientMentions.count,
+        weighted: clientMentions.weighted,
+        sov: total > 0 ? (clientMentions.count / total) * 100 : 0,
+        weightedSov: totalWeighted > 0 ? (clientMentions.weighted / totalWeighted) * 100 : 0,
+      };
+
+      // Calcular SOV de cada competidor
+      for (const comp of competitorData) {
+        comp.sov = total > 0 ? (comp.mentions / total) * 100 : 0;
+        comp.weightedSov = totalWeighted > 0 ? (comp.weighted / totalWeighted) * 100 : 0;
+      }
+
+      // Obtener histórico semanal
+      const history = await getSOVHistory(clientId, orgId, 8);
+
+      return {
+        clientSOV,
+        competitorSOV: competitorData,
+        history,
+        period: { start: startDate, end: endDate, days },
+        total,
+        totalWeighted,
+      };
+    }),
+
+  /**
+   * Obtiene temas detectados en menciones.
+   */
+  getTopics: protectedProcedure
+    .input(
+      z.object({
+        clientId: z.string().optional(),
+        days: z.number().min(7).max(90).default(30),
+      })
+    )
+    .query(async ({ input, ctx }) => {
+      const orgId = ctx.user.orgId;
+      const since = new Date(Date.now() - input.days * 24 * 60 * 60 * 1000);
+
+      const clientFilter = input.clientId
+        ? Prisma.sql`AND m."clientId" = ${input.clientId}`
+        : Prisma.empty;
+
+      // Obtener temas agrupados
+      const topics = await prisma.$queryRaw<
+        { topic: string; count: bigint; positive: bigint; negative: bigint; neutral: bigint }[]
+      >`
+        SELECT
+          m.topic,
+          COUNT(*) as count,
+          SUM(CASE WHEN m.sentiment = 'POSITIVE' THEN 1 ELSE 0 END) as positive,
+          SUM(CASE WHEN m.sentiment = 'NEGATIVE' THEN 1 ELSE 0 END) as negative,
+          SUM(CASE WHEN m.sentiment = 'NEUTRAL' THEN 1 ELSE 0 END) as neutral
+        FROM "Mention" m
+        JOIN "Client" c ON m."clientId" = c.id
+        WHERE c."orgId" = ${orgId}
+        AND m."createdAt" >= ${since}
+        AND m.topic IS NOT NULL
+        ${clientFilter}
+        GROUP BY m.topic
+        ORDER BY count DESC
+        LIMIT 20
+      `;
+
+      // Detectar temas emergentes (>3 menciones en últimas 24h)
+      const last24h = new Date(Date.now() - 24 * 60 * 60 * 1000);
+      const emergingTopics = await prisma.$queryRaw<{ topic: string; count: bigint }[]>`
+        SELECT m.topic, COUNT(*) as count
+        FROM "Mention" m
+        JOIN "Client" c ON m."clientId" = c.id
+        WHERE c."orgId" = ${orgId}
+        AND m."createdAt" >= ${last24h}
+        AND m.topic IS NOT NULL
+        ${clientFilter}
+        GROUP BY m.topic
+        HAVING COUNT(*) >= 3
+        ORDER BY count DESC
+      `;
+
+      return {
+        topics: topics.map((t) => ({
+          name: t.topic,
+          count: Number(t.count),
+          sentiment: {
+            positive: Number(t.positive),
+            negative: Number(t.negative),
+            neutral: Number(t.neutral),
+          },
+        })),
+        emergingTopics: emergingTopics.map((t) => ({
+          name: t.topic,
+          count: Number(t.count),
+        })),
+      };
+    }),
+
+  /**
+   * Obtiene insights semanales generados por IA.
+   */
+  getWeeklyInsights: protectedProcedure
+    .input(
+      z.object({
+        clientId: z.string().optional(),
+        limit: z.number().min(1).max(10).default(4),
+      })
+    )
+    .query(async ({ input, ctx }) => {
+      const orgId = ctx.user.orgId;
+
+      const whereClause = input.clientId
+        ? { clientId: input.clientId, client: { orgId } }
+        : { client: { orgId } };
+
+      const insights = await prisma.weeklyInsight.findMany({
+        where: whereClause,
+        include: {
+          client: { select: { id: true, name: true } },
+        },
+        orderBy: { weekStart: "desc" },
+        take: input.limit,
+      });
+
+      return {
+        insights: insights.map((i) => ({
+          id: i.id,
+          clientId: i.clientId,
+          clientName: i.client.name,
+          weekStart: i.weekStart,
+          insights: i.insights as string[],
+          sovData: i.sovData as { sov: number; trend: string },
+          topTopics: i.topTopics as { name: string; count: number }[],
+          createdAt: i.createdAt,
+        })),
+      };
+    }),
+
+  /**
+   * Obtiene las fuentes y sus tiers configurados.
+   */
+  getSourceTiers: protectedProcedure.query(async () => {
+    const sources = await prisma.sourceTier.findMany({
+      orderBy: [{ tier: "asc" }, { name: "asc" }],
+    });
+
+    return {
+      sources: sources.map((s) => ({
+        id: s.id,
+        domain: s.domain,
+        name: s.name,
+        tier: s.tier,
+        reach: s.reach,
+      })),
+      summary: {
+        tier1: sources.filter((s) => s.tier === 1).length,
+        tier2: sources.filter((s) => s.tier === 2).length,
+        tier3: sources.filter((s) => s.tier === 3).length,
+      },
+    };
+  }),
+
+  /**
+   * Obtiene KPIs de inteligencia para el dashboard.
+   */
+  getKPIs: protectedProcedure.query(async ({ ctx }) => {
+    const orgId = ctx.user.orgId;
+    const last7d = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000);
+    const last24h = new Date(Date.now() - 24 * 60 * 60 * 1000);
+
+    const [topicsCount, emergingCount, avgSOV, weightedMentions] = await Promise.all([
+      // Temas únicos esta semana
+      prisma.$queryRaw<[{ count: bigint }]>`
+        SELECT COUNT(DISTINCT topic) as count
+        FROM "Mention" m
+        JOIN "Client" c ON m."clientId" = c.id
+        WHERE c."orgId" = ${orgId}
+        AND m."createdAt" >= ${last7d}
+        AND m.topic IS NOT NULL
+      `,
+      // Temas emergentes (>3 menciones en 24h)
+      prisma.$queryRaw<[{ count: bigint }]>`
+        SELECT COUNT(*) as count FROM (
+          SELECT topic
+          FROM "Mention" m
+          JOIN "Client" c ON m."clientId" = c.id
+          WHERE c."orgId" = ${orgId}
+          AND m."createdAt" >= ${last24h}
+          AND m.topic IS NOT NULL
+          GROUP BY topic
+          HAVING COUNT(*) >= 3
+        ) subq
+      `,
+      // SOV promedio de clientes activos
+      prisma.$queryRaw<[{ avg: number | null }]>`
+        SELECT AVG(mention_count::float / NULLIF(total_count::float, 0) * 100) as avg
+        FROM (
+          SELECT c.id,
+            (SELECT COUNT(*) FROM "Mention" WHERE "clientId" = c.id AND "createdAt" >= ${last7d}) as mention_count,
+            (SELECT COUNT(*) FROM "Mention" m2 JOIN "Client" c2 ON m2."clientId" = c2.id WHERE c2."orgId" = ${orgId} AND m2."createdAt" >= ${last7d}) as total_count
+          FROM "Client" c
+          WHERE c."orgId" = ${orgId} AND c.active = true
+        ) subq
+        WHERE mention_count > 0
+      `,
+      // Menciones ponderadas por tier
+      prisma.$queryRaw<[{ weighted: bigint }]>`
+        SELECT COALESCE(SUM(
+          CASE st.tier
+            WHEN 1 THEN 3
+            WHEN 2 THEN 2
+            ELSE 1
+          END
+        ), 0) as weighted
+        FROM "Mention" m
+        JOIN "Article" a ON m."articleId" = a.id
+        JOIN "Client" c ON m."clientId" = c.id
+        LEFT JOIN "SourceTier" st ON LOWER(REGEXP_REPLACE(a.source, '^www\\.', '')) = st.domain
+        WHERE c."orgId" = ${orgId}
+        AND m."createdAt" >= ${last7d}
+      `,
+    ]);
+
+    return {
+      topicsCount: Number(topicsCount[0]?.count ?? 0),
+      emergingTopics: Number(emergingCount[0]?.count ?? 0),
+      avgSOV: avgSOV[0]?.avg ?? 0,
+      weightedMentions: Number(weightedMentions[0]?.weighted ?? 0),
+    };
+  }),
+});
+
+/**
+ * Obtiene menciones con peso por tier de fuente.
+ */
+async function getMentionsWithTier(
+  clientId: string,
+  startDate: Date,
+  endDate: Date
+): Promise<{ count: number; weighted: number }> {
+  const result = await prisma.$queryRaw<[{ count: bigint; weighted: bigint }]>`
+    SELECT
+      COUNT(*) as count,
+      COALESCE(SUM(
+        CASE st.tier
+          WHEN 1 THEN 3
+          WHEN 2 THEN 2
+          ELSE 1
+        END
+      ), COUNT(*)) as weighted
+    FROM "Mention" m
+    JOIN "Article" a ON m."articleId" = a.id
+    LEFT JOIN "SourceTier" st ON LOWER(REGEXP_REPLACE(a.source, '^www\\.', '')) = st.domain
+    WHERE m."clientId" = ${clientId}
+    AND m."createdAt" >= ${startDate}
+    AND m."createdAt" <= ${endDate}
+  `;
+
+  return {
+    count: Number(result[0]?.count ?? 0),
+    weighted: Number(result[0]?.weighted ?? 0),
+  };
+}
+
+/**
+ * Obtiene histórico de SOV por semana.
+ */
+async function getSOVHistory(
+  clientId: string,
+  orgId: string,
+  weeks: number
+): Promise<Array<{ week: Date; sov: number; mentions: number }>> {
+  const history: Array<{ week: Date; sov: number; mentions: number }> = [];
+  const now = new Date();
+
+  for (let i = weeks - 1; i >= 0; i--) {
+    const weekEnd = new Date(now);
+    weekEnd.setDate(weekEnd.getDate() - i * 7);
+    weekEnd.setHours(23, 59, 59, 999);
+
+    const weekStart = new Date(weekEnd);
+    weekStart.setDate(weekStart.getDate() - 7);
+    weekStart.setHours(0, 0, 0, 0);
+
+    const [clientCount, totalCount] = await Promise.all([
+      prisma.mention.count({
+        where: {
+          clientId,
+          createdAt: { gte: weekStart, lte: weekEnd },
+        },
+      }),
+      prisma.mention.count({
+        where: {
+          client: { orgId },
+          createdAt: { gte: weekStart, lte: weekEnd },
+        },
+      }),
+    ]);
+
+    history.push({
+      week: weekStart,
+      sov: totalCount > 0 ? (clientCount / totalCount) * 100 : 0,
+      mentions: clientCount,
+    });
+  }
+
+  return history;
+}

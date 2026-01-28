@@ -35,23 +35,24 @@ enum Role {
 }
 
 model Client {
-  id              String        @id @default(cuid())
+  id              String          @id @default(cuid())
   name            String
   description     String?
   industry        String?
   telegramGroupId String?
   clientGroupId   String?
-  active          Boolean       @default(true)
+  active          Boolean         @default(true)
   orgId           String
-  org             Organization  @relation(fields: [orgId], references: [id])
+  org             Organization    @relation(fields: [orgId], references: [id])
   keywords        Keyword[]
   mentions        Mention[]
   tasks           Task[]
   crisisAlerts    CrisisAlert[]
   reportLogs      ReportLog[]
+  weeklyInsights  WeeklyInsight[]
   onboarding      Json?
-  createdAt       DateTime      @default(now())
-  updatedAt       DateTime      @updatedAt
+  createdAt       DateTime        @default(now())
+  updatedAt       DateTime        @updatedAt
 }
 
 model Keyword {
@@ -110,9 +111,15 @@ model Mention {
   childMentions   Mention[] @relation("MentionCluster")
   clusterScore    Float?
 
+  // Topic clustering (Sprint 6)
+  topic          String?
+  topicClusterId String?
+  topicCluster   TopicCluster? @relation(fields: [topicClusterId], references: [id])
+
   @@index([clientId, createdAt])
   @@index([parentMentionId])
   @@index([clientId, parentMentionId, createdAt])
+  @@index([topicClusterId])
 }
 
 enum Sentiment {
@@ -240,4 +247,46 @@ model ReportLog {
   sentAt       DateTime @default(now())
 
   @@index([clientId, sentAt])
+}
+
+// Sprint 6: Media Intelligence Avanzada
+
+// Tier de fuentes por alcance
+model SourceTier {
+  id        String   @id @default(cuid())
+  domain    String   @unique // ej: "elpais.com"
+  name      String            // ej: "El País"
+  tier      Int      @default(3) // 1=nacional, 2=regional, 3=digital
+  reach     Int?              // alcance estimado (opcional)
+  createdAt DateTime @default(now())
+
+  @@index([tier])
+}
+
+// Cluster de temas detectados
+model TopicCluster {
+  id        String    @id @default(cuid())
+  name      String             // ej: "Fusión empresarial"
+  mentions  Mention[]
+  count     Int       @default(0) // Contador de menciones
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+
+  @@index([name])
+  @@index([createdAt])
+}
+
+// Insights semanales generados por IA
+model WeeklyInsight {
+  id        String   @id @default(cuid())
+  clientId  String
+  client    Client   @relation(fields: [clientId], references: [id])
+  weekStart DateTime
+  insights  Json     // Array de recomendaciones
+  sovData   Json     // Datos de SOV de esa semana
+  topTopics Json     // Temas más frecuentes
+  createdAt DateTime @default(now())
+
+  @@unique([clientId, weekStart])
+  @@index([clientId, weekStart])
 }

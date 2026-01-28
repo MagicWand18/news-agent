@@ -4,7 +4,7 @@ import { trpc } from "@/lib/trpc";
 import { MentionRow } from "@/components/mention-row";
 import { useParams } from "next/navigation";
 import { useState } from "react";
-import { ArrowLeft, Plus, X, BarChart3 } from "lucide-react";
+import { ArrowLeft, Plus, X, BarChart3, Target, TrendingUp, TrendingDown, Minus } from "lucide-react";
 import Link from "next/link";
 import {
   BarChart,
@@ -14,6 +14,10 @@ import {
   Tooltip,
   ResponsiveContainer,
   Cell,
+  PieChart,
+  Pie,
+  AreaChart,
+  Area,
 } from "recharts";
 
 const KEYWORD_TYPES = ["NAME", "BRAND", "COMPETITOR", "TOPIC", "ALIAS"] as const;
@@ -95,6 +99,9 @@ export default function ClientDetailPage() {
           <p className="text-2xl font-bold">{c.telegramGroupId ? "Si" : "No"}</p>
         </div>
       </div>
+
+      {/* Share of Voice */}
+      <SOVSection clientId={id} />
 
       {/* Keywords */}
       <div className="rounded-xl bg-white p-6 shadow-sm">
@@ -181,6 +188,192 @@ export default function ClientDetailPage() {
         {c.mentions.length === 0 && (
           <p className="text-gray-500">No hay menciones aun.</p>
         )}
+      </div>
+    </div>
+  );
+}
+
+const SOV_COLORS = ["#3b82f6", "#10b981", "#f59e0b", "#ef4444", "#8b5cf6", "#ec4899"];
+
+function SOVSection({ clientId }: { clientId: string }) {
+  const [days, setDays] = useState(30);
+  const sov = trpc.intelligence.getSOV.useQuery(
+    { clientId, days, includeCompetitors: true },
+    { refetchOnWindowFocus: false }
+  );
+
+  if (sov.isLoading) {
+    return (
+      <div className="rounded-xl bg-white p-6 shadow-sm">
+        <h3 className="mb-4 font-semibold flex items-center gap-2">
+          <Target className="h-5 w-5 text-brand-600" />
+          Share of Voice
+        </h3>
+        <div className="flex h-[200px] items-center justify-center">
+          <div className="h-8 w-8 animate-spin rounded-full border-2 border-gray-200 border-t-brand-600" />
+        </div>
+      </div>
+    );
+  }
+
+  if (!sov.data) {
+    return null;
+  }
+
+  const { clientSOV, competitorSOV, history } = sov.data;
+
+  // Datos para el donut chart
+  const pieData = [
+    { name: clientSOV.name, value: clientSOV.sov },
+    ...competitorSOV.map((c) => ({ name: c.name, value: c.sov })),
+  ];
+  const totalSov = pieData.reduce((sum, d) => sum + d.value, 0);
+  if (totalSov < 100 && totalSov > 0) {
+    pieData.push({ name: "Otros", value: 100 - totalSov });
+  }
+
+  // Datos para el chart de tendencia
+  const trendData = history.map((h) => ({
+    week: new Date(h.week).toLocaleDateString("es-ES", { day: "2-digit", month: "short" }),
+    sov: Number(h.sov.toFixed(1)),
+    mentions: h.mentions,
+  }));
+
+  // Determinar tendencia
+  const currentSov = history[history.length - 1]?.sov || 0;
+  const previousSov = history[history.length - 2]?.sov || 0;
+  const trend = currentSov > previousSov * 1.05 ? "up" : currentSov < previousSov * 0.95 ? "down" : "stable";
+  const TrendIcon = trend === "up" ? TrendingUp : trend === "down" ? TrendingDown : Minus;
+  const trendColor = trend === "up" ? "text-emerald-600" : trend === "down" ? "text-red-600" : "text-gray-500";
+
+  return (
+    <div className="rounded-xl bg-white p-6 shadow-sm">
+      <div className="mb-4 flex items-center justify-between">
+        <div>
+          <h3 className="font-semibold flex items-center gap-2">
+            <Target className="h-5 w-5 text-brand-600" />
+            Share of Voice
+          </h3>
+          <p className="text-sm text-gray-500">Ultimos {days} dias</p>
+        </div>
+        <div className="flex items-center gap-3">
+          <div className={`flex items-center gap-1 ${trendColor}`}>
+            <TrendIcon className="h-4 w-4" />
+            <span className="text-lg font-bold">{clientSOV.sov.toFixed(1)}%</span>
+          </div>
+          <select
+            value={days}
+            onChange={(e) => setDays(Number(e.target.value))}
+            className="rounded-lg border border-gray-200 bg-white px-3 py-1.5 text-sm"
+          >
+            <option value={7}>7 dias</option>
+            <option value={30}>30 dias</option>
+            <option value={60}>60 dias</option>
+          </select>
+        </div>
+      </div>
+
+      <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
+        {/* Donut Chart */}
+        <div>
+          <p className="mb-2 text-sm font-medium text-gray-700">vs Competidores</p>
+          {pieData.length > 0 ? (
+            <>
+              <ResponsiveContainer width="100%" height={180}>
+                <PieChart>
+                  <Pie
+                    data={pieData}
+                    dataKey="value"
+                    nameKey="name"
+                    cx="50%"
+                    cy="50%"
+                    innerRadius={50}
+                    outerRadius={75}
+                    paddingAngle={2}
+                  >
+                    {pieData.map((_, index) => (
+                      <Cell key={index} fill={SOV_COLORS[index % SOV_COLORS.length]} />
+                    ))}
+                  </Pie>
+                  <Tooltip formatter={(value: number) => `${value.toFixed(1)}%`} />
+                </PieChart>
+              </ResponsiveContainer>
+              <div className="mt-2 grid grid-cols-2 gap-2">
+                {pieData.slice(0, 6).map((entry, index) => (
+                  <div key={entry.name} className="flex items-center gap-2 text-xs">
+                    <div
+                      className="h-2.5 w-2.5 rounded-full"
+                      style={{ backgroundColor: SOV_COLORS[index % SOV_COLORS.length] }}
+                    />
+                    <span className="truncate text-gray-600">{entry.name}</span>
+                    <span className="ml-auto font-semibold">{entry.value.toFixed(1)}%</span>
+                  </div>
+                ))}
+              </div>
+            </>
+          ) : (
+            <div className="flex h-[180px] items-center justify-center text-gray-400">
+              Sin datos
+            </div>
+          )}
+        </div>
+
+        {/* Trend Chart */}
+        <div>
+          <p className="mb-2 text-sm font-medium text-gray-700">Tendencia SOV</p>
+          {trendData.length > 0 ? (
+            <ResponsiveContainer width="100%" height={200}>
+              <AreaChart data={trendData}>
+                <defs>
+                  <linearGradient id="sovGradientClient" x1="0" y1="0" x2="0" y2="1">
+                    <stop offset="5%" stopColor="#3b82f6" stopOpacity={0.2} />
+                    <stop offset="95%" stopColor="#3b82f6" stopOpacity={0} />
+                  </linearGradient>
+                </defs>
+                <XAxis
+                  dataKey="week"
+                  axisLine={false}
+                  tickLine={false}
+                  tick={{ fontSize: 11, fill: "#9ca3af" }}
+                />
+                <YAxis
+                  axisLine={false}
+                  tickLine={false}
+                  tick={{ fontSize: 11, fill: "#9ca3af" }}
+                  domain={[0, "auto"]}
+                  tickFormatter={(v) => `${v}%`}
+                />
+                <Tooltip
+                  contentStyle={{ borderRadius: "8px", border: "1px solid #e5e7eb" }}
+                  formatter={(value: number) => [`${value.toFixed(1)}%`, "SOV"]}
+                />
+                <Area
+                  type="monotone"
+                  dataKey="sov"
+                  stroke="#3b82f6"
+                  strokeWidth={2}
+                  fill="url(#sovGradientClient)"
+                  dot={{ fill: "#3b82f6", r: 3 }}
+                />
+              </AreaChart>
+            </ResponsiveContainer>
+          ) : (
+            <div className="flex h-[200px] items-center justify-center text-gray-400">
+              Sin datos de tendencia
+            </div>
+          )}
+        </div>
+      </div>
+
+      {/* Weighted SOV info */}
+      <div className="mt-4 rounded-lg bg-gray-50 p-3">
+        <div className="flex items-center justify-between text-sm">
+          <span className="text-gray-600">SOV Ponderado (por tier de fuente)</span>
+          <span className="font-semibold text-gray-900">{clientSOV.weightedSov.toFixed(1)}%</span>
+        </div>
+        <p className="mt-1 text-xs text-gray-400">
+          Tier 1 (nacionales) = 3x | Tier 2 (regionales) = 2x | Tier 3 (digitales) = 1x
+        </p>
       </div>
     </div>
   );

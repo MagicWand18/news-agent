@@ -339,3 +339,187 @@ Escribe un resumen de 3-5 lineas en espanol, directo y accionable. No uses markd
   const content = message.content[0];
   return content.type === "text" ? content.text : "Resumen no disponible";
 }
+
+// ==================== SPRINT 6: FUNCIONES DE INTELIGENCIA ====================
+
+export interface TopicExtractionResult {
+  topic: string;
+  confidence: number;
+  keywords: string[];
+}
+
+/**
+ * Extrae el tema principal de una mencion usando IA.
+ * Se usa para clustering tematico y deteccion de tendencias.
+ */
+export async function extractTopic(params: {
+  articleTitle: string;
+  articleContent: string;
+  clientName: string;
+  existingTopics?: string[];
+}): Promise<TopicExtractionResult> {
+  const existingTopicsHint = params.existingTopics?.length
+    ? `\n\nTemas existentes en el sistema (usa uno de estos si aplica, o crea uno nuevo):
+${params.existingTopics.slice(0, 20).join(", ")}`
+    : "";
+
+  const message = await anthropic.messages.create({
+    model: config.anthropic.model,
+    max_tokens: 200,
+    messages: [
+      {
+        role: "user",
+        content: `Extrae el tema principal de este articulo relacionado con "${params.clientName}".
+
+Titulo: ${params.articleTitle}
+Contenido: ${params.articleContent?.slice(0, 1000) || "No disponible"}
+${existingTopicsHint}
+
+Responde SOLO en JSON:
+{
+  "topic": "Nombre corto del tema (2-4 palabras, ej: Expansion internacional, Resultados financieros, Lanzamiento producto)",
+  "confidence": <0.0 a 1.0>,
+  "keywords": ["palabra1", "palabra2", "palabra3"]
+}
+
+El tema debe ser especifico pero reutilizable para agrupar articulos similares.`,
+      },
+    ],
+  });
+
+  const content = message.content[0];
+  if (content.type !== "text") {
+    throw new Error("Unexpected response type from Claude");
+  }
+
+  const rawText = content.text;
+  console.log("[AI] extractTopic response:", rawText.slice(0, 150));
+
+  try {
+    const cleaned = cleanJsonResponse(rawText);
+    const result = JSON.parse(cleaned) as TopicExtractionResult;
+    result.confidence = Math.max(0, Math.min(1, result.confidence));
+    return result;
+  } catch {
+    console.error("[AI] Failed to parse extractTopic response:", rawText);
+    return {
+      topic: "General",
+      confidence: 0.3,
+      keywords: [],
+    };
+  }
+}
+
+export interface WeeklyInsightsResult {
+  insights: string[];
+  sovAnalysis: string;
+  topicsSummary: string;
+  recommendedActions: string[];
+  riskAlerts: string[];
+}
+
+/**
+ * Genera insights semanales accionables basados en datos de la semana.
+ */
+export async function generateWeeklyInsights(params: {
+  clientName: string;
+  clientIndustry: string;
+  weeklyStats: {
+    totalMentions: number;
+    previousWeekMentions: number;
+    sentimentBreakdown: { positive: number; negative: number; neutral: number; mixed: number };
+    sovPercentage: number;
+    sovTrend: "up" | "down" | "stable";
+  };
+  topMentions: { title: string; source: string; sentiment: string }[];
+  topTopics: { name: string; count: number }[];
+  competitors?: { name: string; sov: number }[];
+}): Promise<WeeklyInsightsResult> {
+  const mentionsText = params.topMentions
+    .slice(0, 5)
+    .map((m) => `- ${m.title} (${m.source}, ${m.sentiment})`)
+    .join("\n");
+
+  const topicsText = params.topTopics
+    .slice(0, 5)
+    .map((t) => `- ${t.name}: ${t.count} menciones`)
+    .join("\n");
+
+  const competitorsText = params.competitors?.length
+    ? params.competitors.map((c) => `- ${c.name}: ${c.sov.toFixed(1)}% SOV`).join("\n")
+    : "No hay datos de competidores";
+
+  const mentionTrend =
+    params.weeklyStats.totalMentions > params.weeklyStats.previousWeekMentions
+      ? "aumentaron"
+      : params.weeklyStats.totalMentions < params.weeklyStats.previousWeekMentions
+        ? "disminuyeron"
+        : "se mantuvieron";
+
+  const message = await anthropic.messages.create({
+    model: config.anthropic.model,
+    max_tokens: 800,
+    messages: [
+      {
+        role: "user",
+        content: `Genera insights semanales accionables para el equipo de PR del cliente "${params.clientName}" (industria: ${params.clientIndustry || "No especificada"}).
+
+DATOS DE LA SEMANA:
+- Menciones totales: ${params.weeklyStats.totalMentions} (${mentionTrend} vs semana anterior: ${params.weeklyStats.previousWeekMentions})
+- Sentimiento: Positivas=${params.weeklyStats.sentimentBreakdown.positive}, Negativas=${params.weeklyStats.sentimentBreakdown.negative}, Neutras=${params.weeklyStats.sentimentBreakdown.neutral}
+- Share of Voice: ${params.weeklyStats.sovPercentage.toFixed(1)}% (tendencia: ${params.weeklyStats.sovTrend})
+
+MENCIONES DESTACADAS:
+${mentionsText || "Ninguna relevante"}
+
+TEMAS PRINCIPALES:
+${topicsText || "Sin datos de temas"}
+
+COMPETIDORES:
+${competitorsText}
+
+Responde en JSON con este formato:
+{
+  "insights": [
+    "Insight 1: observacion clave con dato especifico",
+    "Insight 2: otra observacion relevante",
+    "Insight 3: tendencia o patron detectado"
+  ],
+  "sovAnalysis": "Analisis del Share of Voice y posicion competitiva en 1-2 oraciones",
+  "topicsSummary": "Resumen de temas dominantes y emergentes en 1-2 oraciones",
+  "recommendedActions": [
+    "Accion 1: tarea especifica y accionable",
+    "Accion 2: otra recomendacion practica"
+  ],
+  "riskAlerts": [
+    "Alerta si hay riesgos o senales de atencion (o array vacio si no hay)"
+  ]
+}
+
+Los insights deben ser especificos, con datos, y orientados a la accion.`,
+      },
+    ],
+  });
+
+  const content = message.content[0];
+  if (content.type !== "text") {
+    throw new Error("Unexpected response type from Claude");
+  }
+
+  const rawText = content.text;
+  console.log("[AI] generateWeeklyInsights response:", rawText.slice(0, 300));
+
+  try {
+    const cleaned = cleanJsonResponse(rawText);
+    return JSON.parse(cleaned) as WeeklyInsightsResult;
+  } catch {
+    console.error("[AI] Failed to parse generateWeeklyInsights response:", rawText);
+    return {
+      insights: ["No fue posible generar insights automaticos esta semana"],
+      sovAnalysis: "Analisis no disponible",
+      topicsSummary: "Resumen no disponible",
+      recommendedActions: ["Revisar datos manualmente"],
+      riskAlerts: [],
+    };
+  }
+}

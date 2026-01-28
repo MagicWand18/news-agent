@@ -19,6 +19,15 @@ export interface WeeklyReportData {
   }>;
   aiExecutiveSummary: string;
   crisisAlerts: number;
+  // Sprint 6: Intelligence data
+  sovData?: {
+    sov: number;
+    weightedSov: number;
+    trend: "up" | "down" | "stable";
+    competitors: Array<{ name: string; sov: number }>;
+  };
+  topTopics?: Array<{ name: string; count: number }>;
+  weeklyInsights?: string[];
 }
 
 function formatDate(date: Date): string {
@@ -199,6 +208,93 @@ export async function generateWeeklyReport(data: WeeklyReportData): Promise<Buff
       );
 
     doc.moveDown(1.5);
+
+    // Share of Voice Section (Sprint 6)
+    if (data.sovData) {
+      doc
+        .fillColor(primaryColor)
+        .fontSize(14)
+        .font("Helvetica-Bold")
+        .text("Share of Voice");
+
+      doc.moveDown(0.5);
+
+      const trendSymbol = data.sovData.trend === "up" ? "↑" : data.sovData.trend === "down" ? "↓" : "→";
+      const trendColor = data.sovData.trend === "up" ? positiveColor : data.sovData.trend === "down" ? negativeColor : secondaryColor;
+
+      doc
+        .fillColor("#111827")
+        .fontSize(11)
+        .font("Helvetica")
+        .text(`SOV actual: `, { continued: true })
+        .font("Helvetica-Bold")
+        .text(`${data.sovData.sov.toFixed(1)}%`, { continued: true })
+        .font("Helvetica")
+        .fillColor(trendColor)
+        .text(` ${trendSymbol}`, { continued: true })
+        .fillColor(secondaryColor)
+        .text(` | SOV ponderado: ${data.sovData.weightedSov.toFixed(1)}%`);
+
+      if (data.sovData.competitors.length > 0) {
+        doc.moveDown(0.3);
+        doc
+          .fillColor(secondaryColor)
+          .fontSize(10)
+          .font("Helvetica")
+          .text("Competidores: " + data.sovData.competitors.map((c) => `${c.name} (${c.sov.toFixed(1)}%)`).join(", "));
+      }
+
+      doc.moveDown(1.5);
+    }
+
+    // Top Topics Section (Sprint 6)
+    if (data.topTopics && data.topTopics.length > 0) {
+      doc
+        .fillColor(primaryColor)
+        .fontSize(14)
+        .font("Helvetica-Bold")
+        .text("Temas Principales");
+
+      doc.moveDown(0.5);
+
+      const topicsText = data.topTopics
+        .slice(0, 5)
+        .map((t, i) => `${i + 1}. ${t.name} (${t.count})`)
+        .join("  |  ");
+
+      doc
+        .fillColor("#374151")
+        .fontSize(10)
+        .font("Helvetica")
+        .text(topicsText);
+
+      doc.moveDown(1.5);
+    }
+
+    // Weekly Insights Section (Sprint 6)
+    if (data.weeklyInsights && data.weeklyInsights.length > 0) {
+      doc
+        .fillColor(primaryColor)
+        .fontSize(14)
+        .font("Helvetica-Bold")
+        .text("Insights y Recomendaciones IA");
+
+      doc.moveDown(0.5);
+
+      for (const insight of data.weeklyInsights.slice(0, 4)) {
+        doc
+          .fillColor("#374151")
+          .fontSize(10)
+          .font("Helvetica")
+          .text(`• ${insight}`, {
+            width: 495,
+            lineGap: 2,
+          });
+        doc.moveDown(0.3);
+      }
+
+      doc.moveDown(1);
+    }
 
     // Top Mentions Section
     doc

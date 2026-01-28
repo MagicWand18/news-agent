@@ -19,6 +19,8 @@ export const QUEUE_NAMES = {
   ONBOARDING: "onboarding",
   CRISIS_CHECK: "crisis-check",
   WEEKLY_REPORT: "weekly-report",
+  WEEKLY_INSIGHTS: "weekly-insights",
+  EXTRACT_TOPIC: "extract-topic",
 } as const;
 
 export function setupQueues() {
@@ -35,6 +37,8 @@ export function setupQueues() {
     onboarding: new Queue(QUEUE_NAMES.ONBOARDING, { connection }),
     crisisCheck: new Queue(QUEUE_NAMES.CRISIS_CHECK, { connection }),
     weeklyReport: new Queue(QUEUE_NAMES.WEEKLY_REPORT, { connection }),
+    weeklyInsights: new Queue(QUEUE_NAMES.WEEKLY_INSIGHTS, { connection }),
+    extractTopic: new Queue(QUEUE_NAMES.EXTRACT_TOPIC, { connection }),
   };
 
   // Schedule repeating jobs using cron patterns from config
@@ -88,6 +92,15 @@ export function setupQueues() {
     { name: "weekly-report" }
   );
   console.log(`📅 Weekly Report cron: ${weeklyReportCron}`);
+
+  // Weekly insights (default: Monday 6:00 AM - antes de la jornada laboral)
+  const weeklyInsightsCron = process.env.WEEKLY_INSIGHTS_CRON || "0 6 * * 1";
+  queues.weeklyInsights.upsertJobScheduler(
+    "weekly-insights-cron",
+    { pattern: weeklyInsightsCron },
+    { name: "weekly-insights" }
+  );
+  console.log(`📅 Weekly Insights cron: ${weeklyInsightsCron}`);
 
   return {
     ...queues,

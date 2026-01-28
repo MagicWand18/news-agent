@@ -18,7 +18,7 @@ import {
   Line,
   Legend,
 } from "recharts";
-import { BarChart3, Users, Calendar } from "lucide-react";
+import { BarChart3, Users, Calendar, Tag, Zap } from "lucide-react";
 import { FilterBar, FilterSelect } from "@/components/filters";
 
 const SENTIMENT_COLORS = {
@@ -81,6 +81,10 @@ export default function AnalyticsPage() {
 
   const clients = trpc.clients.list.useQuery();
   const analytics = trpc.dashboard.analytics.useQuery(
+    { clientId: clientId || undefined, days: Number(days) },
+    { refetchOnWindowFocus: false }
+  );
+  const topics = trpc.intelligence.getTopics.useQuery(
     { clientId: clientId || undefined, days: Number(days) },
     { refetchOnWindowFocus: false }
   );
@@ -445,6 +449,108 @@ export default function AnalyticsPage() {
             </ResponsiveContainer>
           ) : (
             <EmptyState message="Sin datos de keywords" />
+          )}
+        </div>
+      </div>
+
+      {/* Row 4: Topics */}
+      <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
+        {/* Topic Cloud */}
+        <div className="rounded-xl border border-gray-100 bg-white p-6 shadow-sm">
+          <div className="mb-4 flex items-center gap-2">
+            <Tag className="h-5 w-5 text-purple-500" />
+            <h3 className="font-semibold text-gray-900">Temas Detectados</h3>
+          </div>
+          <p className="mb-4 text-sm text-gray-500">
+            Temas extraidos automaticamente de las menciones
+          </p>
+          {topics.isLoading ? (
+            <LoadingSpinner />
+          ) : (topics.data?.topics?.length ?? 0) > 0 ? (
+            <div className="flex flex-wrap gap-2">
+              {topics.data?.topics?.map((topic) => {
+                // Calcular tamano basado en conteo
+                const maxCount = Math.max(...(topics.data?.topics?.map((t) => t.count) || [1]));
+                const minSize = 12;
+                const maxSize = 24;
+                const size = minSize + ((topic.count / maxCount) * (maxSize - minSize));
+
+                // Color basado en sentimiento predominante
+                const total = topic.sentiment.positive + topic.sentiment.negative + topic.sentiment.neutral;
+                const positiveRatio = total > 0 ? topic.sentiment.positive / total : 0;
+                const negativeRatio = total > 0 ? topic.sentiment.negative / total : 0;
+
+                let bgColor = "bg-gray-100 text-gray-700";
+                if (positiveRatio > 0.5) bgColor = "bg-emerald-100 text-emerald-700";
+                else if (negativeRatio > 0.5) bgColor = "bg-red-100 text-red-700";
+
+                return (
+                  <span
+                    key={topic.name}
+                    className={`inline-flex items-center rounded-full px-3 py-1 font-medium ${bgColor}`}
+                    style={{ fontSize: `${size}px` }}
+                    title={`${topic.count} menciones | +${topic.sentiment.positive} -${topic.sentiment.negative}`}
+                  >
+                    {topic.name}
+                    <span className="ml-1.5 text-xs opacity-60">({topic.count})</span>
+                  </span>
+                );
+              })}
+            </div>
+          ) : (
+            <div className="flex flex-col items-center justify-center py-8 text-center">
+              <div className="mb-3 flex h-12 w-12 items-center justify-center rounded-full bg-purple-100">
+                <Tag className="h-6 w-6 text-purple-400" />
+              </div>
+              <p className="text-sm text-gray-500">Sin temas detectados</p>
+              <p className="mt-1 text-xs text-gray-400">
+                Los temas se extraen automaticamente de las menciones
+              </p>
+            </div>
+          )}
+        </div>
+
+        {/* Emerging Topics */}
+        <div className="rounded-xl border border-gray-100 bg-white p-6 shadow-sm">
+          <div className="mb-4 flex items-center gap-2">
+            <Zap className="h-5 w-5 text-amber-500" />
+            <h3 className="font-semibold text-gray-900">Temas Emergentes</h3>
+          </div>
+          <p className="mb-4 text-sm text-gray-500">
+            Temas con 3+ menciones en las ultimas 24 horas
+          </p>
+          {topics.isLoading ? (
+            <LoadingSpinner />
+          ) : (topics.data?.emergingTopics?.length ?? 0) > 0 ? (
+            <div className="space-y-3">
+              {topics.data?.emergingTopics?.map((topic, index) => (
+                <div
+                  key={topic.name}
+                  className="flex items-center gap-3 rounded-lg border border-amber-200 bg-amber-50 p-3"
+                >
+                  <div className="flex h-8 w-8 items-center justify-center rounded-full bg-amber-200 text-sm font-bold text-amber-700">
+                    {index + 1}
+                  </div>
+                  <div className="flex-1">
+                    <p className="font-medium text-gray-900">{topic.name}</p>
+                    <p className="text-sm text-amber-600">
+                      {topic.count} menciones en 24h
+                    </p>
+                  </div>
+                  <Zap className="h-5 w-5 text-amber-500" />
+                </div>
+              ))}
+            </div>
+          ) : (
+            <div className="flex flex-col items-center justify-center py-8 text-center">
+              <div className="mb-3 flex h-12 w-12 items-center justify-center rounded-full bg-amber-100">
+                <Zap className="h-6 w-6 text-amber-400" />
+              </div>
+              <p className="text-sm text-gray-500">Sin temas emergentes</p>
+              <p className="mt-1 text-xs text-gray-400">
+                Apareceran temas con alto volumen reciente
+              </p>
+            </div>
           )}
         </div>
       </div>
