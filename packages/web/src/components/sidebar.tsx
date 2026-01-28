@@ -13,6 +13,7 @@ import {
   LogOut,
   Menu,
   X,
+  BarChart3,
 } from "lucide-react";
 import { signOut, useSession } from "next-auth/react";
 import { useState } from "react";
@@ -21,6 +22,7 @@ const navigation = [
   { name: "Dashboard", href: "/dashboard", icon: LayoutDashboard },
   { name: "Clientes", href: "/dashboard/clients", icon: Users },
   { name: "Menciones", href: "/dashboard/mentions", icon: Newspaper },
+  { name: "Analiticas", href: "/dashboard/analytics", icon: BarChart3 },
   { name: "Tareas", href: "/dashboard/tasks", icon: CheckSquare },
   { name: "Equipo", href: "/dashboard/team", icon: UserCog },
   { name: "Configuracion", href: "/dashboard/settings", icon: Settings, adminOnly: true },

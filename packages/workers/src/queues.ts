@@ -18,6 +18,7 @@ export const QUEUE_NAMES = {
   DIGEST: "notify-digest",
   ONBOARDING: "onboarding",
   CRISIS_CHECK: "crisis-check",
+  WEEKLY_REPORT: "weekly-report",
 } as const;
 
 export function setupQueues() {
@@ -33,6 +34,7 @@ export function setupQueues() {
     digest: new Queue(QUEUE_NAMES.DIGEST, { connection }),
     onboarding: new Queue(QUEUE_NAMES.ONBOARDING, { connection }),
     crisisCheck: new Queue(QUEUE_NAMES.CRISIS_CHECK, { connection }),
+    weeklyReport: new Queue(QUEUE_NAMES.WEEKLY_REPORT, { connection }),
   };
 
   // Schedule repeating jobs using cron patterns from config
@@ -77,6 +79,15 @@ export function setupQueues() {
     { name: "daily-digest" }
   );
   console.log(`📅 Digest cron: ${config.crons.digest}`);
+
+  // Weekly report (default: Sunday 8:00 PM)
+  const weeklyReportCron = process.env.WEEKLY_REPORT_CRON || "0 20 * * 0";
+  queues.weeklyReport.upsertJobScheduler(
+    "weekly-report-cron",
+    { pattern: weeklyReportCron },
+    { name: "weekly-report" }
+  );
+  console.log(`📅 Weekly Report cron: ${weeklyReportCron}`);
 
   return {
     ...queues,

@@ -1,6 +1,7 @@
 import { z } from "zod";
 import { router, protectedProcedure } from "../trpc";
 import { prisma } from "@mediabot/shared";
+import { Prisma } from "@prisma/client";
 
 export const dashboardRouter = router({
   stats: protectedProcedure.query(async ({ ctx }) => {
@@ -72,4 +73,125 @@ export const dashboardRouter = router({
       take: 10,
     });
   }),
+
+  analytics: protectedProcedure
+    .input(
+      z.object({
+        clientId: z.string().optional(),
+        days: z.number().min(7).max(90).default(30),
+      })
+    )
+    .query(async ({ input, ctx }) => {
+      const orgId = ctx.user.orgId;
+      const since = new Date(Date.now() - input.days * 24 * 60 * 60 * 1000);
+
+      // Build client filter
+      const clientFilter = input.clientId
+        ? Prisma.sql`AND m."clientId" = ${input.clientId}`
+        : Prisma.empty;
+
+      const clientWhereClause = input.clientId
+        ? { clientId: input.clientId, client: { orgId } }
+        : { client: { orgId } };
+
+      const [mentionsByDay, sentimentByWeek, topSources, topKeywords, urgencyBreakdown] =
+        await Promise.all([
+          // 1. Mentions by day
+          prisma.$queryRaw<{ date: string; count: bigint }[]>`
+            SELECT DATE(m."createdAt") as date, COUNT(*) as count
+            FROM "Mention" m
+            JOIN "Client" c ON m."clientId" = c.id
+            WHERE c."orgId" = ${orgId}
+            AND m."createdAt" >= ${since}
+            ${clientFilter}
+            GROUP BY DATE(m."createdAt")
+            ORDER BY date ASC
+          `,
+
+          // 2. Sentiment trend by week
+          prisma.$queryRaw<{ week: Date; sentiment: string; count: bigint }[]>`
+            SELECT DATE_TRUNC('week', m."createdAt") as week, m.sentiment, COUNT(*) as count
+            FROM "Mention" m
+            JOIN "Client" c ON m."clientId" = c.id
+            WHERE c."orgId" = ${orgId}
+            AND m."createdAt" >= ${since}
+            ${clientFilter}
+            GROUP BY DATE_TRUNC('week', m."createdAt"), m.sentiment
+            ORDER BY week ASC
+          `,
+
+          // 3. Top sources
+          prisma.$queryRaw<{ source: string; count: bigint }[]>`
+            SELECT a.source, COUNT(*) as count
+            FROM "Mention" m
+            JOIN "Article" a ON m."articleId" = a.id
+            JOIN "Client" c ON m."clientId" = c.id
+            WHERE c."orgId" = ${orgId}
+            AND m."createdAt" >= ${since}
+            ${clientFilter}
+            GROUP BY a.source
+            ORDER BY count DESC
+            LIMIT 10
+          `,
+
+          // 4. Top keywords
+          prisma.mention.groupBy({
+            by: ["keywordMatched"],
+            where: {
+              ...clientWhereClause,
+              createdAt: { gte: since },
+            },
+            _count: { id: true },
+            orderBy: { _count: { id: "desc" } },
+            take: 10,
+          }),
+
+          // 5. Urgency breakdown
+          prisma.mention.groupBy({
+            by: ["urgency"],
+            where: {
+              ...clientWhereClause,
+              createdAt: { gte: since },
+            },
+            _count: { id: true },
+          }),
+        ]);
+
+      // Transform sentiment data into weekly grouped format
+      const sentimentTrendMap = new Map<string, { positive: number; negative: number; neutral: number; mixed: number }>();
+      for (const row of sentimentByWeek) {
+        const weekKey = new Date(row.week).toISOString().split("T")[0];
+        if (!sentimentTrendMap.has(weekKey)) {
+          sentimentTrendMap.set(weekKey, { positive: 0, negative: 0, neutral: 0, mixed: 0 });
+        }
+        const entry = sentimentTrendMap.get(weekKey)!;
+        const sentiment = row.sentiment.toLowerCase() as keyof typeof entry;
+        if (sentiment in entry) {
+          entry[sentiment] = Number(row.count);
+        }
+      }
+
+      return {
+        mentionsByDay: mentionsByDay.map((d) => ({
+          date: d.date,
+          count: Number(d.count),
+        })),
+        sentimentTrend: Array.from(sentimentTrendMap.entries()).map(([week, data]) => ({
+          week,
+          ...data,
+        })),
+        topSources: topSources.map((s) => ({
+          source: s.source,
+          count: Number(s.count),
+        })),
+        topKeywords: topKeywords.map((k) => ({
+          keyword: k.keywordMatched,
+          count: k._count.id,
+        })),
+        urgencyBreakdown: urgencyBreakdown.map((u) => ({
+          urgency: u.urgency,
+          count: u._count.id,
+        })),
+      };
+    }),
 });

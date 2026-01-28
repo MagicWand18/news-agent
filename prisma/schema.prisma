@@ -48,6 +48,7 @@ model Client {
   mentions        Mention[]
   tasks           Task[]
   crisisAlerts    CrisisAlert[]
+  reportLogs      ReportLog[]
   onboarding      Json?
   createdAt       DateTime      @default(now())
   updatedAt       DateTime      @updatedAt
@@ -228,4 +229,15 @@ enum CrisisStatus {
   MONITORING
   RESOLVED
   DISMISSED
+}
+
+model ReportLog {
+  id           String   @id @default(cuid())
+  clientId     String
+  client       Client   @relation(fields: [clientId], references: [id])
+  type         String   // "weekly" | "monthly"
+  mentionCount Int
+  sentAt       DateTime @default(now())
+
+  @@index([clientId, sentAt])
 }

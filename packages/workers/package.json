@@ -19,11 +19,13 @@
     "node-fetch": "^3.3.2",
     "crypto-js": "^4.2.0",
     "dotenv": "^16.3.1",
-    "grammy": "^1.21.1"
+    "grammy": "^1.21.1",
+    "pdfkit": "^0.15.0"
   },
   "devDependencies": {
     "@types/node": "^20.11.0",
     "@types/crypto-js": "^4.2.1",
+    "@types/pdfkit": "^0.13.8",
     "tsx": "^4.7.0",
     "typescript": "^5.3.3"
   }
