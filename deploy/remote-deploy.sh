@@ -126,9 +126,10 @@ echo ""
 echo "── [2/7] Checking for updates..."
 if [ ! -d "$APP_DIR/.git" ]; then
     echo "  First deploy - cloning repository..."
-    rm -rf "$APP_DIR/docker-compose.prod.yml" "$APP_DIR/Dockerfile" 2>/dev/null || true
     # Save .env before clone
     cp "$APP_DIR/.env" /tmp/mediabot-env-backup 2>/dev/null || true
+    # Remove existing dir contents (keep nothing) then clone
+    rm -rf "$APP_DIR"
     git clone "$REPO_URL" "$APP_DIR"
     # Restore .env after clone
     cp /tmp/mediabot-env-backup "$APP_DIR/.env" 2>/dev/null || true
