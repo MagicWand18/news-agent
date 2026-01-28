@@ -2,7 +2,7 @@
 
 import { trpc } from "@/lib/trpc";
 import { StatCard, StatCardSkeleton } from "@/components/stat-card";
-import { MentionRow, MentionRowSkeleton } from "@/components/mention-row";
+import { MentionTimeline, MentionTimelineSkeleton } from "@/components/mention-timeline";
 import { LayoutDashboard, Newspaper, Users, CheckSquare } from "lucide-react";
 import {
   AreaChart,
@@ -58,21 +58,25 @@ export default function DashboardPage() {
               title="Clientes activos"
               value={stats.data?.clientCount ?? 0}
               icon={<Users className="h-6 w-6" />}
+              animate
             />
             <StatCard
               title="Menciones (24h)"
               value={stats.data?.mentions24h ?? 0}
               icon={<Newspaper className="h-6 w-6" />}
+              animate
             />
             <StatCard
               title="Menciones (7d)"
               value={stats.data?.mentions7d ?? 0}
               icon={<LayoutDashboard className="h-6 w-6" />}
+              animate
             />
             <StatCard
               title="Tareas pendientes"
               value={stats.data?.tasksPending ?? 0}
               icon={<CheckSquare className="h-6 w-6" />}
+              animate
             />
           </>
         )}
@@ -194,38 +198,18 @@ export default function DashboardPage() {
         </div>
       </div>
 
-      {/* Recent Mentions */}
+      {/* Recent Mentions - Timeline */}
       <div className="rounded-xl border border-gray-100 bg-white p-6 shadow-sm">
-        <div className="mb-4 flex items-center justify-between">
+        <div className="mb-6 flex items-center justify-between">
           <div>
             <h3 className="font-semibold text-gray-900">Menciones recientes</h3>
             <p className="text-sm text-gray-500">Ultimas menciones detectadas</p>
           </div>
         </div>
         {recent.isLoading ? (
-          <div className="space-y-0">
-            <MentionRowSkeleton />
-            <MentionRowSkeleton />
-            <MentionRowSkeleton />
-          </div>
-        ) : (recent.data?.length ?? 0) > 0 ? (
-          recent.data?.map((mention) => (
-            <MentionRow
-              key={mention.id}
-              id={mention.id}
-              title={mention.article.title}
-              source={mention.article.source}
-              clientName={mention.client.name}
-              sentiment={mention.sentiment}
-              relevance={mention.relevance}
-              urgency={mention.urgency}
-              date={mention.createdAt}
-              url={mention.article.url}
-              summary={mention.aiSummary}
-            />
-          ))
+          <MentionTimelineSkeleton />
         ) : (
-          <EmptyState message="No hay menciones recientes" />
+          <MentionTimeline mentions={recent.data ?? []} />
         )}
       </div>
     </div>

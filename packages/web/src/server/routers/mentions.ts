@@ -10,6 +10,8 @@ export const mentionsRouter = router({
       z.object({
         clientId: z.string().optional(),
         sentiment: z.enum(["POSITIVE", "NEGATIVE", "NEUTRAL", "MIXED"]).optional(),
+        urgency: z.enum(["HIGH", "MEDIUM", "LOW"]).optional(),
+        source: z.string().optional(),
         dateFrom: z.date().optional(),
         dateTo: z.date().optional(),
         cursor: z.string().optional(),
@@ -17,13 +19,15 @@ export const mentionsRouter = router({
       })
     )
     .query(async ({ input, ctx }) => {
-      const { cursor, limit, clientId, sentiment, dateFrom, dateTo } = input;
+      const { cursor, limit, clientId, sentiment, urgency, source, dateFrom, dateTo } = input;
 
       const mentions = await prisma.mention.findMany({
         where: {
           client: { orgId: ctx.user.orgId },
           ...(clientId && { clientId }),
           ...(sentiment && { sentiment }),
+          ...(urgency && { urgency }),
+          ...(source && { article: { source: { contains: source, mode: "insensitive" } } }),
           ...(dateFrom || dateTo
             ? {
                 createdAt: {

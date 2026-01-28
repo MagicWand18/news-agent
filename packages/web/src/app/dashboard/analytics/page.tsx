@@ -1,7 +1,7 @@
 "use client";
 
 import { trpc } from "@/lib/trpc";
-import { useState } from "react";
+import { useState, useMemo } from "react";
 import {
   AreaChart,
   Area,
@@ -18,7 +18,8 @@ import {
   Line,
   Legend,
 } from "recharts";
-import { BarChart3 } from "lucide-react";
+import { BarChart3, Users, Calendar } from "lucide-react";
+import { FilterBar, FilterSelect } from "@/components/filters";
 
 const SENTIMENT_COLORS = {
   positive: "#10b981",
@@ -42,24 +43,76 @@ const URGENCY_LABELS: Record<string, string> = {
 };
 
 const PERIOD_OPTIONS = [
-  { value: 7, label: "7 dias" },
-  { value: 30, label: "30 dias" },
-  { value: 60, label: "60 dias" },
-  { value: 90, label: "90 dias" },
+  { value: "7", label: "7 dias" },
+  { value: "30", label: "30 dias" },
+  { value: "60", label: "60 dias" },
+  { value: "90", label: "90 dias" },
+];
+
+const SENTIMENT_OPTIONS = [
+  { value: "positive", label: "Positivo" },
+  { value: "negative", label: "Negativo" },
+  { value: "neutral", label: "Neutral" },
+  { value: "mixed", label: "Mixto" },
+];
+
+const URGENCY_OPTIONS = [
+  { value: "CRITICAL", label: "Critico" },
+  { value: "HIGH", label: "Alto" },
+  { value: "MEDIUM", label: "Medio" },
+  { value: "LOW", label: "Bajo" },
 ];
 
 export default function AnalyticsPage() {
   const [clientId, setClientId] = useState<string>("");
-  const [days, setDays] = useState(30);
+  const [days, setDays] = useState("30");
+  const [selectedSentiments, setSelectedSentiments] = useState<string[]>([
+    "positive",
+    "negative",
+    "neutral",
+    "mixed",
+  ]);
+  const [selectedUrgencies, setSelectedUrgencies] = useState<string[]>([
+    "CRITICAL",
+    "HIGH",
+    "MEDIUM",
+    "LOW",
+  ]);
 
   const clients = trpc.clients.list.useQuery();
   const analytics = trpc.dashboard.analytics.useQuery(
-    { clientId: clientId || undefined, days },
+    { clientId: clientId || undefined, days: Number(days) },
     { refetchOnWindowFocus: false }
   );
 
   const isLoading = analytics.isLoading;
   const data = analytics.data;
+
+  const clientOptions = useMemo(() => {
+    if (!clients.data) return [];
+    return clients.data.map((c) => ({ value: c.id, label: c.name }));
+  }, [clients.data]);
+
+  // Filter urgency breakdown based on selected urgencies
+  const filteredUrgencyBreakdown = useMemo(() => {
+    if (!data?.urgencyBreakdown) return [];
+    return data.urgencyBreakdown.filter((u) => selectedUrgencies.includes(u.urgency));
+  }, [data?.urgencyBreakdown, selectedUrgencies]);
+
+  // Count active filters
+  const activeFilterCount = [
+    clientId,
+    days !== "30" ? days : null,
+    selectedSentiments.length < 4 ? "sentiment" : null,
+    selectedUrgencies.length < 4 ? "urgency" : null,
+  ].filter(Boolean).length;
+
+  const handleClearFilters = () => {
+    setClientId("");
+    setDays("30");
+    setSelectedSentiments(["positive", "negative", "neutral", "mixed"]);
+    setSelectedUrgencies(["CRITICAL", "HIGH", "MEDIUM", "LOW"]);
+  };
 
   return (
     <div className="space-y-6">
@@ -71,35 +124,42 @@ export default function AnalyticsPage() {
             Estadisticas avanzadas de menciones y tendencias
           </p>
         </div>
-
-        {/* Filters */}
-        <div className="flex flex-wrap gap-3">
-          <select
-            value={clientId}
-            onChange={(e) => setClientId(e.target.value)}
-            className="rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm shadow-sm focus:border-brand-500 focus:outline-none focus:ring-1 focus:ring-brand-500"
-          >
-            <option value="">Todos los clientes</option>
-            {clients.data?.map((c) => (
-              <option key={c.id} value={c.id}>
-                {c.name}
-              </option>
-            ))}
-          </select>
-
-          <select
-            value={days}
-            onChange={(e) => setDays(Number(e.target.value))}
-            className="rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm shadow-sm focus:border-brand-500 focus:outline-none focus:ring-1 focus:ring-brand-500"
-          >
-            {PERIOD_OPTIONS.map((opt) => (
-              <option key={opt.value} value={opt.value}>
-                {opt.label}
-              </option>
-            ))}
-          </select>
-        </div>
       </div>
+
+      {/* Filtros */}
+      <FilterBar activeCount={activeFilterCount} onClear={handleClearFilters}>
+        <FilterSelect
+          label="Cliente"
+          value={clientId}
+          options={clientOptions}
+          onChange={setClientId}
+          placeholder="Todos los clientes"
+          icon={<Users className="h-4 w-4" />}
+        />
+        <FilterSelect
+          label="Periodo"
+          value={days}
+          options={PERIOD_OPTIONS}
+          onChange={setDays}
+          icon={<Calendar className="h-4 w-4" />}
+        />
+        <FilterSelect
+          label="Sentimientos"
+          value={selectedSentiments}
+          options={SENTIMENT_OPTIONS}
+          onChange={() => {}}
+          onMultiChange={setSelectedSentiments}
+          multiple
+        />
+        <FilterSelect
+          label="Urgencias"
+          value={selectedUrgencies}
+          options={URGENCY_OPTIONS}
+          onChange={() => {}}
+          onMultiChange={setSelectedUrgencies}
+          multiple
+        />
+      </FilterBar>
 
       {/* Row 1: Mentions by Day */}
       <div className="rounded-xl border border-gray-100 bg-white p-6 shadow-sm">
@@ -199,38 +259,46 @@ export default function AnalyticsPage() {
                   }}
                 />
                 <Legend />
-                <Line
-                  type="monotone"
-                  dataKey="positive"
-                  name="Positivo"
-                  stroke={SENTIMENT_COLORS.positive}
-                  strokeWidth={2}
-                  dot={{ r: 3 }}
-                />
-                <Line
-                  type="monotone"
-                  dataKey="negative"
-                  name="Negativo"
-                  stroke={SENTIMENT_COLORS.negative}
-                  strokeWidth={2}
-                  dot={{ r: 3 }}
-                />
-                <Line
-                  type="monotone"
-                  dataKey="neutral"
-                  name="Neutral"
-                  stroke={SENTIMENT_COLORS.neutral}
-                  strokeWidth={2}
-                  dot={{ r: 3 }}
-                />
-                <Line
-                  type="monotone"
-                  dataKey="mixed"
-                  name="Mixto"
-                  stroke={SENTIMENT_COLORS.mixed}
-                  strokeWidth={2}
-                  dot={{ r: 3 }}
-                />
+                {selectedSentiments.includes("positive") && (
+                  <Line
+                    type="monotone"
+                    dataKey="positive"
+                    name="Positivo"
+                    stroke={SENTIMENT_COLORS.positive}
+                    strokeWidth={2}
+                    dot={{ r: 3 }}
+                  />
+                )}
+                {selectedSentiments.includes("negative") && (
+                  <Line
+                    type="monotone"
+                    dataKey="negative"
+                    name="Negativo"
+                    stroke={SENTIMENT_COLORS.negative}
+                    strokeWidth={2}
+                    dot={{ r: 3 }}
+                  />
+                )}
+                {selectedSentiments.includes("neutral") && (
+                  <Line
+                    type="monotone"
+                    dataKey="neutral"
+                    name="Neutral"
+                    stroke={SENTIMENT_COLORS.neutral}
+                    strokeWidth={2}
+                    dot={{ r: 3 }}
+                  />
+                )}
+                {selectedSentiments.includes("mixed") && (
+                  <Line
+                    type="monotone"
+                    dataKey="mixed"
+                    name="Mixto"
+                    stroke={SENTIMENT_COLORS.mixed}
+                    strokeWidth={2}
+                    dot={{ r: 3 }}
+                  />
+                )}
               </LineChart>
             </ResponsiveContainer>
           ) : (
@@ -244,12 +312,12 @@ export default function AnalyticsPage() {
           <p className="mb-4 text-sm text-gray-500">Distribucion</p>
           {isLoading ? (
             <LoadingSpinner />
-          ) : (data?.urgencyBreakdown?.length ?? 0) > 0 ? (
+          ) : filteredUrgencyBreakdown.length > 0 ? (
             <>
               <ResponsiveContainer width="100%" height={180}>
                 <PieChart>
                   <Pie
-                    data={data?.urgencyBreakdown ?? []}
+                    data={filteredUrgencyBreakdown}
                     dataKey="count"
                     nameKey="urgency"
                     cx="50%"
@@ -258,7 +326,7 @@ export default function AnalyticsPage() {
                     outerRadius={70}
                     paddingAngle={3}
                   >
-                    {(data?.urgencyBreakdown ?? []).map((entry) => (
+                    {filteredUrgencyBreakdown.map((entry) => (
                       <Cell
                         key={entry.urgency}
                         fill={URGENCY_COLORS[entry.urgency] || "#9ca3af"}
@@ -269,7 +337,7 @@ export default function AnalyticsPage() {
                 </PieChart>
               </ResponsiveContainer>
               <div className="mt-2 space-y-2">
-                {(data?.urgencyBreakdown ?? []).map((entry) => (
+                {filteredUrgencyBreakdown.map((entry) => (
                   <div
                     key={entry.urgency}
                     className="flex items-center justify-between text-sm"

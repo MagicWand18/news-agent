@@ -1,4 +1,7 @@
+"use client";
+
 import { cn } from "@/lib/cn";
+import { useCountUp } from "@/hooks/use-count-up";
 
 interface StatCardProps {
   title: string;
@@ -6,9 +9,16 @@ interface StatCardProps {
   icon: React.ReactNode;
   trend?: { value: number; label: string };
   className?: string;
+  animate?: boolean;
 }
 
-export function StatCard({ title, value, icon, trend, className }: StatCardProps) {
+export function StatCard({ title, value, icon, trend, className, animate = false }: StatCardProps) {
+  const numericValue = typeof value === "number" ? value : parseInt(value, 10);
+  const isNumeric = !isNaN(numericValue);
+  const animatedValue = useCountUp(isNumeric && animate ? numericValue : 0, 1200);
+
+  const displayValue = animate && isNumeric ? animatedValue : value;
+
   return (
     <div
       className={cn(
@@ -19,7 +29,7 @@ export function StatCard({ title, value, icon, trend, className }: StatCardProps
       <div className="flex items-start justify-between">
         <div className="space-y-2">
           <p className="text-sm font-medium text-gray-500">{title}</p>
-          <p className="text-3xl font-bold tracking-tight text-gray-900">{value}</p>
+          <p className="text-3xl font-bold tracking-tight text-gray-900">{displayValue}</p>
           {trend && (
             <div className="flex items-center gap-1">
               <span

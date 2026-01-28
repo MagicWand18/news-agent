@@ -7,3 +7,30 @@
     @apply bg-gray-50 text-gray-900;
   }
 }
+
+@layer components {
+  /* Timeline animation */
+  .timeline-item {
+    opacity: 0;
+    animation: timeline-fade-in-up 0.4s ease-out forwards;
+  }
+
+  @keyframes timeline-fade-in-up {
+    0% {
+      opacity: 0;
+      transform: translateY(10px);
+    }
+    100% {
+      opacity: 1;
+      transform: translateY(0);
+    }
+  }
+
+  /* Respect reduced motion preference */
+  @media (prefers-reduced-motion: reduce) {
+    .timeline-item {
+      animation: none;
+      opacity: 1;
+    }
+  }
+}

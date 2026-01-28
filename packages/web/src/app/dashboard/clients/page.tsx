@@ -1,9 +1,15 @@
 "use client";
 
 import { trpc } from "@/lib/trpc";
-import { useState } from "react";
+import { useState, useMemo } from "react";
 import Link from "next/link";
-import { Plus, Search } from "lucide-react";
+import { Plus, Search, Building2, CheckCircle } from "lucide-react";
+import { FilterBar, FilterSelect, FilterChips } from "@/components/filters";
+
+const STATUS_OPTIONS = [
+  { value: "active", label: "Activo" },
+  { value: "inactive", label: "Inactivo" },
+];
 
 export default function ClientsPage() {
   const clients = trpc.clients.list.useQuery();
@@ -17,15 +23,73 @@ export default function ClientsPage() {
 
   const [showForm, setShowForm] = useState(false);
   const [search, setSearch] = useState("");
+  const [industry, setIndustry] = useState("");
+  const [status, setStatus] = useState("");
   const [formData, setFormData] = useState({
     name: "",
     description: "",
     industry: "",
   });
 
-  const filtered = clients.data?.filter((c) =>
-    c.name.toLowerCase().includes(search.toLowerCase())
-  );
+  // Extract unique industries from clients
+  const industryOptions = useMemo(() => {
+    if (!clients.data) return [];
+    const industries = new Set(
+      clients.data.map((c) => c.industry).filter((i): i is string => Boolean(i))
+    );
+    return Array.from(industries).map((i) => ({ value: i, label: i }));
+  }, [clients.data]);
+
+  const filtered = useMemo(() => {
+    if (!clients.data) return [];
+    return clients.data.filter((c) => {
+      // Search filter
+      if (search && !c.name.toLowerCase().includes(search.toLowerCase())) {
+        return false;
+      }
+      // Industry filter
+      if (industry && c.industry !== industry) {
+        return false;
+      }
+      // Status filter
+      if (status === "active" && !c.active) {
+        return false;
+      }
+      if (status === "inactive" && c.active) {
+        return false;
+      }
+      return true;
+    });
+  }, [clients.data, search, industry, status]);
+
+  const activeFilterCount = [search, industry, status].filter(Boolean).length;
+
+  const handleClearFilters = () => {
+    setSearch("");
+    setIndustry("");
+    setStatus("");
+  };
+
+  const filterChips = useMemo(() => {
+    const chips = [];
+    if (search) {
+      chips.push({ key: "search", label: "Busqueda", value: search });
+    }
+    if (industry) {
+      chips.push({ key: "industry", label: "Industria", value: industry });
+    }
+    if (status) {
+      const statusLabel = STATUS_OPTIONS.find((s) => s.value === status);
+      chips.push({ key: "status", label: "Estado", value: statusLabel?.label || status });
+    }
+    return chips;
+  }, [search, industry, status]);
+
+  const handleRemoveChip = (key: string) => {
+    if (key === "search") setSearch("");
+    if (key === "industry") setIndustry("");
+    if (key === "status") setStatus("");
+  };
 
   return (
     <div className="space-y-6">
@@ -86,15 +150,40 @@ export default function ClientsPage() {
         </div>
       )}
 
-      <div className="relative">
-        <Search className="absolute left-3 top-3 h-4 w-4 text-gray-400" />
-        <input
-          placeholder="Buscar cliente..."
-          value={search}
-          onChange={(e) => setSearch(e.target.value)}
-          className="w-full rounded-lg border bg-white py-2 pl-10 pr-4"
+      {/* Filtros */}
+      <FilterBar activeCount={activeFilterCount} onClear={handleClearFilters}>
+        <div className="relative flex-1 min-w-[200px]">
+          <label className="mb-1 block text-xs font-medium text-gray-500">Buscar</label>
+          <div className="relative">
+            <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400" />
+            <input
+              placeholder="Buscar cliente..."
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              className="w-full rounded-lg border border-gray-200 bg-white py-2 pl-9 pr-4 text-sm transition-colors hover:border-gray-300 focus:border-brand-500 focus:outline-none focus:ring-1 focus:ring-brand-500"
+            />
+          </div>
+        </div>
+        <FilterSelect
+          label="Industria"
+          value={industry}
+          options={industryOptions}
+          onChange={setIndustry}
+          placeholder="Todas"
+          icon={<Building2 className="h-4 w-4" />}
         />
-      </div>
+        <FilterSelect
+          label="Estado"
+          value={status}
+          options={STATUS_OPTIONS}
+          onChange={setStatus}
+          placeholder="Todos"
+          icon={<CheckCircle className="h-4 w-4" />}
+        />
+      </FilterBar>
+
+      {/* Chips de filtros activos */}
+      <FilterChips chips={filterChips} onRemove={handleRemoveChip} />
 
       <div className="rounded-xl bg-white shadow-sm">
         <table className="w-full">

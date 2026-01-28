@@ -2,26 +2,123 @@
 
 import { trpc } from "@/lib/trpc";
 import { MentionRow } from "@/components/mention-row";
-import { useState } from "react";
-import { Download } from "lucide-react";
+import { useState, useMemo } from "react";
+import { Download, Users, TrendingUp, AlertTriangle, Globe } from "lucide-react";
 import { exportMentionsToCsv } from "@/lib/csv-export";
+import { FilterBar, FilterSelect, FilterDateRange, FilterChips } from "@/components/filters";
 
-const SENTIMENTS = ["", "POSITIVE", "NEGATIVE", "NEUTRAL", "MIXED"] as const;
+const SENTIMENT_OPTIONS = [
+  { value: "POSITIVE", label: "Positivo" },
+  { value: "NEGATIVE", label: "Negativo" },
+  { value: "NEUTRAL", label: "Neutral" },
+  { value: "MIXED", label: "Mixto" },
+];
+
+const URGENCY_OPTIONS = [
+  { value: "HIGH", label: "Alta" },
+  { value: "MEDIUM", label: "Media" },
+  { value: "LOW", label: "Baja" },
+];
+
+interface Filters {
+  clientId: string;
+  sentiment: string;
+  urgency: string;
+  source: string;
+  startDate: string | null;
+  endDate: string | null;
+}
 
 export default function MentionsPage() {
-  const [clientId, setClientId] = useState<string>("");
-  const [sentiment, setSentiment] = useState<string>("");
+  const [filters, setFilters] = useState<Filters>({
+    clientId: "",
+    sentiment: "",
+    urgency: "",
+    source: "",
+    startDate: null,
+    endDate: null,
+  });
 
   const clients = trpc.clients.list.useQuery();
+
+  // Extract unique sources from mentions for the filter
+  const allMentions = trpc.mentions.list.useQuery({ limit: 50 });
+  const sourceOptions = useMemo(() => {
+    if (!allMentions.data?.mentions) return [];
+    const sources = new Set(allMentions.data.mentions.map((m) => m.article.source));
+    return Array.from(sources).map((s) => ({ value: s, label: s }));
+  }, [allMentions.data]);
+
   const mentions = trpc.mentions.list.useQuery({
-    clientId: clientId || undefined,
-    sentiment: (sentiment || undefined) as "POSITIVE" | "NEGATIVE" | "NEUTRAL" | "MIXED" | undefined,
+    clientId: filters.clientId || undefined,
+    sentiment: (filters.sentiment || undefined) as "POSITIVE" | "NEGATIVE" | "NEUTRAL" | "MIXED" | undefined,
+    urgency: (filters.urgency || undefined) as "HIGH" | "MEDIUM" | "LOW" | undefined,
+    source: filters.source || undefined,
+    dateFrom: filters.startDate ? new Date(filters.startDate) : undefined,
+    dateTo: filters.endDate ? new Date(filters.endDate + "T23:59:59") : undefined,
     limit: 30,
   });
 
   const handleExport = () => {
     if (mentions.data?.mentions) {
       exportMentionsToCsv(mentions.data.mentions);
+    }
+  };
+
+  const clientOptions = useMemo(() => {
+    if (!clients.data) return [];
+    return clients.data.map((c) => ({ value: c.id, label: c.name }));
+  }, [clients.data]);
+
+  const activeFilterCount = [
+    filters.clientId,
+    filters.sentiment,
+    filters.urgency,
+    filters.source,
+    filters.startDate,
+  ].filter(Boolean).length;
+
+  const handleClearFilters = () => {
+    setFilters({
+      clientId: "",
+      sentiment: "",
+      urgency: "",
+      source: "",
+      startDate: null,
+      endDate: null,
+    });
+  };
+
+  const filterChips = useMemo(() => {
+    const chips = [];
+    if (filters.clientId) {
+      const client = clients.data?.find((c) => c.id === filters.clientId);
+      chips.push({ key: "clientId", label: "Cliente", value: client?.name || filters.clientId });
+    }
+    if (filters.sentiment) {
+      const sentiment = SENTIMENT_OPTIONS.find((s) => s.value === filters.sentiment);
+      chips.push({ key: "sentiment", label: "Sentimiento", value: sentiment?.label || filters.sentiment });
+    }
+    if (filters.urgency) {
+      const urgency = URGENCY_OPTIONS.find((u) => u.value === filters.urgency);
+      chips.push({ key: "urgency", label: "Urgencia", value: urgency?.label || filters.urgency });
+    }
+    if (filters.source) {
+      chips.push({ key: "source", label: "Fuente", value: filters.source });
+    }
+    if (filters.startDate && filters.endDate) {
+      chips.push({ key: "date", label: "Periodo", value: `${filters.startDate} - ${filters.endDate}` });
+    } else if (filters.startDate) {
+      chips.push({ key: "date", label: "Desde", value: filters.startDate });
+    }
+    return chips;
+  }, [filters, clients.data]);
+
+  const handleRemoveChip = (key: string) => {
+    if (key === "date") {
+      setFilters((f) => ({ ...f, startDate: null, endDate: null }));
+    } else {
+      setFilters((f) => ({ ...f, [key]: "" }));
     }
   };
 
@@ -39,36 +136,57 @@ export default function MentionsPage() {
         </button>
       </div>
 
-      {/* Filters */}
-      <div className="flex gap-4">
-        <select
-          value={clientId}
-          onChange={(e) => setClientId(e.target.value)}
-          className="rounded-lg border bg-white px-3 py-2"
-        >
-          <option value="">Todos los clientes</option>
-          {clients.data?.map((c) => (
-            <option key={c.id} value={c.id}>
-              {c.name}
-            </option>
-          ))}
-        </select>
+      {/* Filtros */}
+      <FilterBar activeCount={activeFilterCount} onClear={handleClearFilters}>
+        <FilterSelect
+          label="Cliente"
+          value={filters.clientId}
+          options={clientOptions}
+          onChange={(v) => setFilters((f) => ({ ...f, clientId: v }))}
+          placeholder="Todos los clientes"
+          icon={<Users className="h-4 w-4" />}
+        />
+        <FilterSelect
+          label="Sentimiento"
+          value={filters.sentiment}
+          options={SENTIMENT_OPTIONS}
+          onChange={(v) => setFilters((f) => ({ ...f, sentiment: v }))}
+          placeholder="Todos"
+          icon={<TrendingUp className="h-4 w-4" />}
+        />
+        <FilterSelect
+          label="Urgencia"
+          value={filters.urgency}
+          options={URGENCY_OPTIONS}
+          onChange={(v) => setFilters((f) => ({ ...f, urgency: v }))}
+          placeholder="Todas"
+          icon={<AlertTriangle className="h-4 w-4" />}
+        />
+        <FilterSelect
+          label="Fuente"
+          value={filters.source}
+          options={sourceOptions}
+          onChange={(v) => setFilters((f) => ({ ...f, source: v }))}
+          placeholder="Todas las fuentes"
+          icon={<Globe className="h-4 w-4" />}
+        />
+        <FilterDateRange
+          startDate={filters.startDate}
+          endDate={filters.endDate}
+          onChange={(start, end) => setFilters((f) => ({ ...f, startDate: start, endDate: end }))}
+        />
+      </FilterBar>
 
-        <select
-          value={sentiment}
-          onChange={(e) => setSentiment(e.target.value)}
-          className="rounded-lg border bg-white px-3 py-2"
-        >
-          <option value="">Todos los sentimientos</option>
-          <option value="POSITIVE">Positivo</option>
-          <option value="NEGATIVE">Negativo</option>
-          <option value="NEUTRAL">Neutral</option>
-          <option value="MIXED">Mixto</option>
-        </select>
-      </div>
+      {/* Chips de filtros activos */}
+      <FilterChips chips={filterChips} onRemove={handleRemoveChip} />
 
-      {/* Mentions list */}
+      {/* Lista de menciones */}
       <div className="rounded-xl bg-white p-6 shadow-sm">
+        {mentions.isLoading && (
+          <div className="flex items-center justify-center py-12">
+            <div className="h-8 w-8 animate-spin rounded-full border-4 border-brand-500 border-t-transparent" />
+          </div>
+        )}
         {mentions.data?.mentions.map((mention) => (
           <MentionRow
             key={mention.id}
@@ -86,7 +204,7 @@ export default function MentionsPage() {
           />
         ))}
         {mentions.data?.mentions.length === 0 && (
-          <p className="text-center text-gray-500">No hay menciones.</p>
+          <p className="text-center text-gray-500 py-8">No hay menciones que coincidan con los filtros.</p>
         )}
         {mentions.data?.nextCursor && (
           <p className="mt-4 text-center text-sm text-gray-400">
