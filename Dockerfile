@@ -1,5 +1,6 @@
 # ── Stage 1: Base with dependencies ──────────────────
-FROM node:20-alpine AS base
+FROM node:20-slim AS base
+RUN apt-get update -qq && apt-get install -y openssl && rm -rf /var/lib/apt/lists/*
 WORKDIR /app
 COPY package.json package-lock.json ./
 COPY packages/shared/package.json packages/shared/
@@ -15,16 +16,18 @@ FROM base AS web-builder
 RUN npm run build -w packages/web
 
 # ── Stage 3: Web runtime ────────────────────────────
-FROM node:20-alpine AS web
+FROM node:20-slim AS web
+RUN apt-get update -qq && apt-get install -y openssl && rm -rf /var/lib/apt/lists/*
 WORKDIR /app
 COPY --from=web-builder /app/node_modules ./node_modules
 COPY --from=web-builder /app/packages/web/.next ./packages/web/.next
-COPY --from=web-builder /app/packages/web/public ./packages/web/public
 COPY --from=web-builder /app/packages/web/next.config.js ./packages/web/
 COPY --from=web-builder /app/packages/web/package.json ./packages/web/
 COPY --from=web-builder /app/packages/shared ./packages/shared
 COPY --from=web-builder /app/package.json ./
 COPY --from=web-builder /app/prisma ./prisma
+# Copy public dir if it exists (may be empty)
+COPY --from=web-builder /app/packages/web/public ./packages/web/public
 ENV NODE_ENV=production
 EXPOSE 3000
 CMD ["npm", "run", "start", "-w", "packages/web"]
