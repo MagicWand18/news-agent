@@ -1,7 +1,8 @@
 #!/usr/bin/env python3
 """
 MediaBot E2E Test Script
-Tests all pages and captures screenshots for visual verification.
+Tests all pages, captures screenshots, and verifies UI components.
+Updated for Sprint 5: Tests filter components and timeline.
 """
 
 from playwright.sync_api import sync_playwright
@@ -180,6 +181,60 @@ def test_menu_navigation(page):
     return results
 
 
+def test_sprint5_features(page):
+    """Test Sprint 5 specific features: filters and timeline."""
+    print("\n=== Testing Sprint 5 Features ===")
+    results = {}
+
+    # Test Dashboard Timeline
+    print("\n--- Dashboard Timeline ---")
+    page.goto(f"{BASE_URL}/dashboard")
+    page.wait_for_load_state('networkidle')
+    page.wait_for_timeout(2000)
+
+    timeline_items = page.locator('.timeline-item').all()
+    print(f"  Timeline items: {len(timeline_items)}")
+    results['timeline_items'] = len(timeline_items)
+
+    # Test Mentions Filters
+    print("\n--- Mentions Filters ---")
+    page.goto(f"{BASE_URL}/dashboard/mentions")
+    page.wait_for_load_state('networkidle')
+    page.wait_for_timeout(1000)
+
+    filter_selects = page.locator('select').all()
+    date_presets = page.locator('button:has-text("dias"), button:has-text("Hoy")').all()
+    print(f"  Filter selects: {len(filter_selects)}")
+    print(f"  Date presets: {len(date_presets)}")
+    results['mentions_filter_selects'] = len(filter_selects)
+    results['mentions_date_presets'] = len(date_presets)
+
+    # Test Analytics Multi-select
+    print("\n--- Analytics Filters ---")
+    page.goto(f"{BASE_URL}/dashboard/analytics")
+    page.wait_for_load_state('networkidle')
+    page.wait_for_timeout(1500)
+
+    multi_buttons = page.locator('button[class*="rounded-full"]').all()
+    print(f"  Multi-select buttons: {len(multi_buttons)}")
+    results['analytics_multi_buttons'] = len(multi_buttons)
+
+    # Test Clients Filters
+    print("\n--- Clients Filters ---")
+    page.goto(f"{BASE_URL}/dashboard/clients")
+    page.wait_for_load_state('networkidle')
+    page.wait_for_timeout(1000)
+
+    search_input = page.locator('input[placeholder*="Buscar"]').first
+    client_selects = page.locator('select').all()
+    print(f"  Search input visible: {search_input.is_visible() if search_input.count() > 0 else False}")
+    print(f"  Filter selects: {len(client_selects)}")
+    results['clients_search_visible'] = search_input.is_visible() if search_input.count() > 0 else False
+    results['clients_filter_selects'] = len(client_selects)
+
+    return results
+
+
 def test_client_detail(page):
     """Test client detail page if clients exist."""
     print("\n=== Testing Client Detail Page ===")
@@ -258,6 +313,9 @@ def main():
                 # Test all menu items
                 menu_results = test_menu_navigation(page)
 
+                # Test Sprint 5 features
+                sprint5_results = test_sprint5_features(page)
+
                 # Test detail pages
                 client_result = test_client_detail(page)
                 mention_result = test_mention_detail(page)
@@ -272,6 +330,10 @@ def main():
                     status = result.get("status", "UNKNOWN")
                     elements = result.get("elements", {})
                     print(f"  {name}: {status} (buttons: {elements.get('buttons', '?')}, links: {elements.get('links', '?')}, inputs: {elements.get('inputs', '?')})")
+
+                print("\nSprint 5 Features:")
+                for key, value in sprint5_results.items():
+                    print(f"  {key}: {value}")
 
                 print(f"\nClient Detail: {client_result.get('status')}")
                 print(f"Mention Detail: {mention_result.get('status')}")
