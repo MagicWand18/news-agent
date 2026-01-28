@@ -17,7 +17,7 @@ vi.mock("@mediabot/shared", () => ({
   },
 }));
 
-const { analyzeMention, generateDigestSummary } = await import("../analysis/ai.js");
+const { analyzeMention, generateDigestSummary, preFilterArticle } = await import("../analysis/ai.js");
 
 describe("analyzeMention", () => {
   beforeEach(() => {
@@ -171,6 +171,189 @@ describe("analyzeMention", () => {
       clientIndustry: "",
       keyword: "test",
     })).rejects.toThrow("Unexpected response type from Claude");
+  });
+});
+
+describe("preFilterArticle", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+  });
+
+  it("should return relevant=true for matching content", async () => {
+    mockCreate.mockResolvedValue({
+      content: [{
+        type: "text",
+        text: JSON.stringify({
+          relevant: true,
+          reason: "El artículo menciona directamente a PEMEX como empresa petrolera",
+          confidence: 0.95,
+        }),
+      }],
+    });
+
+    const result = await preFilterArticle({
+      articleTitle: "PEMEX anuncia nuevas inversiones",
+      articleContent: "La empresa petrolera PEMEX confirmó hoy...",
+      clientName: "PEMEX",
+      clientDescription: "Empresa petrolera mexicana",
+      keyword: "PEMEX",
+    });
+
+    expect(result.relevant).toBe(true);
+    expect(result.confidence).toBe(0.95);
+    expect(result.reason).toContain("PEMEX");
+  });
+
+  it("should return relevant=false for false positives", async () => {
+    mockCreate.mockResolvedValue({
+      content: [{
+        type: "text",
+        text: JSON.stringify({
+          relevant: false,
+          reason: "Presidencia se refiere al cargo en una empresa privada, no al cliente",
+          confidence: 0.85,
+        }),
+      }],
+    });
+
+    const result = await preFilterArticle({
+      articleTitle: "Nuevo CEO asume la presidencia de la compañía",
+      articleContent: "El ejecutivo tomó la presidencia de la junta directiva...",
+      clientName: "Presidencia de México",
+      clientDescription: "Gobierno federal mexicano",
+      keyword: "presidencia",
+    });
+
+    expect(result.relevant).toBe(false);
+    expect(result.confidence).toBe(0.85);
+  });
+
+  it("should clamp confidence to 0-1 range (max)", async () => {
+    mockCreate.mockResolvedValue({
+      content: [{
+        type: "text",
+        text: JSON.stringify({
+          relevant: true,
+          reason: "Match exacto",
+          confidence: 1.5,
+        }),
+      }],
+    });
+
+    const result = await preFilterArticle({
+      articleTitle: "Test",
+      articleContent: "Content",
+      clientName: "Client",
+      clientDescription: "",
+      keyword: "test",
+    });
+
+    expect(result.confidence).toBe(1);
+  });
+
+  it("should clamp confidence to 0-1 range (min)", async () => {
+    mockCreate.mockResolvedValue({
+      content: [{
+        type: "text",
+        text: JSON.stringify({
+          relevant: false,
+          reason: "No match",
+          confidence: -0.5,
+        }),
+      }],
+    });
+
+    const result = await preFilterArticle({
+      articleTitle: "Test",
+      articleContent: "Content",
+      clientName: "Client",
+      clientDescription: "",
+      keyword: "test",
+    });
+
+    expect(result.confidence).toBe(0);
+  });
+
+  it("should return fallback on JSON parse failure", async () => {
+    mockCreate.mockResolvedValue({
+      content: [{
+        type: "text",
+        text: "I cannot analyze this content properly",
+      }],
+    });
+
+    const result = await preFilterArticle({
+      articleTitle: "Test",
+      articleContent: "Content",
+      clientName: "Client",
+      clientDescription: "",
+      keyword: "test",
+    });
+
+    // Default to relevant=true to not lose potential mentions
+    expect(result.relevant).toBe(true);
+    expect(result.confidence).toBe(0.5);
+    expect(result.reason).toContain("Error de parsing");
+  });
+
+  it("should handle non-text response type", async () => {
+    mockCreate.mockResolvedValue({
+      content: [{
+        type: "image",
+        source: {},
+      }],
+    });
+
+    await expect(preFilterArticle({
+      articleTitle: "Test",
+      articleContent: "Content",
+      clientName: "Client",
+      clientDescription: "",
+      keyword: "test",
+    })).rejects.toThrow("Unexpected response type from Claude");
+  });
+
+  it("should handle JSON wrapped in markdown code blocks", async () => {
+    mockCreate.mockResolvedValue({
+      content: [{
+        type: "text",
+        text: '```json\n{"relevant": true, "reason": "Match directo", "confidence": 0.9}\n```',
+      }],
+    });
+
+    const result = await preFilterArticle({
+      articleTitle: "Test",
+      articleContent: "Content",
+      clientName: "Client",
+      clientDescription: "",
+      keyword: "test",
+    });
+
+    expect(result.relevant).toBe(true);
+    expect(result.confidence).toBe(0.9);
+  });
+
+  it("should handle empty article content", async () => {
+    mockCreate.mockResolvedValue({
+      content: [{
+        type: "text",
+        text: JSON.stringify({
+          relevant: true,
+          reason: "Título coincide con cliente",
+          confidence: 0.7,
+        }),
+      }],
+    });
+
+    const result = await preFilterArticle({
+      articleTitle: "PEMEX en las noticias",
+      articleContent: "",
+      clientName: "PEMEX",
+      clientDescription: "Petrolera",
+      keyword: "PEMEX",
+    });
+
+    expect(result.relevant).toBe(true);
   });
 });
 

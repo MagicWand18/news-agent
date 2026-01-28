@@ -2,6 +2,9 @@ import { createHash } from "crypto";
 import { prisma } from "@mediabot/shared";
 import type { NormalizedArticle } from "@mediabot/shared";
 import { getQueue, QUEUE_NAMES } from "../queues.js";
+import { preFilterArticle } from "../analysis/ai.js";
+
+const PRE_FILTER_CONFIDENCE_THRESHOLD = 0.6;
 
 export async function ingestArticle(article: NormalizedArticle) {
   // Dedup by URL
@@ -62,7 +65,7 @@ async function matchArticle(
   // Group matches by client to avoid duplicate mentions per client
   const matchesByClient = new Map<
     string,
-    { clientId: string; keyword: string }
+    { clientId: string; keyword: string; client: typeof keywords[0]["client"] }
   >();
 
   for (const kw of keywords) {
@@ -82,12 +85,40 @@ async function matchArticle(
       matchesByClient.set(kw.clientId, {
         clientId: kw.clientId,
         keyword: kw.word,
+        client: kw.client,
       });
     }
   }
 
-  // Create mentions and enqueue analysis
+  // Create mentions and enqueue analysis (with pre-filtering)
   for (const [, match] of matchesByClient) {
+    // Pre-filter: Use AI to validate if this is a real mention
+    try {
+      const preFilterResult = await preFilterArticle({
+        articleTitle: article.title,
+        articleContent: article.content || "",
+        clientName: match.client.name,
+        clientDescription: match.client.description || "",
+        keyword: match.keyword,
+      });
+
+      if (!preFilterResult.relevant || preFilterResult.confidence < PRE_FILTER_CONFIDENCE_THRESHOLD) {
+        console.log(
+          `⏭️ Pre-filter skip: client="${match.client.name}" keyword="${match.keyword}" ` +
+          `reason="${preFilterResult.reason}" confidence=${preFilterResult.confidence.toFixed(2)}`
+        );
+        continue;
+      }
+
+      console.log(
+        `✅ Pre-filter pass: client="${match.client.name}" keyword="${match.keyword}" ` +
+        `confidence=${preFilterResult.confidence.toFixed(2)}`
+      );
+    } catch (error) {
+      // If pre-filter fails, proceed with mention creation (don't lose potential mentions)
+      console.error(`⚠️ Pre-filter error for client="${match.client.name}":`, error);
+    }
+
     // Extract snippet around keyword
     const kwIndex = text.indexOf(match.keyword.toLowerCase());
     const snippetStart = Math.max(0, kwIndex - 100);

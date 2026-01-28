@@ -53,3 +53,9 @@ export interface DigestData {
   }[];
   aiExecutiveSummary: string;
 }
+
+export interface PreFilterResult {
+  relevant: boolean;
+  reason: string;
+  confidence: number;
+}

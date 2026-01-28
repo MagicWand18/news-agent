@@ -1,6 +1,6 @@
 import Anthropic from "@anthropic-ai/sdk";
 import { config } from "@mediabot/shared";
-import type { AIAnalysisResult, OnboardingResult } from "@mediabot/shared";
+import type { AIAnalysisResult, OnboardingResult, PreFilterResult } from "@mediabot/shared";
 
 const anthropic = new Anthropic({
   apiKey: config.anthropic.apiKey,
@@ -82,6 +82,73 @@ Solo responde con el JSON, sin markdown ni texto adicional.`,
       sentiment: "NEUTRAL",
       relevance: 5,
       suggestedAction: "Revisar manualmente",
+    };
+  }
+}
+
+/**
+ * Pre-filters articles to reduce false positives before creating mentions.
+ * Uses AI to determine if a keyword match is a real mention of the client
+ * or just a coincidental word match (e.g., "Presidencia de la empresa" vs "Presidencia de México").
+ */
+export async function preFilterArticle(params: {
+  articleTitle: string;
+  articleContent: string;
+  clientName: string;
+  clientDescription: string;
+  keyword: string;
+}): Promise<PreFilterResult> {
+  const contentPreview = params.articleContent?.slice(0, 800) || "";
+
+  const message = await anthropic.messages.create({
+    model: config.anthropic.model,
+    max_tokens: 200,
+    messages: [
+      {
+        role: "user",
+        content: `Determina si este articulo es realmente relevante para el cliente o es un falso positivo.
+
+Cliente: "${params.clientName}"
+Descripcion del cliente: ${params.clientDescription || "No disponible"}
+Keyword que hizo match: "${params.keyword}"
+
+Articulo:
+Titulo: ${params.articleTitle}
+Contenido: ${contentPreview}
+
+Analiza si el keyword "${params.keyword}" en este articulo se refiere realmente al cliente "${params.clientName}" o es una coincidencia (ej: nombre comun, palabra generica, otro contexto).
+
+Responde SOLO en JSON:
+{
+  "relevant": true/false,
+  "reason": "explicacion breve de 1 linea",
+  "confidence": <0.0 a 1.0>
+}`,
+      },
+    ],
+  });
+
+  const content = message.content[0];
+  if (content.type !== "text") {
+    throw new Error("Unexpected response type from Claude");
+  }
+
+  const rawText = content.text;
+  console.log("[AI] Pre-filter response:", rawText.slice(0, 150));
+
+  try {
+    const cleaned = cleanJsonResponse(rawText);
+    const result = JSON.parse(cleaned) as PreFilterResult;
+    // Ensure confidence is between 0 and 1
+    result.confidence = Math.max(0, Math.min(1, result.confidence));
+    return result;
+  } catch {
+    console.error("[AI] Failed to parse pre-filter response:", rawText);
+    // Default to relevant if parsing fails (don't lose potential mentions)
+    return {
+      relevant: true,
+      reason: "Error de parsing - aceptado por defecto",
+      confidence: 0.5,
     };
   }
 }
