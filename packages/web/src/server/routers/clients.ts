@@ -1,7 +1,7 @@
 import { z } from "zod";
 import { TRPCError } from "@trpc/server";
 import { router, protectedProcedure } from "../trpc";
-import { prisma } from "@mediabot/shared";
+import { prisma, getOnboardingQueue } from "@mediabot/shared";
 
 export const clientsRouter = router({
   list: protectedProcedure.query(async ({ ctx }) => {
@@ -61,6 +61,23 @@ export const clientsRouter = router({
           clientId: client.id,
         },
       });
+
+      // Trigger AI onboarding to generate additional keywords
+      try {
+        const onboardingQueue = getOnboardingQueue();
+        await onboardingQueue.add(
+          "onboard",
+          { clientId: client.id },
+          {
+            attempts: 3,
+            backoff: { type: "exponential", delay: 5000 },
+          }
+        );
+        console.log(`[Clients] Queued onboarding for client: ${client.name}`);
+      } catch (err) {
+        // Don't fail client creation if queue is unavailable
+        console.error(`[Clients] Failed to queue onboarding:`, err);
+      }
 
       return client;
     }),

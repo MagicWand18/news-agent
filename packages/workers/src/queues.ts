@@ -31,28 +31,34 @@ export function setupQueues() {
     onboarding: new Queue(QUEUE_NAMES.ONBOARDING, { connection }),
   };
 
-  // Schedule repeating jobs
+  // Schedule repeating jobs using cron patterns for reliability
+  // (BullMQ v5.1.0 had bugs with `every` that caused jobs to stop repeating)
+
+  // GDELT: every 15 minutes
   queues.collectGdelt.upsertJobScheduler(
     "gdelt-cron",
-    { every: config.collectors.gdeltIntervalMs },
+    { pattern: "*/15 * * * *" },
     { name: "collect-gdelt" }
   );
 
+  // NewsData: every 30 minutes
   queues.collectNewsdata.upsertJobScheduler(
     "newsdata-cron",
-    { every: config.collectors.newsdataIntervalMs },
+    { pattern: "*/30 * * * *" },
     { name: "collect-newsdata" }
   );
 
+  // RSS: every 10 minutes
   queues.collectRss.upsertJobScheduler(
     "rss-cron",
-    { every: config.collectors.rssIntervalMs },
+    { pattern: "*/10 * * * *" },
     { name: "collect-rss" }
   );
 
+  // Google CSE: every 2 hours
   queues.collectGoogle.upsertJobScheduler(
     "google-cron",
-    { every: config.collectors.googleIntervalMs },
+    { pattern: "0 */2 * * *" },
     { name: "collect-google" }
   );
 
