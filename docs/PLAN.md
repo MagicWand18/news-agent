@@ -295,26 +295,231 @@ MediaBot es un sistema de monitoreo de medios que permite a agencias de comunica
 - Admins aprueban/rechazan/integran
 - Workflow: PENDING → APPROVED → INTEGRATED
 
-## Proximos Pasos
+## Sprint 9: Notificaciones In-App + E2E Testing
 
-### Sprint 9: Performance y Cobertura (Próximo)
+### Objetivo
 
-| Feature | Descripción | Prioridad |
-|---------|-------------|-----------|
-| YouTube Data API | Cuota gratuita 10,000 units/día | Media |
-| View Transitions | Animaciones suaves entre páginas | Media |
-| Notificaciones In-App | Centro de notificaciones interno | Alta |
-| Pruebas E2E | Playwright tests completos | Alta |
+1. Sistema de notificaciones in-app con centro de notificaciones
+2. Suite completa de tests E2E con Playwright
+3. Seed de fuentes RSS en produccion
+4. Mejoras de UX menores
 
-**Decisión**: Se descartó Twitter/X API por costo prohibitivo ($5000+/mes Enterprise).
+---
 
-### Sprint 9+ (Backlog)
+### Parte 1: Centro de Notificaciones In-App
+
+#### 1.1 Modelo de Datos
+
+```prisma
+model Notification {
+  id        String             @id @default(cuid())
+  userId    String
+  user      User               @relation(fields: [userId], references: [id])
+  type      NotificationType
+  title     String
+  message   String
+  data      Json?              // Metadata adicional (mentionId, clientId, etc.)
+  read      Boolean            @default(false)
+  readAt    DateTime?
+  createdAt DateTime           @default(now())
+
+  @@index([userId, read])
+  @@index([createdAt])
+}
+
+enum NotificationType {
+  MENTION_CRITICAL    // Mencion critica
+  MENTION_HIGH        // Mencion alta prioridad
+  CRISIS_ALERT        // Alerta de crisis
+  WEEKLY_REPORT       // Reporte semanal listo
+  EMERGING_TOPIC      // Tema emergente detectado
+  SYSTEM              // Notificaciones del sistema
+}
+```
+
+#### 1.2 Componentes UI
+
+| Componente | Descripcion |
+|------------|-------------|
+| `NotificationBell` | Icono campana con badge contador |
+| `NotificationDropdown` | Dropdown con lista de notificaciones |
+| `NotificationItem` | Card individual con icono por tipo |
+| `NotificationCenter` | Pagina `/dashboard/notifications` |
+
+#### 1.3 Funcionalidades
+
+- Badge con contador de no leidas
+- Dropdown con ultimas 10 notificaciones
+- Marcar como leida al hacer click
+- Marcar todas como leidas
+- Pagina completa con filtros y paginacion
+- Notificaciones en tiempo real (polling cada 30s)
+
+#### 1.4 Integracion con Sistema Existente
+
+Crear notificaciones automaticamente cuando:
+- Nueva mencion CRITICAL o HIGH
+- Crisis detectada
+- Tema emergente detectado
+- Reporte semanal generado
+
+---
+
+### Parte 2: Tests E2E con Playwright
+
+#### 2.1 Estructura de Tests
+
+```
+tests/
+└── e2e/
+    ├── playwright.config.ts
+    ├── fixtures/
+    │   └── auth.ts           # Login fixture
+    ├── pages/
+    │   ├── login.spec.ts
+    │   ├── dashboard.spec.ts
+    │   ├── clients.spec.ts
+    │   ├── mentions.spec.ts
+    │   ├── sources.spec.ts
+    │   ├── analytics.spec.ts
+    │   └── intelligence.spec.ts
+    └── flows/
+        ├── onboarding.spec.ts
+        ├── source-request.spec.ts
+        └── mention-response.spec.ts
+```
+
+#### 2.2 Casos de Prueba
+
+| Test | Descripcion |
+|------|-------------|
+| Login Flow | Login valido, credenciales incorrectas, redirect |
+| Dashboard | KPIs cargan, navegacion funciona |
+| Clients CRUD | Crear, editar, eliminar cliente |
+| Onboarding Wizard | Flujo completo de 4 pasos |
+| Sources Management | CRUD fuentes, solicitudes |
+| Mentions | Filtros, exportar CSV, generar comunicado |
+| Analytics | Graficas renderizan, filtros funcionan |
+| Intelligence | SOV, temas, insights cargan |
+
+#### 2.3 Scripts npm
+
+```json
+{
+  "test:e2e": "playwright test",
+  "test:e2e:ui": "playwright test --ui",
+  "test:e2e:headed": "playwright test --headed",
+  "test:e2e:report": "playwright show-report"
+}
+```
+
+---
+
+### Parte 3: Seed Produccion
+
+#### 3.1 Script de Seed Remoto
+
+Crear script para ejecutar seed en produccion:
+
+```bash
+# deploy/seed-production.sh
+ssh -i ~/.ssh/newsaibot-telegram-ssh root@159.65.97.78 \
+  "cd /opt/mediabot && docker compose -f docker-compose.prod.yml exec -T web npx prisma db seed"
+```
+
+#### 3.2 Seed de Fuentes RSS
+
+Ejecutar `prisma/seed-rss-sources.ts` para poblar las 300+ fuentes mexicanas.
+
+---
+
+### Parte 4: Mejoras UX
+
+#### 4.1 Sidebar Colapsable
+
+- Toggle para colapsar sidebar a iconos
+- Persistencia en localStorage
+- Animacion suave de colapso
+
+#### 4.2 Loading Skeletons
+
+Agregar skeletons en:
+- Lista de menciones
+- Dashboard KPIs
+- Tabla de fuentes
+- Lista de clientes
+
+#### 4.3 Empty States
+
+Mejorar estados vacios con:
+- Ilustraciones SVG
+- Texto explicativo
+- CTA para crear contenido
+
+---
+
+### Orden de Implementacion
+
+1. **Dia 1-2**: Modelo Notification + API tRPC
+2. **Dia 3-4**: UI de notificaciones (bell, dropdown, page)
+3. **Dia 5**: Integracion con workers existentes
+4. **Dia 6-7**: Setup Playwright + tests basicos
+5. **Dia 8-9**: Tests de flujos completos
+6. **Dia 10**: Seed produccion + mejoras UX
+
+---
+
+### Criterios de Aceptacion
+
+#### Notificaciones
+- [ ] Modelo Notification en Prisma
+- [ ] API: list, markAsRead, markAllAsRead
+- [ ] NotificationBell con badge en sidebar
+- [ ] Dropdown funcional con ultimas 10
+- [ ] Pagina /dashboard/notifications
+- [ ] Notificaciones automaticas en eventos clave
+
+#### Tests E2E
+- [ ] Playwright configurado en monorepo
+- [ ] Tests de login/logout
+- [ ] Tests de navegacion principal
+- [ ] Tests de CRUD clientes
+- [ ] Tests de wizard onboarding
+- [ ] Tests de fuentes RSS
+- [ ] CI pipeline con tests (opcional)
+
+#### Produccion
+- [ ] 300+ fuentes RSS seeded
+- [ ] Colector RSS funcionando con fuentes de DB
+- [ ] Loading skeletons en paginas principales
+
+---
+
+### Archivos Principales
+
+| Archivo | Proposito |
+|---------|-----------|
+| `prisma/schema.prisma` | Modelo Notification |
+| `packages/web/src/server/routers/notifications.ts` | API tRPC |
+| `packages/web/src/components/notifications/` | Componentes UI |
+| `packages/web/src/app/dashboard/notifications/` | Pagina centro |
+| `packages/workers/src/notification-creator.ts` | Crear notifs |
+| `tests/e2e/` | Suite Playwright |
+| `playwright.config.ts` | Config Playwright |
+
+---
+
+## Sprint 10+ (Backlog)
 
 1. **YouTube Data API**: Cuota gratuita de 10,000 units/día
 2. **Google Alerts RSS**: Alternativa sin costo a Google CSE
-3. **API pública**: Endpoints REST + webhooks
-4. **App móvil**: Notificaciones push nativas
-5. **White-label**: Dashboard personalizable por cliente
+3. **View Transitions API**: Animaciones entre paginas
+4. **API publica**: Endpoints REST + webhooks
+5. **App movil**: Notificaciones push nativas (React Native)
+6. **White-label**: Dashboard personalizable por cliente
+7. **Multi-idioma**: i18n para expansion internacional
+
+**Nota**: Twitter/X API descartada por costo prohibitivo ($5000+/mes Enterprise tier).
 
 ## Contacto
 
