@@ -553,6 +553,139 @@ Solo responde con el JSON.`,
       };
     }),
 
+  // ==================== GROUNDING CONFIG ====================
+
+  /**
+   * Obtiene la configuración de grounding de un cliente.
+   */
+  getGroundingConfig: protectedProcedure
+    .input(z.object({ clientId: z.string() }))
+    .query(async ({ input, ctx }) => {
+      const client = await prisma.client.findFirst({
+        where: { id: input.clientId, orgId: ctx.user.orgId },
+        select: {
+          id: true,
+          name: true,
+          industry: true,
+          groundingEnabled: true,
+          minDailyMentions: true,
+          consecutiveDaysThreshold: true,
+          groundingArticleCount: true,
+          weeklyGroundingEnabled: true,
+          weeklyGroundingDay: true,
+          lastGroundingAt: true,
+          lastGroundingResult: true,
+        },
+      });
+
+      if (!client) {
+        throw new TRPCError({ code: "NOT_FOUND", message: "Cliente no encontrado" });
+      }
+
+      return client;
+    }),
+
+  /**
+   * Actualiza la configuración de grounding de un cliente.
+   */
+  updateGroundingConfig: protectedProcedure
+    .input(
+      z.object({
+        clientId: z.string(),
+        groundingEnabled: z.boolean().optional(),
+        minDailyMentions: z.number().min(1).max(20).optional(),
+        consecutiveDaysThreshold: z.number().min(1).max(10).optional(),
+        groundingArticleCount: z.number().min(5).max(30).optional(),
+        weeklyGroundingEnabled: z.boolean().optional(),
+        weeklyGroundingDay: z.number().min(0).max(6).optional(),
+      })
+    )
+    .mutation(async ({ input, ctx }) => {
+      const { clientId, ...data } = input;
+
+      // Verificar que el cliente pertenece a la organización
+      const client = await prisma.client.findFirst({
+        where: { id: clientId, orgId: ctx.user.orgId },
+      });
+
+      if (!client) {
+        throw new TRPCError({ code: "NOT_FOUND", message: "Cliente no encontrado" });
+      }
+
+      return prisma.client.update({
+        where: { id: clientId },
+        data,
+        select: {
+          id: true,
+          groundingEnabled: true,
+          minDailyMentions: true,
+          consecutiveDaysThreshold: true,
+          groundingArticleCount: true,
+          weeklyGroundingEnabled: true,
+          weeklyGroundingDay: true,
+        },
+      });
+    }),
+
+  /**
+   * Ejecuta una búsqueda de grounding manual para un cliente.
+   */
+  executeManualGrounding: protectedProcedure
+    .input(
+      z.object({
+        clientId: z.string(),
+        days: z.number().min(7).max(60).default(30),
+      })
+    )
+    .mutation(async ({ input, ctx }) => {
+      const client = await prisma.client.findFirst({
+        where: { id: input.clientId, orgId: ctx.user.orgId },
+        select: {
+          id: true,
+          name: true,
+          industry: true,
+          groundingArticleCount: true,
+        },
+      });
+
+      if (!client) {
+        throw new TRPCError({ code: "NOT_FOUND", message: "Cliente no encontrado" });
+      }
+
+      // Encolar el job de grounding
+      try {
+        const { getQueue } = await import("@mediabot/shared");
+        const groundingQueue = getQueue("grounding-execute");
+        await groundingQueue.add(
+          "manual-grounding",
+          {
+            clientId: client.id,
+            clientName: client.name,
+            industry: client.industry,
+            days: input.days,
+            articleCount: client.groundingArticleCount || 10,
+            trigger: "manual",
+          },
+          {
+            attempts: 2,
+            backoff: { type: "exponential", delay: 5000 },
+          }
+        );
+
+        return {
+          success: true,
+          message: `Búsqueda iniciada para ${client.name}. Los resultados aparecerán en unos momentos.`,
+          queued: true,
+        };
+      } catch (err) {
+        console.error("[ManualGrounding] Queue error:", err);
+        throw new TRPCError({
+          code: "INTERNAL_SERVER_ERROR",
+          message: "Error al iniciar la búsqueda. Intenta de nuevo.",
+        });
+      }
+    }),
+
   compareCompetitors: protectedProcedure
     .input(
       z.object({

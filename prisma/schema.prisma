@@ -53,6 +53,16 @@ model Client {
   onboarding      Json?
   createdAt       DateTime        @default(now())
   updatedAt       DateTime        @updatedAt
+
+  // Grounding Config - Configuración de búsqueda automática con Gemini
+  groundingEnabled         Boolean   @default(false)  // Habilitar grounding automático
+  minDailyMentions         Int       @default(3)      // Mínimo de menciones diarias esperadas
+  consecutiveDaysThreshold Int       @default(3)      // Días consecutivos bajo umbral para disparar
+  groundingArticleCount    Int       @default(10)     // Artículos a buscar en cada grounding
+  weeklyGroundingEnabled   Boolean   @default(false)  // Habilitar grounding semanal programado
+  weeklyGroundingDay       Int       @default(0)      // Día de la semana (0=domingo, 6=sábado)
+  lastGroundingAt          DateTime?                  // Última ejecución de grounding
+  lastGroundingResult      Json?                      // Resultado de la última búsqueda
 }
 
 model Keyword {

@@ -336,6 +336,9 @@ Genera borradores de comunicados de prensa on-demand:
 │   weekly-insights  : Generar insights semanales (Lun 6:00 AM)   │
 │   emerging-topics  : Detectar temas emergentes (cada 4h)        │
 │   notify-emerging  : Notificar tema emergente via Telegram      │
+│   grounding-check  : Verificar menciones bajas (7:00 AM)        │
+│   grounding-weekly : Grounding semanal programado (6:00 AM)     │
+│   grounding-execute: Ejecutar búsqueda con Gemini               │
 │                                                                 │
 └─────────────────────────────────────────────────────────────────┘
 ```
@@ -495,6 +498,92 @@ Sprint 8 migra las fuentes RSS de config hardcodeada a base de datos:
 │                                                                │
 └────────────────────────────────────────────────────────────────┘
 ```
+
+### 4.8 Grounding Avanzado por Cliente (`packages/workers/src/grounding/`)
+
+Sistema de búsqueda automática de noticias con Gemini cuando un cliente tiene pocas menciones:
+
+```
+┌────────────────────────────────────────────────────────────────┐
+│                    GROUNDING SYSTEM FLOW                        │
+├────────────────────────────────────────────────────────────────┤
+│                                                                │
+│   TRIGGER 1: LOW MENTIONS CHECK (Cron 7:00 AM)                 │
+│   ─────────────────────────────────────────────                │
+│   ┌────────────────┐                                           │
+│   │ Cron job       │                                           │
+│   │ cada día 7AM   │                                           │
+│   └───────┬────────┘                                           │
+│           │                                                    │
+│           ▼                                                    │
+│   ┌────────────────────────────────────────┐                   │
+│   │ Para cada cliente con groundingEnabled: │                   │
+│   │                                        │                   │
+│   │ 1. Verificar lastGroundingAt > 12h     │                   │
+│   │ 2. Contar menciones últimos N días     │                   │
+│   │ 3. Si < minDailyMentions consecutivos  │                   │
+│   │    → Encolar grounding-execute         │                   │
+│   └────────────────────────────────────────┘                   │
+│                                                                │
+│   TRIGGER 2: WEEKLY GROUNDING (Cron 6:00 AM)                   │
+│   ──────────────────────────────────────────                   │
+│   ┌────────────────┐                                           │
+│   │ Cron job       │                                           │
+│   │ cada día 6AM   │                                           │
+│   └───────┬────────┘                                           │
+│           │                                                    │
+│           ▼                                                    │
+│   ┌────────────────────────────────────────┐                   │
+│   │ Para clientes con weeklyGroundingDay   │                   │
+│   │ igual a hoy:                           │                   │
+│   │                                        │                   │
+│   │ 1. Verificar no ejecutado hoy          │                   │
+│   │ 2. Encolar grounding-execute           │                   │
+│   └────────────────────────────────────────┘                   │
+│                                                                │
+│   TRIGGER 3: MANUAL (UI Button)                                │
+│   ─────────────────────────────                                │
+│   ┌────────────────┐                                           │
+│   │ Usuario click  │                                           │
+│   │ "Ejecutar      │                                           │
+│   │ búsqueda ahora"│                                           │
+│   └───────┬────────┘                                           │
+│           │                                                    │
+│           ▼                                                    │
+│   ┌────────────────────────────────────────┐                   │
+│   │ clients.executeManualGrounding()       │                   │
+│   │ → Encolar grounding-execute            │                   │
+│   └────────────────────────────────────────┘                   │
+│                                                                │
+│   GROUNDING EXECUTE WORKER                                     │
+│   ────────────────────────                                     │
+│   ┌────────────────────────────────────────┐                   │
+│   │ executeGroundingSearch():              │                   │
+│   │                                        │                   │
+│   │ 1. Llamar Gemini con Google Search     │                   │
+│   │    grounding (googleSearch tool)       │                   │
+│   │ 2. Parsear JSON de artículos           │                   │
+│   │ 3. Crear/encontrar artículos en DB     │                   │
+│   │ 4. Complementar con artículos de DB    │                   │
+│   │ 5. Crear menciones nuevas              │                   │
+│   │ 6. Actualizar lastGroundingAt/Result   │                   │
+│   └────────────────────────────────────────┘                   │
+│                                                                │
+└────────────────────────────────────────────────────────────────┘
+```
+
+**Colas BullMQ de Grounding:**
+
+| Cola | Descripción | Cron |
+|------|-------------|------|
+| `grounding-check` | Verificación de menciones bajas | `0 7 * * *` (7:00 AM) |
+| `grounding-weekly` | Grounding semanal programado | `0 6 * * *` (6:00 AM) |
+| `grounding-execute` | Ejecución de búsquedas con Gemini | On-demand |
+
+**Rate Limiting:**
+- Concurrencia: 2 jobs simultáneos
+- Límite: 5 jobs por minuto
+- Delay entre jobs encolados: 30-60 segundos
 
 ### 4.7 Onboarding Magico con IA (`packages/web/src/app/dashboard/clients/new/`)
 

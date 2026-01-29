@@ -23,6 +23,10 @@ export const QUEUE_NAMES = {
   WEEKLY_REPORT: "weekly-report",
   WEEKLY_INSIGHTS: "weekly-insights",
   EXTRACT_TOPIC: "extract-topic",
+  // Grounding queues
+  GROUNDING_CHECK: "grounding-check",
+  GROUNDING_WEEKLY: "grounding-weekly",
+  GROUNDING_EXECUTE: "grounding-execute",
 } as const;
 
 export function setupQueues() {
@@ -43,6 +47,10 @@ export function setupQueues() {
     weeklyReport: new Queue(QUEUE_NAMES.WEEKLY_REPORT, { connection }),
     weeklyInsights: new Queue(QUEUE_NAMES.WEEKLY_INSIGHTS, { connection }),
     extractTopic: new Queue(QUEUE_NAMES.EXTRACT_TOPIC, { connection }),
+    // Grounding queues
+    groundingCheck: new Queue(QUEUE_NAMES.GROUNDING_CHECK, { connection }),
+    groundingWeekly: new Queue(QUEUE_NAMES.GROUNDING_WEEKLY, { connection }),
+    groundingExecute: new Queue(QUEUE_NAMES.GROUNDING_EXECUTE, { connection }),
   };
 
   // Schedule repeating jobs using cron patterns from config
@@ -114,6 +122,24 @@ export function setupQueues() {
     { name: "check-emerging-topics" }
   );
   console.log(`📅 Emerging Topics cron: ${emergingTopicsCron}`);
+
+  // Grounding: Low mentions check (default: 7:00 AM daily, before digest)
+  const groundingCheckCron = process.env.GROUNDING_CHECK_CRON || "0 7 * * *";
+  queues.groundingCheck.upsertJobScheduler(
+    "grounding-check-cron",
+    { pattern: groundingCheckCron },
+    { name: "check-low-mentions" }
+  );
+  console.log(`📅 Grounding Check cron: ${groundingCheckCron}`);
+
+  // Grounding: Weekly grounding (default: 6:00 AM every day, checks if today matches client's config)
+  const groundingWeeklyCron = process.env.GROUNDING_WEEKLY_CRON || "0 6 * * *";
+  queues.groundingWeekly.upsertJobScheduler(
+    "grounding-weekly-cron",
+    { pattern: groundingWeeklyCron },
+    { name: "weekly-grounding" }
+  );
+  console.log(`📅 Grounding Weekly cron: ${groundingWeeklyCron}`);
 
   return {
     ...queues,

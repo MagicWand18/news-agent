@@ -23,6 +23,10 @@ export const QUEUE_NAMES = {
   NOTIFY_ALERT: "notify-alert",
   DIGEST: "notify-digest",
   ONBOARDING: "onboarding",
+  // Grounding queues
+  GROUNDING_CHECK: "grounding-check",
+  GROUNDING_WEEKLY: "grounding-weekly",
+  GROUNDING_EXECUTE: "grounding-execute",
 } as const;
 
 // Lazy-initialized queues to avoid creating connections on import

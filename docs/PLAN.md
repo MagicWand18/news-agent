@@ -50,6 +50,8 @@ MediaBot es un sistema de monitoreo de medios que permite a agencias de comunica
 | **Gestion de Fuentes** | OK | CRUD y solicitudes de fuentes (Sprint 8) |
 | **Onboarding Magico** | OK | Wizard de 4 pasos con IA (Sprint 8) |
 | **Busqueda de Noticias** | OK | Importar menciones historicas (Sprint 8) |
+| **Grounding Avanzado** | OK | Búsqueda automática configurable por cliente (Sprint 9.2) |
+| **Grounding Semanal** | OK | Ejecución programada semanal por cliente (Sprint 9.2) |
 
 ### Funciones de IA
 
@@ -66,6 +68,8 @@ MediaBot es un sistema de monitoreo de medios que permite a agencias de comunica
 | `generateWeeklyInsights` | Cron semanal | Lunes 6:00 AM | `analysis/ai.ts:407` |
 | `detectEmergingTopics` | Cron cada 4h | Automatico | `analysis/topic-extractor.ts:118` |
 | `runEnhancedOnboarding` | On-demand | Wizard nuevo cliente | `analysis/ai.ts` |
+| `executeGroundingSearch` | On-demand/Auto | Búsqueda de noticias con Gemini | `grounding/grounding-service.ts` |
+| `checkLowMentions` | Cron diario | Verificación de menciones bajas | `grounding/grounding-service.ts` |
 
 ### Pendiente / En Progreso
 
@@ -214,6 +218,20 @@ MediaBot es un sistema de monitoreo de medios que permite a agencias de comunica
   - Menciones: sentimentConfig y urgencyConfig con dark variants
 - **Ubicación Nacional**: Medios tipo NATIONAL muestran "Nacional" en columna ubicación
 - **Renombrar Estado → Estatus**: Evita confusión con ubicación geográfica
+
+### Sprint 9.2: Grounding Avanzado por Cliente (Completado - 2026-01-29)
+- **Configuración granular de grounding**: Cada cliente puede configurar umbrales individuales
+  - `groundingEnabled`: Habilitar/deshabilitar grounding automático
+  - `minDailyMentions`: Mínimo de menciones diarias esperadas (1-20)
+  - `consecutiveDaysThreshold`: Días consecutivos bajo umbral para disparar (1-10)
+  - `groundingArticleCount`: Artículos a buscar en cada grounding (5-30)
+  - `weeklyGroundingEnabled`: Habilitar grounding semanal programado
+  - `weeklyGroundingDay`: Día de la semana para grounding semanal (0-6)
+- **Worker de verificación de menciones bajas**: Cron diario (7:00 AM) que verifica clientes con pocas menciones
+- **Worker de grounding semanal**: Cron diario (6:00 AM) que ejecuta grounding para clientes configurados
+- **Worker de ejecución**: Procesa jobs de grounding con rate limiting (5/min, concurrencia 2)
+- **UI de configuración**: Sección en detalle de cliente para gestionar grounding
+- **Búsqueda manual**: Botón para ejecutar grounding on-demand
 
 ## Metricas de Exito
 

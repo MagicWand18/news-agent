@@ -116,6 +116,8 @@ npm run dev:bot
 | `COLLECTOR_GOOGLE_CRON` | `0 */2 * * *` | Cron para colector Google CSE |
 | `DIGEST_CRON` | `0 8 * * *` | Cron para digest diario |
 | `EMERGING_TOPICS_CRON` | `0 */4 * * *` | Cron para alertas de temas emergentes |
+| `GROUNDING_CHECK_CRON` | `0 7 * * *` | Cron para verificación de menciones bajas |
+| `GROUNDING_WEEKLY_CRON` | `0 6 * * *` | Cron para grounding semanal |
 
 ### Opcionales - Workers
 
@@ -326,6 +328,14 @@ Dashboard avanzado de inteligencia de medios en `/dashboard/intelligence`:
 - Modales de edición y solicitud de fuentes con dark mode
 - Badges de status, tier y sentimiento adaptados
 - Tablas y formularios con colores consistentes
+
+### Grounding Avanzado por Cliente (Sprint 9.2)
+- Configuración granular de búsqueda automática con Gemini
+- Worker de verificación de menciones bajas (cron diario 7:00 AM)
+- Worker de grounding semanal programado (cron diario 6:00 AM)
+- UI de configuración en detalle de cliente
+- Búsqueda manual on-demand
+- Rate limiting para proteger API de Gemini (5 jobs/min)
 
 ## Troubleshooting
 

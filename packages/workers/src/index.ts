@@ -8,6 +8,11 @@ import { startDigestWorker } from "./notifications/digest.js";
 import { startReportWorker } from "./reports/worker.js";
 import { startInsightsWorker, startTopicWorker } from "./analysis/insights-worker.js";
 import { startEmergingTopicsWorker } from "./workers/emerging-topics-worker.js";
+import {
+  startGroundingWorker,
+  startLowMentionsWorker,
+  startWeeklyGroundingWorker,
+} from "./grounding/index.js";
 
 async function main() {
   console.log("🔄 Starting MediaBot workers...");
@@ -24,6 +29,11 @@ async function main() {
   startInsightsWorker();
   startTopicWorker();
   startEmergingTopicsWorker();
+
+  // Grounding workers
+  startGroundingWorker();
+  startLowMentionsWorker();
+  startWeeklyGroundingWorker();
 
   console.log("✅ All workers started");
 

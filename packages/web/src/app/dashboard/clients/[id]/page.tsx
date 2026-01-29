@@ -4,7 +4,7 @@ import { trpc } from "@/lib/trpc";
 import { MentionRow } from "@/components/mention-row";
 import { useParams, useRouter } from "next/navigation";
 import { useState } from "react";
-import { ArrowLeft, Plus, X, BarChart3, Target, TrendingUp, TrendingDown, Minus, Trash2 } from "lucide-react";
+import { ArrowLeft, Plus, X, BarChart3, Target, TrendingUp, TrendingDown, Minus, Trash2, Settings, Search, Calendar, Loader2 } from "lucide-react";
 import Link from "next/link";
 import {
   BarChart,
@@ -213,6 +213,9 @@ export default function ClientDetailPage() {
           </button>
         </form>
       </div>
+
+      {/* Grounding Config */}
+      <GroundingConfigSection clientId={id} />
 
       {/* Competitor Comparison */}
       <CompetitorComparison clientId={id} />
@@ -577,6 +580,286 @@ function CompetitorComparison({ clientId }: { clientId: string }) {
             })}
           </tbody>
         </table>
+      </div>
+    </div>
+  );
+}
+
+const WEEKDAYS = [
+  { value: 0, label: "Domingo" },
+  { value: 1, label: "Lunes" },
+  { value: 2, label: "Martes" },
+  { value: 3, label: "Miércoles" },
+  { value: 4, label: "Jueves" },
+  { value: 5, label: "Viernes" },
+  { value: 6, label: "Sábado" },
+];
+
+function GroundingConfigSection({ clientId }: { clientId: string }) {
+  const utils = trpc.useUtils();
+  const config = trpc.clients.getGroundingConfig.useQuery({ clientId });
+  const updateConfig = trpc.clients.updateGroundingConfig.useMutation({
+    onSuccess: () => {
+      utils.clients.getGroundingConfig.invalidate({ clientId });
+    },
+  });
+  const executeGrounding = trpc.clients.executeManualGrounding.useMutation({
+    onSuccess: () => {
+      utils.clients.getGroundingConfig.invalidate({ clientId });
+    },
+  });
+
+  const [localConfig, setLocalConfig] = useState<{
+    groundingEnabled: boolean;
+    minDailyMentions: number;
+    consecutiveDaysThreshold: number;
+    groundingArticleCount: number;
+    weeklyGroundingEnabled: boolean;
+    weeklyGroundingDay: number;
+  } | null>(null);
+
+  // Sincronizar config remota con local cuando cambia
+  const data = config.data;
+  if (data && localConfig === null) {
+    setLocalConfig({
+      groundingEnabled: data.groundingEnabled,
+      minDailyMentions: data.minDailyMentions,
+      consecutiveDaysThreshold: data.consecutiveDaysThreshold,
+      groundingArticleCount: data.groundingArticleCount,
+      weeklyGroundingEnabled: data.weeklyGroundingEnabled,
+      weeklyGroundingDay: data.weeklyGroundingDay,
+    });
+  }
+
+  // Guardar cambios con debounce
+  const handleSave = (updates: Partial<typeof localConfig>) => {
+    if (!localConfig) return;
+    const newConfig = { ...localConfig, ...updates };
+    setLocalConfig(newConfig);
+    updateConfig.mutate({ clientId, ...updates });
+  };
+
+  if (config.isLoading) {
+    return (
+      <div className="rounded-xl bg-white dark:bg-gray-800 p-6 shadow-sm dark:shadow-gray-900/20">
+        <h3 className="mb-4 font-semibold text-gray-900 dark:text-white flex items-center gap-2">
+          <Settings className="h-5 w-5 text-brand-600" />
+          Configuración de Búsqueda Automática
+        </h3>
+        <div className="flex h-[100px] items-center justify-center">
+          <div className="h-8 w-8 animate-spin rounded-full border-2 border-gray-200 dark:border-gray-600 border-t-brand-600" />
+        </div>
+      </div>
+    );
+  }
+
+  if (!config.data || !localConfig) {
+    return null;
+  }
+
+  const lastResult = config.data.lastGroundingResult as {
+    articlesFound?: number;
+    mentionsCreated?: number;
+    trigger?: string;
+    error?: string;
+    executedAt?: string;
+  } | null;
+
+  const formatLastGrounding = () => {
+    if (!config.data?.lastGroundingAt) return "Nunca ejecutado";
+    const date = new Date(config.data.lastGroundingAt);
+    const now = new Date();
+    const diffMs = now.getTime() - date.getTime();
+    const diffDays = Math.floor(diffMs / (1000 * 60 * 60 * 24));
+    const diffHours = Math.floor(diffMs / (1000 * 60 * 60));
+
+    let timeAgo = "";
+    if (diffDays > 0) {
+      timeAgo = `hace ${diffDays} día${diffDays > 1 ? "s" : ""}`;
+    } else if (diffHours > 0) {
+      timeAgo = `hace ${diffHours} hora${diffHours > 1 ? "s" : ""}`;
+    } else {
+      timeAgo = "hace menos de 1 hora";
+    }
+
+    if (lastResult?.articlesFound !== undefined) {
+      return `${timeAgo} (${lastResult.articlesFound} artículos, ${lastResult.mentionsCreated || 0} menciones nuevas)`;
+    }
+    return timeAgo;
+  };
+
+  const triggerLabels: Record<string, string> = {
+    manual: "Manual",
+    auto_low_mentions: "Auto (pocas menciones)",
+    weekly: "Semanal programado",
+    onboarding: "Onboarding",
+  };
+
+  return (
+    <div className="rounded-xl bg-white dark:bg-gray-800 p-6 shadow-sm dark:shadow-gray-900/20">
+      <h3 className="mb-4 font-semibold text-gray-900 dark:text-white flex items-center gap-2">
+        <Settings className="h-5 w-5 text-brand-600" />
+        Configuración de Búsqueda Automática
+      </h3>
+
+      <div className="space-y-6">
+        {/* Grounding Automático */}
+        <div className="border-b border-gray-200 dark:border-gray-700 pb-6">
+          <div className="flex items-center justify-between mb-4">
+            <div>
+              <h4 className="font-medium text-gray-900 dark:text-white flex items-center gap-2">
+                <Search className="h-4 w-4" />
+                Grounding Automático
+              </h4>
+              <p className="text-sm text-gray-500 dark:text-gray-400">
+                Busca noticias automáticamente cuando hay pocas menciones
+              </p>
+            </div>
+            <label className="relative inline-flex cursor-pointer items-center">
+              <input
+                type="checkbox"
+                checked={localConfig.groundingEnabled}
+                onChange={(e) => handleSave({ groundingEnabled: e.target.checked })}
+                className="peer sr-only"
+              />
+              <div className="peer h-6 w-11 rounded-full bg-gray-200 after:absolute after:left-[2px] after:top-[2px] after:h-5 after:w-5 after:rounded-full after:border after:border-gray-300 after:bg-white after:transition-all after:content-[''] peer-checked:bg-brand-600 peer-checked:after:translate-x-full peer-checked:after:border-white peer-focus:outline-none dark:border-gray-600 dark:bg-gray-700" />
+            </label>
+          </div>
+
+          {localConfig.groundingEnabled && (
+            <div className="ml-6 space-y-4 text-sm">
+              <div className="flex flex-wrap items-center gap-2 text-gray-700 dark:text-gray-300">
+                <span>Si hay menos de</span>
+                <input
+                  type="number"
+                  min={1}
+                  max={20}
+                  value={localConfig.minDailyMentions}
+                  onChange={(e) => handleSave({ minDailyMentions: parseInt(e.target.value) || 3 })}
+                  className="w-16 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 px-2 py-1 text-center text-gray-900 dark:text-white"
+                />
+                <span>menciones diarias por</span>
+                <input
+                  type="number"
+                  min={1}
+                  max={10}
+                  value={localConfig.consecutiveDaysThreshold}
+                  onChange={(e) => handleSave({ consecutiveDaysThreshold: parseInt(e.target.value) || 3 })}
+                  className="w-16 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 px-2 py-1 text-center text-gray-900 dark:text-white"
+                />
+                <span>días consecutivos,</span>
+              </div>
+              <div className="flex flex-wrap items-center gap-2 text-gray-700 dark:text-gray-300">
+                <span>buscar automáticamente</span>
+                <input
+                  type="number"
+                  min={5}
+                  max={30}
+                  value={localConfig.groundingArticleCount}
+                  onChange={(e) => handleSave({ groundingArticleCount: parseInt(e.target.value) || 10 })}
+                  className="w-16 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 px-2 py-1 text-center text-gray-900 dark:text-white"
+                />
+                <span>artículos.</span>
+              </div>
+            </div>
+          )}
+        </div>
+
+        {/* Grounding Semanal */}
+        <div className="border-b border-gray-200 dark:border-gray-700 pb-6">
+          <div className="flex items-center justify-between mb-4">
+            <div>
+              <h4 className="font-medium text-gray-900 dark:text-white flex items-center gap-2">
+                <Calendar className="h-4 w-4" />
+                Grounding Semanal
+              </h4>
+              <p className="text-sm text-gray-500 dark:text-gray-400">
+                Ejecuta una búsqueda programada cada semana
+              </p>
+            </div>
+            <label className="relative inline-flex cursor-pointer items-center">
+              <input
+                type="checkbox"
+                checked={localConfig.weeklyGroundingEnabled}
+                onChange={(e) => handleSave({ weeklyGroundingEnabled: e.target.checked })}
+                className="peer sr-only"
+              />
+              <div className="peer h-6 w-11 rounded-full bg-gray-200 after:absolute after:left-[2px] after:top-[2px] after:h-5 after:w-5 after:rounded-full after:border after:border-gray-300 after:bg-white after:transition-all after:content-[''] peer-checked:bg-brand-600 peer-checked:after:translate-x-full peer-checked:after:border-white peer-focus:outline-none dark:border-gray-600 dark:bg-gray-700" />
+            </label>
+          </div>
+
+          {localConfig.weeklyGroundingEnabled && (
+            <div className="ml-6 flex items-center gap-2 text-sm text-gray-700 dark:text-gray-300">
+              <span>Ejecutar búsqueda cada:</span>
+              <select
+                value={localConfig.weeklyGroundingDay}
+                onChange={(e) => handleSave({ weeklyGroundingDay: parseInt(e.target.value) })}
+                className="rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 px-3 py-1.5 text-gray-900 dark:text-white"
+              >
+                {WEEKDAYS.map((day) => (
+                  <option key={day.value} value={day.value}>
+                    {day.label}
+                  </option>
+                ))}
+              </select>
+            </div>
+          )}
+        </div>
+
+        {/* Estado y acciones */}
+        <div className="space-y-4">
+          {/* Última búsqueda */}
+          <div className="rounded-lg bg-gray-50 dark:bg-gray-700/50 p-4">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-sm font-medium text-gray-700 dark:text-gray-300">
+                  Última búsqueda
+                </p>
+                <p className="text-sm text-gray-500 dark:text-gray-400">
+                  {formatLastGrounding()}
+                </p>
+                {lastResult?.trigger && (
+                  <p className="text-xs text-gray-400 dark:text-gray-500 mt-1">
+                    Disparador: {triggerLabels[lastResult.trigger] || lastResult.trigger}
+                  </p>
+                )}
+                {lastResult?.error && (
+                  <p className="text-xs text-red-500 mt-1">Error: {lastResult.error}</p>
+                )}
+              </div>
+            </div>
+          </div>
+
+          {/* Botón de búsqueda manual */}
+          <button
+            onClick={() => executeGrounding.mutate({ clientId, days: 30 })}
+            disabled={executeGrounding.isPending}
+            className="w-full flex items-center justify-center gap-2 rounded-lg bg-brand-600 px-4 py-2.5 text-sm font-medium text-white hover:bg-brand-700 disabled:opacity-50 transition-colors"
+          >
+            {executeGrounding.isPending ? (
+              <>
+                <Loader2 className="h-4 w-4 animate-spin" />
+                Buscando...
+              </>
+            ) : (
+              <>
+                <Search className="h-4 w-4" />
+                Ejecutar búsqueda ahora
+              </>
+            )}
+          </button>
+
+          {executeGrounding.isSuccess && (
+            <p className="text-sm text-green-600 dark:text-green-400 text-center">
+              Búsqueda iniciada. Los resultados aparecerán en unos momentos.
+            </p>
+          )}
+          {executeGrounding.isError && (
+            <p className="text-sm text-red-500 text-center">
+              Error al iniciar la búsqueda. Intenta de nuevo.
+            </p>
+          )}
+        </div>
       </div>
     </div>
   );
