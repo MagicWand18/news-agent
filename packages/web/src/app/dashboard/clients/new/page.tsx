@@ -68,6 +68,7 @@ export default function NewClientWizardPage() {
   const [clientName, setClientName] = useState("");
   const [description, setDescription] = useState("");
   const [industry, setIndustry] = useState("");
+  const [searchDays, setSearchDays] = useState(30);
 
   // Search results
   const [articles, setArticles] = useState<ArticleResult[]>([]);
@@ -114,7 +115,7 @@ export default function NewClientWizardPage() {
       const result = await searchNewsMutation.mutateAsync({
         clientName: clientName.trim(),
         industry: industry || undefined,
-        days: 30,
+        days: searchDays,
       });
 
       setSearchProgress(100);
@@ -323,6 +324,26 @@ export default function NewClientWizardPage() {
                   </option>
                 ))}
               </select>
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">
+                Período de búsqueda
+              </label>
+              <select
+                value={searchDays}
+                onChange={(e) => setSearchDays(Number(e.target.value))}
+                className="mt-2 w-full rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 px-4 py-3 text-gray-900 dark:text-white focus:border-brand-500 focus:ring-2 focus:ring-brand-200"
+              >
+                <option value={7}>Últimos 7 días</option>
+                <option value={14}>Últimos 14 días</option>
+                <option value={30}>Últimos 30 días (recomendado)</option>
+                <option value={45}>Últimos 45 días</option>
+                <option value={60}>Últimos 60 días</option>
+              </select>
+              <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">
+                Mientras más días, más noticias pero puede tardar más
+              </p>
             </div>
 
             <div className="flex justify-end pt-4">
