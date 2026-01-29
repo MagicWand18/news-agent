@@ -74,11 +74,11 @@ export function MagicProgress({
     <div className="w-full">
       {label && (
         <div className="mb-2 flex items-center justify-between text-sm">
-          <span className="text-gray-600">{label}</span>
+          <span className="text-gray-600 dark:text-gray-300">{label}</span>
           <span className="font-medium text-brand-600">{Math.round(progress)}%</span>
         </div>
       )}
-      <div className="h-3 w-full overflow-hidden rounded-full bg-gray-200">
+      <div className="h-3 w-full overflow-hidden rounded-full bg-gray-200 dark:bg-gray-700">
         <div
           className="relative h-full rounded-full bg-gradient-to-r from-brand-500 via-brand-400 to-brand-500 transition-all duration-500 ease-out"
           style={{ width: `${progress}%` }}
@@ -253,7 +253,7 @@ export function SearchingAnimation({ text = "Buscando..." }: { text?: string }) 
           </svg>
         </div>
       </div>
-      <p className="animate-pulse text-lg font-medium text-gray-600">{text}</p>
+      <p className="animate-pulse text-lg font-medium text-gray-600 dark:text-white">{text}</p>
     </div>
   );
 }
@@ -280,7 +280,7 @@ export function NewsCardAnimated({
     <div
       className={`
         cursor-pointer rounded-lg border-2 p-4 transition-all duration-300
-        ${selected ? "border-brand-500 bg-brand-50" : "border-gray-200 hover:border-brand-300"}
+        ${selected ? "border-brand-500 bg-brand-50 dark:bg-brand-900/20" : "border-gray-200 dark:border-gray-600 hover:border-brand-300 dark:hover:border-brand-500"}
         animate-slide-up
       `}
       style={{ animationDelay: `${index * 100}ms` }}
@@ -290,7 +290,7 @@ export function NewsCardAnimated({
         <div
           className={`
             flex h-5 w-5 flex-shrink-0 items-center justify-center rounded border-2 transition-colors
-            ${selected ? "border-brand-500 bg-brand-500" : "border-gray-300"}
+            ${selected ? "border-brand-500 bg-brand-500" : "border-gray-300 dark:border-gray-500"}
           `}
         >
           {selected && (
@@ -304,8 +304,8 @@ export function NewsCardAnimated({
           )}
         </div>
         <div className="min-w-0 flex-1">
-          <p className="font-medium text-gray-900 line-clamp-2">{title}</p>
-          <div className="mt-1 flex items-center gap-2 text-sm text-gray-500">
+          <p className="font-medium text-gray-900 dark:text-white line-clamp-2">{title}</p>
+          <div className="mt-1 flex items-center gap-2 text-sm text-gray-500 dark:text-gray-400">
             <span>{source}</span>
             {date && (
               <>
@@ -353,18 +353,18 @@ export function KeywordChip({
   onRemove?: () => void;
 }) {
   const typeColors: Record<string, string> = {
-    NAME: "bg-blue-100 text-blue-700 border-blue-200",
-    BRAND: "bg-purple-100 text-purple-700 border-purple-200",
-    COMPETITOR: "bg-orange-100 text-orange-700 border-orange-200",
-    TOPIC: "bg-green-100 text-green-700 border-green-200",
-    ALIAS: "bg-gray-100 text-gray-700 border-gray-200",
+    NAME: "bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-400 border-blue-200 dark:border-blue-800",
+    BRAND: "bg-purple-100 dark:bg-purple-900/30 text-purple-700 dark:text-purple-400 border-purple-200 dark:border-purple-800",
+    COMPETITOR: "bg-orange-100 dark:bg-orange-900/30 text-orange-700 dark:text-orange-400 border-orange-200 dark:border-orange-800",
+    TOPIC: "bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-400 border-green-200 dark:border-green-800",
+    ALIAS: "bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300 border-gray-200 dark:border-gray-600",
   };
 
   return (
     <div
       className={`
         inline-flex items-center gap-1.5 rounded-full border px-3 py-1.5 text-sm transition-all
-        ${selected ? typeColors[type] || typeColors.TOPIC : "bg-gray-50 text-gray-400 border-gray-200"}
+        ${selected ? typeColors[type] || typeColors.TOPIC : "bg-gray-50 dark:bg-gray-700 text-gray-400 dark:text-gray-500 border-gray-200 dark:border-gray-600"}
         ${onToggle ? "cursor-pointer hover:opacity-80" : ""}
       `}
       onClick={onToggle}
@@ -414,8 +414,8 @@ export function WizardStepper({
                   index < currentStep
                     ? "bg-brand-600 text-white"
                     : index === currentStep
-                    ? "bg-brand-100 text-brand-600 ring-2 ring-brand-600"
-                    : "bg-gray-100 text-gray-400"
+                    ? "bg-brand-100 dark:bg-brand-900/30 text-brand-600 ring-2 ring-brand-600"
+                    : "bg-gray-100 dark:bg-gray-700 text-gray-400"
                 }
               `}
             >
@@ -442,7 +442,7 @@ export function WizardStepper({
           {index < steps.length - 1 && (
             <div
               className={`mx-2 h-0.5 w-12 ${
-                index < currentStep ? "bg-brand-600" : "bg-gray-200"
+                index < currentStep ? "bg-brand-600" : "bg-gray-200 dark:bg-gray-700"
               }`}
             />
           )}

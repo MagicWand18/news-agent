@@ -461,14 +461,14 @@ export default function NewClientWizardPage() {
             {/* Competidores */}
             {competitors.length > 0 && (
               <div>
-                <h3 className="text-lg font-semibold text-gray-900">
+                <h3 className="text-lg font-semibold text-gray-900 dark:text-white">
                   Competidores Identificados
                 </h3>
                 <div className="mt-2 flex flex-wrap gap-2">
                   {competitors.map((comp) => (
                     <span
                       key={comp}
-                      className="rounded-full bg-orange-100 px-3 py-1 text-sm text-orange-700"
+                      className="rounded-full bg-orange-100 dark:bg-orange-900/30 px-3 py-1 text-sm text-orange-700 dark:text-orange-400"
                     >
                       {comp}
                     </span>
@@ -481,7 +481,7 @@ export default function NewClientWizardPage() {
             <div className="flex justify-between pt-4">
               <button
                 onClick={() => setStep("info")}
-                className="flex items-center gap-2 rounded-lg border border-gray-300 px-4 py-2 text-gray-700 hover:bg-gray-50"
+                className="flex items-center gap-2 rounded-lg border border-gray-300 dark:border-gray-600 px-4 py-2 text-gray-700 dark:text-gray-200 bg-white dark:bg-gray-700 hover:bg-gray-50 dark:hover:bg-gray-600"
               >
                 <ArrowLeft className="h-4 w-4" />
                 Atrás
@@ -513,43 +513,43 @@ export default function NewClientWizardPage() {
               </div>
             </PulseGlow>
 
-            <h2 className="mt-6 text-2xl font-bold text-gray-900">{clientName}</h2>
+            <h2 className="mt-6 text-2xl font-bold text-gray-900 dark:text-white">{clientName}</h2>
 
             <div className="mx-auto mt-6 grid max-w-md gap-4 text-left">
-              <div className="flex items-center gap-3 rounded-lg bg-gray-50 p-4">
-                <div className="rounded-lg bg-blue-100 p-2">
-                  <Search className="h-5 w-5 text-blue-600" />
+              <div className="flex items-center gap-3 rounded-lg bg-gray-50 dark:bg-gray-700/50 p-4">
+                <div className="rounded-lg bg-blue-100 dark:bg-blue-900/30 p-2">
+                  <Search className="h-5 w-5 text-blue-600 dark:text-blue-400" />
                 </div>
                 <div>
-                  <p className="font-medium">{articles.filter((a) => a.selected).length} menciones</p>
-                  <p className="text-sm text-gray-500">importadas al sistema</p>
+                  <p className="font-medium text-gray-900 dark:text-white">{articles.filter((a) => a.selected).length} menciones</p>
+                  <p className="text-sm text-gray-500 dark:text-gray-400">importadas al sistema</p>
                 </div>
               </div>
 
-              <div className="flex items-center gap-3 rounded-lg bg-gray-50 p-4">
-                <div className="rounded-lg bg-purple-100 p-2">
-                  <Sparkles className="h-5 w-5 text-purple-600" />
+              <div className="flex items-center gap-3 rounded-lg bg-gray-50 dark:bg-gray-700/50 p-4">
+                <div className="rounded-lg bg-purple-100 dark:bg-purple-900/30 p-2">
+                  <Sparkles className="h-5 w-5 text-purple-600 dark:text-purple-400" />
                 </div>
                 <div>
-                  <p className="font-medium">{keywords.filter((k) => k.selected).length} keywords</p>
-                  <p className="text-sm text-gray-500">configurados para monitoreo</p>
+                  <p className="font-medium text-gray-900 dark:text-white">{keywords.filter((k) => k.selected).length} keywords</p>
+                  <p className="text-sm text-gray-500 dark:text-gray-400">configurados para monitoreo</p>
                 </div>
               </div>
 
               {competitors.length > 0 && (
-                <div className="flex items-center gap-3 rounded-lg bg-gray-50 p-4">
-                  <div className="rounded-lg bg-orange-100 p-2">
-                    <Building2 className="h-5 w-5 text-orange-600" />
+                <div className="flex items-center gap-3 rounded-lg bg-gray-50 dark:bg-gray-700/50 p-4">
+                  <div className="rounded-lg bg-orange-100 dark:bg-orange-900/30 p-2">
+                    <Building2 className="h-5 w-5 text-orange-600 dark:text-orange-400" />
                   </div>
                   <div>
-                    <p className="font-medium">{competitors.length} competidores</p>
-                    <p className="text-sm text-gray-500">identificados</p>
+                    <p className="font-medium text-gray-900 dark:text-white">{competitors.length} competidores</p>
+                    <p className="text-sm text-gray-500 dark:text-gray-400">identificados</p>
                   </div>
                 </div>
               )}
             </div>
 
-            <p className="mt-6 text-gray-500">
+            <p className="mt-6 text-gray-500 dark:text-gray-400">
               Ahora recibirás alertas cuando tu cliente aparezca en los medios.
             </p>
 
@@ -567,7 +567,7 @@ export default function NewClientWizardPage() {
       {(searchNewsMutation.isError ||
         generateConfigMutation.isError ||
         createClientMutation.isError) && (
-        <div className="rounded-lg bg-red-50 p-4 text-sm text-red-700">
+        <div className="rounded-lg bg-red-50 dark:bg-red-900/30 p-4 text-sm text-red-700 dark:text-red-400">
           Error:{" "}
           {searchNewsMutation.error?.message ||
             generateConfigMutation.error?.message ||

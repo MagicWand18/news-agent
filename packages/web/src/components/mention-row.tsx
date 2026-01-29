@@ -48,21 +48,21 @@ export function MentionRow({
   const urg = urgencyConfig[urgency] || urgencyConfig.MEDIUM;
 
   return (
-    <div className="group border-b border-gray-100 py-4 transition-colors last:border-0 hover:bg-gray-50/50">
+    <div className="group border-b border-gray-100 dark:border-gray-700 py-4 transition-colors last:border-0 hover:bg-gray-50/50 dark:hover:bg-gray-700/50">
       <div className="flex items-start justify-between gap-4">
         <div className="min-w-0 flex-1">
           <Link
             href={`/dashboard/mentions/${id}`}
-            className="inline-flex items-center gap-1.5 font-medium text-gray-900 transition-colors hover:text-brand-600"
+            className="inline-flex items-center gap-1.5 font-medium text-gray-900 dark:text-white transition-colors hover:text-brand-600"
           >
             <span className="line-clamp-1">{title}</span>
           </Link>
-          <div className="mt-1.5 flex flex-wrap items-center gap-x-3 gap-y-1 text-sm text-gray-500">
-            <span className="font-medium text-gray-600">{source}</span>
-            <span className="hidden sm:inline text-gray-300">|</span>
+          <div className="mt-1.5 flex flex-wrap items-center gap-x-3 gap-y-1 text-sm text-gray-500 dark:text-gray-400">
+            <span className="font-medium text-gray-600 dark:text-gray-300">{source}</span>
+            <span className="hidden sm:inline text-gray-300 dark:text-gray-600">|</span>
             <span>{clientName}</span>
-            <span className="hidden sm:inline text-gray-300">|</span>
-            <span className="text-gray-400">{timeAgo(date)}</span>
+            <span className="hidden sm:inline text-gray-300 dark:text-gray-600">|</span>
+            <span className="text-gray-400 dark:text-gray-500">{timeAgo(date)}</span>
             <a
               href={url}
               target="_blank"
@@ -74,12 +74,12 @@ export function MentionRow({
             </a>
           </div>
           {summary && (
-            <p className="mt-2 line-clamp-2 text-sm leading-relaxed text-gray-600">
+            <p className="mt-2 line-clamp-2 text-sm leading-relaxed text-gray-600 dark:text-gray-300">
               {summary}
             </p>
           )}
           {action && (
-            <p className="mt-1.5 flex items-start gap-1.5 text-sm text-amber-700">
+            <p className="mt-1.5 flex items-start gap-1.5 text-sm text-amber-700 dark:text-amber-400">
               <Lightbulb className="mt-0.5 h-3.5 w-3.5 flex-shrink-0" />
               <span className="line-clamp-1">{action}</span>
             </p>
@@ -103,13 +103,13 @@ export function MentionRow({
               {urg.label}
             </span>
             <div className="flex items-center gap-1">
-              <div className="h-1.5 w-12 overflow-hidden rounded-full bg-gray-100">
+              <div className="h-1.5 w-12 overflow-hidden rounded-full bg-gray-100 dark:bg-gray-700">
                 <div
                   className="h-full rounded-full bg-brand-500 transition-all"
                   style={{ width: `${(relevance / 10) * 100}%` }}
                 />
               </div>
-              <span className="text-xs font-medium text-gray-500">{relevance}</span>
+              <span className="text-xs font-medium text-gray-500 dark:text-gray-400">{relevance}</span>
             </div>
           </div>
         </div>
@@ -120,15 +120,15 @@ export function MentionRow({
 
 export function MentionRowSkeleton() {
   return (
-    <div className="animate-pulse border-b border-gray-100 py-4 last:border-0">
+    <div className="animate-pulse border-b border-gray-100 dark:border-gray-700 py-4 last:border-0">
       <div className="flex items-start justify-between gap-4">
         <div className="flex-1 space-y-2">
-          <div className="h-5 w-3/4 rounded bg-gray-200" />
-          <div className="h-4 w-1/2 rounded bg-gray-100" />
+          <div className="h-5 w-3/4 rounded bg-gray-200 dark:bg-gray-700" />
+          <div className="h-4 w-1/2 rounded bg-gray-100 dark:bg-gray-600" />
         </div>
         <div className="space-y-2">
-          <div className="h-6 w-20 rounded-full bg-gray-100" />
-          <div className="h-4 w-16 rounded bg-gray-100" />
+          <div className="h-6 w-20 rounded-full bg-gray-100 dark:bg-gray-600" />
+          <div className="h-4 w-16 rounded bg-gray-100 dark:bg-gray-600" />
         </div>
       </div>
     </div>
