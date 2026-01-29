@@ -172,7 +172,7 @@ export const clientsRouter = router({
   // ==================== SPRINT 8: ONBOARDING MAGICO ====================
 
   /**
-   * Busca noticias recientes que mencionen el nombre del cliente.
+   * Busca noticias recientes en INTERNET usando Google Custom Search.
    * Primera fase del wizard de onboarding.
    */
   searchNews: protectedProcedure
@@ -184,16 +184,134 @@ export const clientsRouter = router({
       })
     )
     .mutation(async ({ input }) => {
-      const since = subDays(new Date(), input.days);
+      const { config } = await import("@mediabot/shared");
 
-      // Buscar articulos existentes en la base de datos
-      const articles = await prisma.article.findMany({
+      // Verificar que Google CSE está configurado
+      if (!config.google.cseApiKey || !config.google.cseCx) {
+        throw new TRPCError({
+          code: "PRECONDITION_FAILED",
+          message: "Google Custom Search no está configurado. Contacta al administrador.",
+        });
+      }
+
+      const GOOGLE_CSE_API = "https://www.googleapis.com/customsearch/v1";
+      const foundArticles: Array<{
+        id: string;
+        title: string;
+        source: string;
+        url: string;
+        snippet?: string;
+        publishedAt?: Date;
+      }> = [];
+
+      // Construir queries de búsqueda
+      const searchQueries = [
+        `"${input.clientName}" noticias`,
+        input.industry ? `"${input.clientName}" ${input.industry}` : null,
+      ].filter(Boolean) as string[];
+
+      for (const query of searchQueries) {
+        try {
+          const params = new URLSearchParams({
+            key: config.google.cseApiKey,
+            cx: config.google.cseCx,
+            q: query,
+            lr: "lang_es",
+            sort: "date",
+            num: "10",
+            dateRestrict: `d${input.days}`, // Últimos N días
+          });
+
+          const response = await fetch(`${GOOGLE_CSE_API}?${params}`);
+
+          if (!response.ok) {
+            if (response.status === 429) {
+              console.warn("[SearchNews] Google CSE rate limit reached");
+              break;
+            }
+            if (response.status === 403) {
+              console.error("[SearchNews] Google CSE API key issue");
+              throw new TRPCError({
+                code: "FORBIDDEN",
+                message: "Error de API de Google. Verifica la configuración.",
+              });
+            }
+            continue;
+          }
+
+          const data = await response.json() as {
+            items?: Array<{
+              link: string;
+              title: string;
+              displayLink: string;
+              snippet?: string;
+              pagemap?: {
+                metatags?: Array<{ "article:published_time"?: string }>;
+              };
+            }>;
+          };
+
+          if (!data.items) continue;
+
+          for (const item of data.items) {
+            // Evitar duplicados por URL
+            if (foundArticles.some((a) => a.url === item.link)) continue;
+
+            // Intentar extraer fecha de publicación
+            let publishedAt: Date | undefined;
+            const metaDate = item.pagemap?.metatags?.[0]?.["article:published_time"];
+            if (metaDate) {
+              publishedAt = new Date(metaDate);
+            }
+
+            // Crear o encontrar el artículo en la base de datos
+            let article = await prisma.article.findFirst({
+              where: { url: item.link },
+            });
+
+            if (!article) {
+              article = await prisma.article.create({
+                data: {
+                  url: item.link,
+                  title: item.title,
+                  source: item.displayLink || "Google",
+                  content: item.snippet || null,
+                  publishedAt: publishedAt || null,
+                },
+              });
+            }
+
+            foundArticles.push({
+              id: article.id,
+              title: item.title,
+              source: item.displayLink || "Google",
+              url: item.link,
+              snippet: item.snippet,
+              publishedAt,
+            });
+          }
+        } catch (error) {
+          if (error instanceof TRPCError) throw error;
+          console.error("[SearchNews] Google CSE error:", error);
+        }
+
+        // Evitar rate limiting - pequeña pausa entre queries
+        if (searchQueries.indexOf(query) < searchQueries.length - 1) {
+          await new Promise((resolve) => setTimeout(resolve, 500));
+        }
+      }
+
+      // También buscar en artículos existentes en la DB (complementario)
+      const since = subDays(new Date(), input.days);
+      const dbArticles = await prisma.article.findMany({
         where: {
           publishedAt: { gte: since },
           OR: [
             { title: { contains: input.clientName, mode: "insensitive" } },
             { content: { contains: input.clientName, mode: "insensitive" } },
           ],
+          // Excluir los que ya encontramos en Google
+          id: { notIn: foundArticles.map((a) => a.id) },
         },
         select: {
           id: true,
@@ -204,21 +322,34 @@ export const clientsRouter = router({
           publishedAt: true,
         },
         orderBy: { publishedAt: "desc" },
-        take: 50,
+        take: 20,
       });
 
-      return {
-        articles: articles.map((a) => ({
+      // Combinar resultados
+      const allArticles = [
+        ...foundArticles,
+        ...dbArticles.map((a) => ({
           id: a.id,
           title: a.title,
           source: a.source,
           url: a.url,
           snippet: a.content?.slice(0, 300) || undefined,
-          publishedAt: a.publishedAt,
+          publishedAt: a.publishedAt || undefined,
         })),
-        total: articles.length,
+      ];
+
+      // Eliminar duplicados y limitar
+      const uniqueArticles = allArticles.filter(
+        (article, index, self) =>
+          index === self.findIndex((a) => a.url === article.url)
+      ).slice(0, 50);
+
+      return {
+        articles: uniqueArticles,
+        total: uniqueArticles.length,
         searchTerm: input.clientName,
         since,
+        searchedOnline: true,
       };
     }),
 
