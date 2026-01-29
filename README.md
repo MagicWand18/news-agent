@@ -321,6 +321,12 @@ Dashboard avanzado de inteligencia de medios en `/dashboard/intelligence`:
 - Notificacion via Telegram cuando un tema nuevo tiene >= 3 menciones en 24h
 - No duplica notificaciones del mismo tema en 24h
 
+### Dark Mode Completo (Sprint 9.1)
+- Soporte completo en todas las páginas del dashboard
+- Modales de edición y solicitud de fuentes con dark mode
+- Badges de status, tier y sentimiento adaptados
+- Tablas y formularios con colores consistentes
+
 ## Troubleshooting
 
 ### Workers no inician

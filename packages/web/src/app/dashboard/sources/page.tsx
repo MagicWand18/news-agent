@@ -45,10 +45,10 @@ const tierLabels: Record<number, string> = {
 };
 
 const statusLabels: Record<string, { label: string; color: string }> = {
-  PENDING: { label: "Pendiente", color: "bg-yellow-100 text-yellow-800" },
-  APPROVED: { label: "Aprobada", color: "bg-green-100 text-green-800" },
-  REJECTED: { label: "Rechazada", color: "bg-red-100 text-red-800" },
-  INTEGRATED: { label: "Integrada", color: "bg-blue-100 text-blue-800" },
+  PENDING: { label: "Pendiente", color: "bg-yellow-100 text-yellow-800 dark:bg-yellow-900/30 dark:text-yellow-400" },
+  APPROVED: { label: "Aprobada", color: "bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400" },
+  REJECTED: { label: "Rechazada", color: "bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-400" },
+  INTEGRATED: { label: "Integrada", color: "bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-400" },
 };
 
 export default function SourcesPage() {
@@ -248,7 +248,7 @@ export default function SourcesPage() {
       {/* Header */}
       <div className="flex items-center justify-between">
         <div>
-          <h2 className="text-2xl font-bold text-gray-900 dark:text-white text-gray-900 dark:text-white">Fuentes de Medios</h2>
+          <h2 className="text-2xl font-bold text-gray-900 dark:text-white">Fuentes de Medios</h2>
           <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">
             {statsQuery.data?.total || 0} fuentes configuradas, {statsQuery.data?.active || 0} activas
           </p>
@@ -333,14 +333,14 @@ export default function SourcesPage() {
       </div>
 
       {/* Tabs */}
-      <div className="border-b">
+      <div className="border-b border-gray-200 dark:border-gray-700">
         <nav className="-mb-px flex gap-6">
           <button
             onClick={() => setTab("sources")}
             className={`border-b-2 pb-3 text-sm font-medium ${
               tab === "sources"
                 ? "border-brand-600 text-brand-600"
-                : "border-transparent text-gray-500 hover:text-gray-700"
+                : "border-transparent text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200"
             }`}
           >
             <Rss className="mr-2 inline h-4 w-4" />
@@ -351,13 +351,13 @@ export default function SourcesPage() {
             className={`border-b-2 pb-3 text-sm font-medium ${
               tab === "requests"
                 ? "border-brand-600 text-brand-600"
-                : "border-transparent text-gray-500 hover:text-gray-700"
+                : "border-transparent text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200"
             }`}
           >
             <FileText className="mr-2 inline h-4 w-4" />
             Solicitudes
             {isAdmin && requestStatsQuery.data?.PENDING && (
-              <span className="ml-2 rounded-full bg-yellow-100 px-2 py-0.5 text-xs text-yellow-800">
+              <span className="ml-2 rounded-full bg-yellow-100 dark:bg-yellow-900/30 px-2 py-0.5 text-xs text-yellow-800 dark:text-yellow-400">
                 {requestStatsQuery.data.PENDING}
               </span>
             )}
@@ -445,9 +445,9 @@ export default function SourcesPage() {
                 <tr>
                   <th className="px-4 py-3">Fuente</th>
                   <th className="px-4 py-3">Tipo</th>
-                  <th className="px-4 py-3">Ubicacion</th>
+                  <th className="px-4 py-3">Ubicación</th>
                   <th className="px-4 py-3">Tier</th>
-                  <th className="px-4 py-3">Estado</th>
+                  <th className="px-4 py-3">Estatus</th>
                   <th className="px-4 py-3">Ultimo Fetch</th>
                   {isAdmin && <th className="px-4 py-3">Acciones</th>}
                 </tr>
@@ -492,36 +492,38 @@ export default function SourcesPage() {
                         </span>
                       </td>
                       <td className="px-4 py-3 text-sm text-gray-600 dark:text-gray-300">
-                        {source.city && source.state
-                          ? `${source.city}, ${source.state}`
-                          : source.state || "-"}
+                        {source.type === "NATIONAL"
+                          ? "Nacional"
+                          : source.city && source.state
+                            ? `${source.city}, ${source.state}`
+                            : source.state || "-"}
                       </td>
                       <td className="px-4 py-3">
-                        <span className="rounded bg-gray-100 px-2 py-0.5 text-xs font-medium">
+                        <span className="rounded bg-gray-100 dark:bg-gray-600 px-2 py-0.5 text-xs font-medium text-gray-700 dark:text-gray-200">
                           Tier {source.tier}
                         </span>
                       </td>
                       <td className="px-4 py-3">
                         {source.active ? (
                           source.errorCount > 0 ? (
-                            <span className="inline-flex items-center gap-1 text-yellow-600">
+                            <span className="inline-flex items-center gap-1 text-yellow-600 dark:text-yellow-400">
                               <AlertTriangle className="h-4 w-4" />
                               <span className="text-xs">{source.errorCount} errores</span>
                             </span>
                           ) : (
-                            <span className="inline-flex items-center gap-1 text-green-600">
+                            <span className="inline-flex items-center gap-1 text-green-600 dark:text-green-400">
                               <CheckCircle className="h-4 w-4" />
                               <span className="text-xs">Activo</span>
                             </span>
                           )
                         ) : (
-                          <span className="inline-flex items-center gap-1 text-gray-400">
+                          <span className="inline-flex items-center gap-1 text-gray-400 dark:text-gray-500">
                             <XCircle className="h-4 w-4" />
                             <span className="text-xs">Inactivo</span>
                           </span>
                         )}
                       </td>
-                      <td className="px-4 py-3 text-sm text-gray-500">
+                      <td className="px-4 py-3 text-sm text-gray-500 dark:text-gray-400">
                         {source.lastFetch ? (
                           <span className="flex items-center gap-1">
                             <Clock className="h-3 w-3" />
@@ -551,18 +553,18 @@ export default function SourcesPage() {
                                   city: source.city,
                                 })
                               }
-                              className="rounded p-1 text-gray-400 hover:bg-gray-100 hover:text-gray-600"
+                              className="rounded p-1 text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-700 hover:text-gray-600 dark:hover:text-gray-200"
                               title="Editar"
                             >
                               <Edit2 className="h-4 w-4" />
                             </button>
                             <button
                               onClick={() => toggleMutation.mutate({ id: source.id })}
-                              className="rounded p-1 text-gray-400 hover:bg-gray-100 hover:text-gray-600"
+                              className="rounded p-1 text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-700 hover:text-gray-600 dark:hover:text-gray-200"
                               title={source.active ? "Desactivar" : "Activar"}
                             >
                               {source.active ? (
-                                <ToggleRight className="h-4 w-4 text-green-600" />
+                                <ToggleRight className="h-4 w-4 text-green-600 dark:text-green-400" />
                               ) : (
                                 <ToggleLeft className="h-4 w-4" />
                               )}
@@ -570,7 +572,7 @@ export default function SourcesPage() {
                             {source.errorCount > 0 && (
                               <button
                                 onClick={() => resetErrorsMutation.mutate({ id: source.id })}
-                                className="rounded p-1 text-gray-400 hover:bg-gray-100 hover:text-yellow-600"
+                                className="rounded p-1 text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-700 hover:text-yellow-600 dark:hover:text-yellow-400"
                                 title="Resetear errores"
                               >
                                 <RefreshCw className="h-4 w-4" />
@@ -582,7 +584,7 @@ export default function SourcesPage() {
                                   deleteMutation.mutate({ id: source.id });
                                 }
                               }}
-                              className="rounded p-1 text-gray-400 hover:bg-gray-100 hover:text-red-600"
+                              className="rounded p-1 text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-700 hover:text-red-600 dark:hover:text-red-400"
                               title="Eliminar"
                             >
                               <Trash2 className="h-4 w-4" />
@@ -598,8 +600,8 @@ export default function SourcesPage() {
 
             {/* Pagination */}
             {sourcesQuery.data && sourcesQuery.data.totalPages > 1 && (
-              <div className="flex items-center justify-between border-t px-4 py-3">
-                <p className="text-sm text-gray-500">
+              <div className="flex items-center justify-between border-t border-gray-200 dark:border-gray-700 px-4 py-3">
+                <p className="text-sm text-gray-500 dark:text-gray-400">
                   Mostrando {(page - 1) * 20 + 1} - {Math.min(page * 20, sourcesQuery.data.total)} de{" "}
                   {sourcesQuery.data.total}
                 </p>
@@ -607,17 +609,17 @@ export default function SourcesPage() {
                   <button
                     onClick={() => setPage((p) => Math.max(1, p - 1))}
                     disabled={page === 1}
-                    className="rounded-lg border px-3 py-1 text-sm disabled:opacity-50"
+                    className="rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 px-3 py-1 text-sm text-gray-700 dark:text-gray-200 disabled:opacity-50"
                   >
                     <ChevronLeft className="h-4 w-4" />
                   </button>
-                  <span className="px-3 py-1 text-sm">
+                  <span className="px-3 py-1 text-sm text-gray-700 dark:text-gray-200">
                     {page} / {sourcesQuery.data.totalPages}
                   </span>
                   <button
                     onClick={() => setPage((p) => Math.min(sourcesQuery.data!.totalPages, p + 1))}
                     disabled={page === sourcesQuery.data.totalPages}
-                    className="rounded-lg border px-3 py-1 text-sm disabled:opacity-50"
+                    className="rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 px-3 py-1 text-sm text-gray-700 dark:text-gray-200 disabled:opacity-50"
                   >
                     <ChevronRight className="h-4 w-4" />
                   </button>
@@ -638,9 +640,9 @@ export default function SourcesPage() {
                 setStatusFilter(e.target.value);
                 setRequestPage(1);
               }}
-              className="rounded-lg border px-3 py-2 text-sm"
+              className="rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 px-3 py-2 text-sm text-gray-900 dark:text-white"
             >
-              <option value="">Todos los estados</option>
+              <option value="">Todos los estatus</option>
               <option value="PENDING">Pendientes</option>
               <option value="APPROVED">Aprobadas</option>
               <option value="REJECTED">Rechazadas</option>
@@ -649,9 +651,9 @@ export default function SourcesPage() {
           </div>
 
           {/* Requests Table */}
-          <div className="rounded-xl bg-white shadow-sm overflow-hidden">
+          <div className="rounded-xl bg-white dark:bg-gray-800 shadow-sm dark:shadow-gray-900/20 overflow-hidden">
             <table className="w-full">
-              <thead className="bg-gray-50 text-left text-xs font-medium uppercase text-gray-500">
+              <thead className="bg-gray-50 dark:bg-gray-700 text-left text-xs font-medium uppercase text-gray-500 dark:text-gray-400">
                 <tr>
                   <th className="px-4 py-3">Fuente Solicitada</th>
                   <th className="px-4 py-3">Ubicacion</th>
@@ -660,25 +662,25 @@ export default function SourcesPage() {
                   {isAdmin && <th className="px-4 py-3">Acciones</th>}
                 </tr>
               </thead>
-              <tbody className="divide-y">
+              <tbody className="divide-y divide-gray-200 dark:divide-gray-700">
                 {requestsQuery.isLoading ? (
                   <tr>
-                    <td colSpan={5} className="px-4 py-8 text-center text-gray-500">
+                    <td colSpan={5} className="px-4 py-8 text-center text-gray-500 dark:text-gray-400">
                       <div className="mx-auto h-8 w-8 animate-spin rounded-full border-2 border-brand-600 border-t-transparent" />
                     </td>
                   </tr>
                 ) : requestsQuery.data?.requests.length === 0 ? (
                   <tr>
-                    <td colSpan={5} className="px-4 py-8 text-center text-gray-500">
+                    <td colSpan={5} className="px-4 py-8 text-center text-gray-500 dark:text-gray-400">
                       No hay solicitudes
                     </td>
                   </tr>
                 ) : (
                   requestsQuery.data?.requests.map((request) => (
-                    <tr key={request.id} className="hover:bg-gray-50">
+                    <tr key={request.id} className="hover:bg-gray-50 dark:hover:bg-gray-700/50">
                       <td className="px-4 py-3">
                         <div>
-                          <p className="font-medium text-gray-900">{request.name}</p>
+                          <p className="font-medium text-gray-900 dark:text-white">{request.name}</p>
                           <a
                             href={request.url}
                             target="_blank"
@@ -689,7 +691,7 @@ export default function SourcesPage() {
                             <ExternalLink className="h-3 w-3" />
                           </a>
                           {request.notes && (
-                            <p className="mt-1 text-xs text-gray-400">{request.notes}</p>
+                            <p className="mt-1 text-xs text-gray-400 dark:text-gray-500">{request.notes}</p>
                           )}
                         </div>
                       </td>
@@ -707,7 +709,7 @@ export default function SourcesPage() {
                           {statusLabels[request.status]?.label}
                         </span>
                       </td>
-                      <td className="px-4 py-3 text-sm text-gray-500">
+                      <td className="px-4 py-3 text-sm text-gray-500 dark:text-gray-400">
                         {new Date(request.createdAt).toLocaleDateString("es-MX")}
                       </td>
                       {isAdmin && (
@@ -717,16 +719,16 @@ export default function SourcesPage() {
                               <>
                                 <button
                                   onClick={() => approveMutation.mutate({ id: request.id })}
-                                  className="rounded bg-green-100 px-2 py-1 text-xs font-medium text-green-700 hover:bg-green-200"
+                                  className="rounded bg-green-100 dark:bg-green-900/30 px-2 py-1 text-xs font-medium text-green-700 dark:text-green-400 hover:bg-green-200 dark:hover:bg-green-900/50"
                                 >
                                   Aprobar
                                 </button>
                                 <button
                                   onClick={() => {
-                                    const notes = prompt("Razon del rechazo (opcional):");
+                                    const notes = prompt("Razón del rechazo (opcional):");
                                     rejectMutation.mutate({ id: request.id, notes: notes || undefined });
                                   }}
-                                  className="rounded bg-red-100 px-2 py-1 text-xs font-medium text-red-700 hover:bg-red-200"
+                                  className="rounded bg-red-100 dark:bg-red-900/30 px-2 py-1 text-xs font-medium text-red-700 dark:text-red-400 hover:bg-red-200 dark:hover:bg-red-900/50"
                                 >
                                   Rechazar
                                 </button>
@@ -735,7 +737,7 @@ export default function SourcesPage() {
                             {request.status === "APPROVED" && (
                               <button
                                 onClick={() => integrateMutation.mutate({ id: request.id })}
-                                className="rounded bg-blue-100 px-2 py-1 text-xs font-medium text-blue-700 hover:bg-blue-200"
+                                className="rounded bg-blue-100 dark:bg-blue-900/30 px-2 py-1 text-xs font-medium text-blue-700 dark:text-blue-400 hover:bg-blue-200 dark:hover:bg-blue-900/50"
                               >
                                 Integrar
                               </button>
@@ -751,15 +753,15 @@ export default function SourcesPage() {
 
             {/* Pagination */}
             {requestsQuery.data && requestsQuery.data.totalPages > 1 && (
-              <div className="flex items-center justify-between border-t px-4 py-3">
-                <p className="text-sm text-gray-500">
-                  Pagina {requestPage} de {requestsQuery.data.totalPages}
+              <div className="flex items-center justify-between border-t border-gray-200 dark:border-gray-700 px-4 py-3">
+                <p className="text-sm text-gray-500 dark:text-gray-400">
+                  Página {requestPage} de {requestsQuery.data.totalPages}
                 </p>
                 <div className="flex gap-2">
                   <button
                     onClick={() => setRequestPage((p) => Math.max(1, p - 1))}
                     disabled={requestPage === 1}
-                    className="rounded-lg border px-3 py-1 text-sm disabled:opacity-50"
+                    className="rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 px-3 py-1 text-sm text-gray-700 dark:text-gray-200 disabled:opacity-50"
                   >
                     <ChevronLeft className="h-4 w-4" />
                   </button>
@@ -768,7 +770,7 @@ export default function SourcesPage() {
                       setRequestPage((p) => Math.min(requestsQuery.data!.totalPages, p + 1))
                     }
                     disabled={requestPage === requestsQuery.data.totalPages}
-                    className="rounded-lg border px-3 py-1 text-sm disabled:opacity-50"
+                    className="rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 px-3 py-1 text-sm text-gray-700 dark:text-gray-200 disabled:opacity-50"
                   >
                     <ChevronRight className="h-4 w-4" />
                   </button>
@@ -782,38 +784,38 @@ export default function SourcesPage() {
       {/* Create/Edit Modal */}
       {(showCreateModal || editingSource) && isAdmin && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50">
-          <div className="w-full max-w-md rounded-xl bg-white p-6 shadow-xl">
-            <h3 className="text-lg font-semibold">
+          <div className="w-full max-w-md rounded-xl bg-white dark:bg-gray-800 p-6 shadow-xl">
+            <h3 className="text-lg font-semibold text-gray-900 dark:text-white">
               {editingSource ? "Editar Fuente" : "Nueva Fuente"}
             </h3>
             <div className="mt-4 space-y-4">
               <div>
-                <label className="block text-sm font-medium text-gray-700">Nombre</label>
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">Nombre</label>
                 <input
                   type="text"
                   value={formName}
                   onChange={(e) => setFormName(e.target.value)}
-                  className="mt-1 w-full rounded-lg border px-3 py-2 text-sm"
+                  className="mt-1 w-full rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 px-3 py-2 text-sm text-gray-900 dark:text-white placeholder-gray-400"
                   placeholder="El Universal"
                 />
               </div>
               <div>
-                <label className="block text-sm font-medium text-gray-700">URL del Feed RSS</label>
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">URL del Feed RSS</label>
                 <input
                   type="url"
                   value={formUrl}
                   onChange={(e) => setFormUrl(e.target.value)}
-                  className="mt-1 w-full rounded-lg border px-3 py-2 text-sm"
+                  className="mt-1 w-full rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 px-3 py-2 text-sm text-gray-900 dark:text-white placeholder-gray-400"
                   placeholder="https://ejemplo.com/feed"
                 />
               </div>
               <div className="grid grid-cols-2 gap-4">
                 <div>
-                  <label className="block text-sm font-medium text-gray-700">Tipo</label>
+                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">Tipo</label>
                   <select
                     value={formType}
                     onChange={(e) => setFormType(e.target.value)}
-                    className="mt-1 w-full rounded-lg border px-3 py-2 text-sm"
+                    className="mt-1 w-full rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 px-3 py-2 text-sm text-gray-900 dark:text-white"
                   >
                     <option value="NATIONAL">Nacional</option>
                     <option value="STATE">Estatal</option>
@@ -822,11 +824,11 @@ export default function SourcesPage() {
                   </select>
                 </div>
                 <div>
-                  <label className="block text-sm font-medium text-gray-700">Tier</label>
+                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">Tier</label>
                   <select
                     value={formTier}
                     onChange={(e) => setFormTier(parseInt(e.target.value))}
-                    className="mt-1 w-full rounded-lg border px-3 py-2 text-sm"
+                    className="mt-1 w-full rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 px-3 py-2 text-sm text-gray-900 dark:text-white"
                   >
                     <option value={1}>Tier 1 - Nacional</option>
                     <option value={2}>Tier 2 - Estatal</option>
@@ -836,22 +838,22 @@ export default function SourcesPage() {
               </div>
               <div className="grid grid-cols-2 gap-4">
                 <div>
-                  <label className="block text-sm font-medium text-gray-700">Estado</label>
+                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">Estado (geo)</label>
                   <input
                     type="text"
                     value={formState}
                     onChange={(e) => setFormState(e.target.value)}
-                    className="mt-1 w-full rounded-lg border px-3 py-2 text-sm"
+                    className="mt-1 w-full rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 px-3 py-2 text-sm text-gray-900 dark:text-white placeholder-gray-400"
                     placeholder="Jalisco"
                   />
                 </div>
                 <div>
-                  <label className="block text-sm font-medium text-gray-700">Ciudad</label>
+                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">Ciudad</label>
                   <input
                     type="text"
                     value={formCity}
                     onChange={(e) => setFormCity(e.target.value)}
-                    className="mt-1 w-full rounded-lg border px-3 py-2 text-sm"
+                    className="mt-1 w-full rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 px-3 py-2 text-sm text-gray-900 dark:text-white placeholder-gray-400"
                     placeholder="Guadalajara"
                   />
                 </div>
@@ -864,7 +866,7 @@ export default function SourcesPage() {
                   setEditingSource(null);
                   resetForm();
                 }}
-                className="rounded-lg border px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50"
+                className="rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 px-4 py-2 text-sm font-medium text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-600"
               >
                 Cancelar
               </button>
@@ -881,7 +883,7 @@ export default function SourcesPage() {
               </button>
             </div>
             {(createMutation.isError || updateMutation.isError) && (
-              <p className="mt-2 text-sm text-red-600">
+              <p className="mt-2 text-sm text-red-600 dark:text-red-400">
                 {createMutation.error?.message || updateMutation.error?.message}
               </p>
             )}
@@ -892,62 +894,62 @@ export default function SourcesPage() {
       {/* Request Modal */}
       {showRequestModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50">
-          <div className="w-full max-w-md rounded-xl bg-white p-6 shadow-xl">
-            <h3 className="text-lg font-semibold">Solicitar Nueva Fuente</h3>
-            <p className="mt-1 text-sm text-gray-500">
-              Sugiere un medio para agregar al sistema. Un administrador revisara tu solicitud.
+          <div className="w-full max-w-md rounded-xl bg-white dark:bg-gray-800 p-6 shadow-xl">
+            <h3 className="text-lg font-semibold text-gray-900 dark:text-white">Solicitar Nueva Fuente</h3>
+            <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">
+              Sugiere un medio para agregar al sistema. Un administrador revisará tu solicitud.
             </p>
             <div className="mt-4 space-y-4">
               <div>
-                <label className="block text-sm font-medium text-gray-700">Nombre del Medio</label>
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">Nombre del Medio</label>
                 <input
                   type="text"
                   value={formName}
                   onChange={(e) => setFormName(e.target.value)}
-                  className="mt-1 w-full rounded-lg border px-3 py-2 text-sm"
+                  className="mt-1 w-full rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 px-3 py-2 text-sm text-gray-900 dark:text-white placeholder-gray-400"
                   placeholder="Diario de Monterrey"
                 />
               </div>
               <div>
-                <label className="block text-sm font-medium text-gray-700">URL del Feed RSS</label>
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">URL del Feed RSS</label>
                 <input
                   type="url"
                   value={formUrl}
                   onChange={(e) => setFormUrl(e.target.value)}
-                  className="mt-1 w-full rounded-lg border px-3 py-2 text-sm"
+                  className="mt-1 w-full rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 px-3 py-2 text-sm text-gray-900 dark:text-white placeholder-gray-400"
                   placeholder="https://ejemplo.com/feed"
                 />
               </div>
               <div className="grid grid-cols-2 gap-4">
                 <div>
-                  <label className="block text-sm font-medium text-gray-700">Estado</label>
+                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">Estado (geo)</label>
                   <input
                     type="text"
                     value={formState}
                     onChange={(e) => setFormState(e.target.value)}
-                    className="mt-1 w-full rounded-lg border px-3 py-2 text-sm"
-                    placeholder="Nuevo Leon"
+                    className="mt-1 w-full rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 px-3 py-2 text-sm text-gray-900 dark:text-white placeholder-gray-400"
+                    placeholder="Nuevo León"
                   />
                 </div>
                 <div>
-                  <label className="block text-sm font-medium text-gray-700">Ciudad</label>
+                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">Ciudad</label>
                   <input
                     type="text"
                     value={formCity}
                     onChange={(e) => setFormCity(e.target.value)}
-                    className="mt-1 w-full rounded-lg border px-3 py-2 text-sm"
+                    className="mt-1 w-full rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 px-3 py-2 text-sm text-gray-900 dark:text-white placeholder-gray-400"
                     placeholder="Monterrey"
                   />
                 </div>
               </div>
               <div>
-                <label className="block text-sm font-medium text-gray-700">Notas (opcional)</label>
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">Notas (opcional)</label>
                 <textarea
                   value={formNotes}
                   onChange={(e) => setFormNotes(e.target.value)}
-                  className="mt-1 w-full rounded-lg border px-3 py-2 text-sm"
+                  className="mt-1 w-full rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 px-3 py-2 text-sm text-gray-900 dark:text-white placeholder-gray-400"
                   rows={2}
-                  placeholder="Informacion adicional sobre el medio..."
+                  placeholder="Información adicional sobre el medio..."
                 />
               </div>
             </div>
@@ -957,7 +959,7 @@ export default function SourcesPage() {
                   setShowRequestModal(false);
                   resetForm();
                 }}
-                className="rounded-lg border px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50"
+                className="rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 px-4 py-2 text-sm font-medium text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-600"
               >
                 Cancelar
               </button>
@@ -970,7 +972,7 @@ export default function SourcesPage() {
               </button>
             </div>
             {requestMutation.isError && (
-              <p className="mt-2 text-sm text-red-600">{requestMutation.error?.message}</p>
+              <p className="mt-2 text-sm text-red-600 dark:text-red-400">{requestMutation.error?.message}</p>
             )}
           </div>
         </div>

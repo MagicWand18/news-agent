@@ -681,6 +681,22 @@ El sistema detecta automaticamente situaciones de crisis mediaticas.
 | `intelligence` | Media Intelligence | `getSOV`, `getTopics`, `getWeeklyInsights`, `getSourceTiers`, `getKPIs` |
 | `sources` | Gestion de fuentes RSS | `list`, `stats`, `create`, `update`, `delete`, `requestSource`, `listRequests`, `approveRequest`, `rejectRequest`, `integrateRequest` |
 
+## Patrón de Colores Dark Mode
+
+El sistema usa un patrón consistente de colores para dark mode:
+
+| Elemento | Light Mode | Dark Mode |
+|----------|------------|-----------|
+| Card background | `bg-white` | `dark:bg-gray-800` |
+| Card border | `border-gray-100/200` | `dark:border-gray-700` |
+| Title text | `text-gray-900` | `dark:text-white` |
+| Body text | `text-gray-600` | `dark:text-gray-300` |
+| Muted text | `text-gray-500` | `dark:text-gray-400` |
+| Input background | `bg-white` | `dark:bg-gray-700` |
+| Input border | `border-gray-300` | `dark:border-gray-600` |
+| Badge background | `bg-{color}-100` | `dark:bg-{color}-900/30` |
+| Badge text | `text-{color}-700/800` | `dark:text-{color}-400` |
+
 ### Proteccion de Endpoints
 
 - **protectedProcedure**: Requiere autenticacion (cualquier rol)

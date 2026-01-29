@@ -42,6 +42,7 @@ MediaBot es un sistema de monitoreo de medios que permite a agencias de comunica
 | **Recomendaciones IA** | OK | Insights semanales automaticos (Sprint 6) |
 | **Pagina Intelligence** | OK | Dashboard de inteligencia (Sprint 6) |
 | **Dark Mode** | OK | Toggle tema oscuro con persistencia (Sprint 7) |
+| **Dark Mode Completo** | OK | UI/UX corregida en todas las páginas (Sprint 9.1) |
 | **Aurora Background** | OK | Efecto visual animado en login (Sprint 7) |
 | **Filtros Modernos Tareas** | OK | FilterBar/FilterChips en tareas (Sprint 7) |
 | **Alertas Temas Emergentes** | OK | Notificaciones Telegram automaticas (Sprint 7) |
@@ -204,6 +205,15 @@ MediaBot es un sistema de monitoreo de medios que permite a agencias de comunica
 - **Alertas Temas Emergentes**: Deteccion automatica cada 4h con notificaciones Telegram
 - **Modelo EmergingTopicNotification**: Tracking de notificaciones enviadas
 - **Dark Mode en Componentes**: StatCard, MentionTimeline, FilterBar, etc.
+
+### Sprint 9.1 (Completado - 2026-01-28)
+- **Dark Mode Completo**: Correcciones UI/UX en todas las páginas
+  - Página Fuentes: modales, tabs, solicitudes, badges de status
+  - Página Intelligence: TopicRow, InsightCard, TierCard, EmptyState
+  - Detalle Cliente: SOVSection, CompetitorComparison, Recent Mentions
+  - Menciones: sentimentConfig y urgencyConfig con dark variants
+- **Ubicación Nacional**: Medios tipo NATIONAL muestran "Nacional" en columna ubicación
+- **Renombrar Estado → Estatus**: Evita confusión con ubicación geográfica
 
 ## Metricas de Exito
 

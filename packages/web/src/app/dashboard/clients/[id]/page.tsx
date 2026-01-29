@@ -218,8 +218,8 @@ export default function ClientDetailPage() {
       <CompetitorComparison clientId={id} />
 
       {/* Recent Mentions */}
-      <div className="rounded-xl bg-white p-6 shadow-sm">
-        <h3 className="mb-4 font-semibold">Menciones recientes</h3>
+      <div className="rounded-xl bg-white dark:bg-gray-800 p-6 shadow-sm dark:shadow-gray-900/20">
+        <h3 className="mb-4 font-semibold text-gray-900 dark:text-white">Menciones recientes</h3>
         {c.mentions.map((mention) => (
           <MentionRow
             key={mention.id}
@@ -236,7 +236,7 @@ export default function ClientDetailPage() {
           />
         ))}
         {c.mentions.length === 0 && (
-          <p className="text-gray-500">No hay menciones aun.</p>
+          <p className="text-gray-500 dark:text-gray-400">No hay menciones aún.</p>
         )}
       </div>
     </div>
@@ -254,13 +254,13 @@ function SOVSection({ clientId }: { clientId: string }) {
 
   if (sov.isLoading) {
     return (
-      <div className="rounded-xl bg-white p-6 shadow-sm">
-        <h3 className="mb-4 font-semibold flex items-center gap-2">
+      <div className="rounded-xl bg-white dark:bg-gray-800 p-6 shadow-sm dark:shadow-gray-900/20">
+        <h3 className="mb-4 font-semibold text-gray-900 dark:text-white flex items-center gap-2">
           <Target className="h-5 w-5 text-brand-600" />
           Share of Voice
         </h3>
         <div className="flex h-[200px] items-center justify-center">
-          <div className="h-8 w-8 animate-spin rounded-full border-2 border-gray-200 border-t-brand-600" />
+          <div className="h-8 w-8 animate-spin rounded-full border-2 border-gray-200 dark:border-gray-600 border-t-brand-600" />
         </div>
       </div>
     );
@@ -294,17 +294,17 @@ function SOVSection({ clientId }: { clientId: string }) {
   const previousSov = history[history.length - 2]?.sov || 0;
   const trend = currentSov > previousSov * 1.05 ? "up" : currentSov < previousSov * 0.95 ? "down" : "stable";
   const TrendIcon = trend === "up" ? TrendingUp : trend === "down" ? TrendingDown : Minus;
-  const trendColor = trend === "up" ? "text-emerald-600" : trend === "down" ? "text-red-600" : "text-gray-500";
+  const trendColor = trend === "up" ? "text-emerald-600 dark:text-emerald-400" : trend === "down" ? "text-red-600 dark:text-red-400" : "text-gray-500 dark:text-gray-400";
 
   return (
-    <div className="rounded-xl bg-white p-6 shadow-sm">
+    <div className="rounded-xl bg-white dark:bg-gray-800 p-6 shadow-sm dark:shadow-gray-900/20">
       <div className="mb-4 flex items-center justify-between">
         <div>
-          <h3 className="font-semibold flex items-center gap-2">
+          <h3 className="font-semibold text-gray-900 dark:text-white flex items-center gap-2">
             <Target className="h-5 w-5 text-brand-600" />
             Share of Voice
           </h3>
-          <p className="text-sm text-gray-500">Ultimos {days} dias</p>
+          <p className="text-sm text-gray-500 dark:text-gray-400">Últimos {days} días</p>
         </div>
         <div className="flex items-center gap-3">
           <div className={`flex items-center gap-1 ${trendColor}`}>
@@ -314,11 +314,11 @@ function SOVSection({ clientId }: { clientId: string }) {
           <select
             value={days}
             onChange={(e) => setDays(Number(e.target.value))}
-            className="rounded-lg border border-gray-200 bg-white px-3 py-1.5 text-sm"
+            className="rounded-lg border border-gray-200 dark:border-gray-600 bg-white dark:bg-gray-700 px-3 py-1.5 text-sm text-gray-900 dark:text-white"
           >
-            <option value={7}>7 dias</option>
-            <option value={30}>30 dias</option>
-            <option value={60}>60 dias</option>
+            <option value={7}>7 días</option>
+            <option value={30}>30 días</option>
+            <option value={60}>60 días</option>
           </select>
         </div>
       </div>
@@ -326,7 +326,7 @@ function SOVSection({ clientId }: { clientId: string }) {
       <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
         {/* Donut Chart */}
         <div>
-          <p className="mb-2 text-sm font-medium text-gray-700">vs Competidores</p>
+          <p className="mb-2 text-sm font-medium text-gray-700 dark:text-gray-300">vs Competidores</p>
           {pieData.length > 0 ? (
             <>
               <ResponsiveContainer width="100%" height={180}>
@@ -355,14 +355,14 @@ function SOVSection({ clientId }: { clientId: string }) {
                       className="h-2.5 w-2.5 rounded-full"
                       style={{ backgroundColor: SOV_COLORS[index % SOV_COLORS.length] }}
                     />
-                    <span className="truncate text-gray-600">{entry.name}</span>
-                    <span className="ml-auto font-semibold">{entry.value.toFixed(1)}%</span>
+                    <span className="truncate text-gray-600 dark:text-gray-300">{entry.name}</span>
+                    <span className="ml-auto font-semibold text-gray-900 dark:text-white">{entry.value.toFixed(1)}%</span>
                   </div>
                 ))}
               </div>
             </>
           ) : (
-            <div className="flex h-[180px] items-center justify-center text-gray-400">
+            <div className="flex h-[180px] items-center justify-center text-gray-400 dark:text-gray-500">
               Sin datos
             </div>
           )}
@@ -370,7 +370,7 @@ function SOVSection({ clientId }: { clientId: string }) {
 
         {/* Trend Chart */}
         <div>
-          <p className="mb-2 text-sm font-medium text-gray-700">Tendencia SOV</p>
+          <p className="mb-2 text-sm font-medium text-gray-700 dark:text-gray-300">Tendencia SOV</p>
           {trendData.length > 0 ? (
             <ResponsiveContainer width="100%" height={200}>
               <AreaChart data={trendData}>
@@ -408,7 +408,7 @@ function SOVSection({ clientId }: { clientId: string }) {
               </AreaChart>
             </ResponsiveContainer>
           ) : (
-            <div className="flex h-[200px] items-center justify-center text-gray-400">
+            <div className="flex h-[200px] items-center justify-center text-gray-400 dark:text-gray-500">
               Sin datos de tendencia
             </div>
           )}
@@ -416,12 +416,12 @@ function SOVSection({ clientId }: { clientId: string }) {
       </div>
 
       {/* Weighted SOV info */}
-      <div className="mt-4 rounded-lg bg-gray-50 p-3">
+      <div className="mt-4 rounded-lg bg-gray-50 dark:bg-gray-700/50 p-3">
         <div className="flex items-center justify-between text-sm">
-          <span className="text-gray-600">SOV Ponderado (por tier de fuente)</span>
-          <span className="font-semibold text-gray-900">{clientSOV.weightedSov.toFixed(1)}%</span>
+          <span className="text-gray-600 dark:text-gray-300">SOV Ponderado (por tier de fuente)</span>
+          <span className="font-semibold text-gray-900 dark:text-white">{clientSOV.weightedSov.toFixed(1)}%</span>
         </div>
-        <p className="mt-1 text-xs text-gray-400">
+        <p className="mt-1 text-xs text-gray-400 dark:text-gray-500">
           Tier 1 (nacionales) = 3x | Tier 2 (regionales) = 2x | Tier 3 (digitales) = 1x
         </p>
       </div>
@@ -438,10 +438,10 @@ function CompetitorComparison({ clientId }: { clientId: string }) {
 
   if (comparison.isLoading) {
     return (
-      <div className="rounded-xl bg-white p-6 shadow-sm">
-        <h3 className="mb-4 font-semibold">Comparacion con Competidores</h3>
+      <div className="rounded-xl bg-white dark:bg-gray-800 p-6 shadow-sm dark:shadow-gray-900/20">
+        <h3 className="mb-4 font-semibold text-gray-900 dark:text-white">Comparación con Competidores</h3>
         <div className="flex h-[200px] items-center justify-center">
-          <div className="h-8 w-8 animate-spin rounded-full border-2 border-gray-200 border-t-brand-600" />
+          <div className="h-8 w-8 animate-spin rounded-full border-2 border-gray-200 dark:border-gray-600 border-t-brand-600" />
         </div>
       </div>
     );
@@ -449,15 +449,15 @@ function CompetitorComparison({ clientId }: { clientId: string }) {
 
   if (!comparison.data?.competitors.length) {
     return (
-      <div className="rounded-xl bg-white p-6 shadow-sm">
-        <h3 className="mb-4 font-semibold">Comparacion con Competidores</h3>
+      <div className="rounded-xl bg-white dark:bg-gray-800 p-6 shadow-sm dark:shadow-gray-900/20">
+        <h3 className="mb-4 font-semibold text-gray-900 dark:text-white">Comparación con Competidores</h3>
         <div className="flex flex-col items-center justify-center py-8 text-center">
-          <div className="mb-3 flex h-12 w-12 items-center justify-center rounded-full bg-gray-100">
+          <div className="mb-3 flex h-12 w-12 items-center justify-center rounded-full bg-gray-100 dark:bg-gray-700">
             <BarChart3 className="h-6 w-6 text-gray-400" />
           </div>
-          <p className="text-sm text-gray-500">No hay competidores configurados</p>
-          <p className="mt-1 text-xs text-gray-400">
-            Agrega keywords de tipo "Competidor" para ver la comparacion
+          <p className="text-sm text-gray-500 dark:text-gray-400">No hay competidores configurados</p>
+          <p className="mt-1 text-xs text-gray-400 dark:text-gray-500">
+            Agrega keywords de tipo "Competidor" para ver la comparación
           </p>
         </div>
       </div>
@@ -498,21 +498,21 @@ function CompetitorComparison({ clientId }: { clientId: string }) {
   };
 
   return (
-    <div className="rounded-xl bg-white p-6 shadow-sm">
+    <div className="rounded-xl bg-white dark:bg-gray-800 p-6 shadow-sm dark:shadow-gray-900/20">
       <div className="mb-4 flex items-center justify-between">
         <div>
-          <h3 className="font-semibold">Comparacion con Competidores</h3>
-          <p className="text-sm text-gray-500">Ultimos {days} dias</p>
+          <h3 className="font-semibold text-gray-900 dark:text-white">Comparación con Competidores</h3>
+          <p className="text-sm text-gray-500 dark:text-gray-400">Últimos {days} días</p>
         </div>
         <select
           value={days}
           onChange={(e) => setDays(Number(e.target.value))}
-          className="rounded-lg border border-gray-200 bg-white px-3 py-1.5 text-sm"
+          className="rounded-lg border border-gray-200 dark:border-gray-600 bg-white dark:bg-gray-700 px-3 py-1.5 text-sm text-gray-900 dark:text-white"
         >
-          <option value={7}>7 dias</option>
-          <option value={30}>30 dias</option>
-          <option value={60}>60 dias</option>
-          <option value={90}>90 dias</option>
+          <option value={7}>7 días</option>
+          <option value={30}>30 días</option>
+          <option value={60}>60 días</option>
+          <option value={90}>90 días</option>
         </select>
       </div>
 
@@ -546,32 +546,32 @@ function CompetitorComparison({ clientId }: { clientId: string }) {
       <div className="mt-4 overflow-x-auto">
         <table className="w-full text-sm">
           <thead>
-            <tr className="border-b text-left">
-              <th className="pb-2 font-medium text-gray-500">Entidad</th>
-              <th className="pb-2 text-right font-medium text-gray-500">Menciones</th>
-              <th className="pb-2 text-right font-medium text-gray-500">% Positivo</th>
-              <th className="pb-2 text-right font-medium text-gray-500">% Negativo</th>
+            <tr className="border-b border-gray-200 dark:border-gray-700 text-left">
+              <th className="pb-2 font-medium text-gray-500 dark:text-gray-400">Entidad</th>
+              <th className="pb-2 text-right font-medium text-gray-500 dark:text-gray-400">Menciones</th>
+              <th className="pb-2 text-right font-medium text-gray-500 dark:text-gray-400">% Positivo</th>
+              <th className="pb-2 text-right font-medium text-gray-500 dark:text-gray-400">% Negativo</th>
             </tr>
           </thead>
           <tbody>
-            <tr className="border-b bg-blue-50">
-              <td className="py-2 font-medium text-blue-700">{data.client.name}</td>
-              <td className="py-2 text-right">{data.client.mentions}</td>
-              <td className="py-2 text-right text-green-600">
+            <tr className="border-b border-gray-200 dark:border-gray-700 bg-blue-50 dark:bg-blue-900/20">
+              <td className="py-2 font-medium text-blue-700 dark:text-blue-400">{data.client.name}</td>
+              <td className="py-2 text-right text-gray-900 dark:text-white">{data.client.mentions}</td>
+              <td className="py-2 text-right text-green-600 dark:text-green-400">
                 {calculateSentimentPercent(data.client.sentiment).positive}%
               </td>
-              <td className="py-2 text-right text-red-600">
+              <td className="py-2 text-right text-red-600 dark:text-red-400">
                 {calculateSentimentPercent(data.client.sentiment).negative}%
               </td>
             </tr>
             {data.competitors.map((comp) => {
               const percent = calculateSentimentPercent(comp.sentiment);
               return (
-                <tr key={comp.name} className="border-b">
-                  <td className="py-2 text-gray-700">{comp.name}</td>
-                  <td className="py-2 text-right">{comp.mentions}</td>
-                  <td className="py-2 text-right text-green-600">{percent.positive}%</td>
-                  <td className="py-2 text-right text-red-600">{percent.negative}%</td>
+                <tr key={comp.name} className="border-b border-gray-200 dark:border-gray-700">
+                  <td className="py-2 text-gray-700 dark:text-gray-300">{comp.name}</td>
+                  <td className="py-2 text-right text-gray-900 dark:text-white">{comp.mentions}</td>
+                  <td className="py-2 text-right text-green-600 dark:text-green-400">{percent.positive}%</td>
+                  <td className="py-2 text-right text-red-600 dark:text-red-400">{percent.negative}%</td>
                 </tr>
               );
             })}

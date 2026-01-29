@@ -248,7 +248,7 @@ export default function IntelligencePage() {
                         className="h-3 w-3 rounded-full"
                         style={{ backgroundColor: SOV_COLORS[index % SOV_COLORS.length] }}
                       />
-                      <span className="truncate text-gray-600">{entry.name}</span>
+                      <span className="truncate text-gray-600 dark:text-gray-300">{entry.name}</span>
                     </div>
                     <span className="font-semibold text-gray-900 dark:text-white">{entry.value.toFixed(1)}%</span>
                   </div>
@@ -271,7 +271,7 @@ export default function IntelligencePage() {
               <p className="text-sm text-gray-500 dark:text-gray-400">Top temas detectados</p>
             </div>
             {(topics.data?.emergingTopics?.length ?? 0) > 0 && (
-              <span className="flex items-center gap-1 rounded-full bg-amber-100 px-2 py-1 text-xs font-medium text-amber-700">
+              <span className="flex items-center gap-1 rounded-full bg-amber-100 dark:bg-amber-900/30 px-2 py-1 text-xs font-medium text-amber-700 dark:text-amber-400">
                 <Zap className="h-3 w-3" />
                 {topics.data?.emergingTopics?.length} emergentes
               </span>
@@ -319,12 +319,12 @@ export default function IntelligencePage() {
             </div>
           ) : (
             <div className="flex flex-col items-center justify-center py-8 text-center">
-              <div className="mb-3 flex h-12 w-12 items-center justify-center rounded-full bg-amber-100">
+              <div className="mb-3 flex h-12 w-12 items-center justify-center rounded-full bg-amber-100 dark:bg-amber-900/30">
                 <Lightbulb className="h-6 w-6 text-amber-500" />
               </div>
               <p className="text-sm text-gray-500 dark:text-gray-400">Los insights se generan semanalmente</p>
-              <p className="mt-1 text-xs text-gray-400">
-                Disponibles cada lunes con analisis de la semana anterior
+              <p className="mt-1 text-xs text-gray-400 dark:text-gray-500">
+                Disponibles cada lunes con análisis de la semana anterior
               </p>
             </div>
           )}
@@ -426,19 +426,19 @@ function TopicRow({
 
   return (
     <div className="flex items-center gap-3">
-      <span className="flex h-6 w-6 items-center justify-center rounded-full bg-gray-100 text-xs font-medium text-gray-600">
+      <span className="flex h-6 w-6 items-center justify-center rounded-full bg-gray-100 dark:bg-gray-700 text-xs font-medium text-gray-600 dark:text-gray-300">
         {rank}
       </span>
       <div className="min-w-0 flex-1">
         <div className="flex items-center gap-2">
-          <span className="truncate font-medium text-gray-900">{name}</span>
+          <span className="truncate font-medium text-gray-900 dark:text-white">{name}</span>
           {isEmerging && (
-            <span className="flex items-center gap-0.5 rounded bg-amber-100 px-1.5 py-0.5 text-xs text-amber-700">
+            <span className="flex items-center gap-0.5 rounded bg-amber-100 dark:bg-amber-900/30 px-1.5 py-0.5 text-xs text-amber-700 dark:text-amber-400">
               <Zap className="h-3 w-3" /> Nuevo
             </span>
           )}
         </div>
-        <div className="mt-1 flex h-1.5 overflow-hidden rounded-full bg-gray-100">
+        <div className="mt-1 flex h-1.5 overflow-hidden rounded-full bg-gray-100 dark:bg-gray-700">
           <div
             className="bg-emerald-400"
             style={{ width: `${positivePercent}%` }}
@@ -449,7 +449,7 @@ function TopicRow({
           />
         </div>
       </div>
-      <span className="text-sm font-semibold text-gray-600">{count}</span>
+      <span className="text-sm font-semibold text-gray-600 dark:text-gray-300">{count}</span>
     </div>
   );
 }
@@ -469,15 +469,15 @@ function InsightCard({
     sovData.trend === "up" ? TrendingUp : sovData.trend === "down" ? TrendingDown : Minus;
   const trendColor =
     sovData.trend === "up"
-      ? "text-emerald-600"
+      ? "text-emerald-600 dark:text-emerald-400"
       : sovData.trend === "down"
-        ? "text-red-600"
-        : "text-gray-500";
+        ? "text-red-600 dark:text-red-400"
+        : "text-gray-500 dark:text-gray-400";
 
   return (
-    <div className="rounded-lg border border-gray-100 bg-gray-50 p-4">
+    <div className="rounded-lg border border-gray-100 dark:border-gray-600 bg-gray-50 dark:bg-gray-700/50 p-4">
       <div className="mb-3 flex items-center justify-between">
-        <span className="font-medium text-gray-900">{clientName}</span>
+        <span className="font-medium text-gray-900 dark:text-white">{clientName}</span>
         <div className="flex items-center gap-2">
           <span className={`flex items-center gap-1 text-sm ${trendColor}`}>
             <TrendIcon className="h-4 w-4" />
@@ -487,13 +487,13 @@ function InsightCard({
       </div>
       <ul className="space-y-2">
         {insights.slice(0, 3).map((insight, index) => (
-          <li key={index} className="flex items-start gap-2 text-sm text-gray-600">
+          <li key={index} className="flex items-start gap-2 text-sm text-gray-600 dark:text-gray-300">
             <Lightbulb className="mt-0.5 h-4 w-4 flex-shrink-0 text-amber-500" />
             <span>{insight}</span>
           </li>
         ))}
       </ul>
-      <p className="mt-3 text-xs text-gray-400">
+      <p className="mt-3 text-xs text-gray-400 dark:text-gray-500">
         Semana del {weekStart.toLocaleDateString("es-ES", { day: "2-digit", month: "short" })}
       </p>
     </div>
@@ -514,25 +514,25 @@ function TierCard({
   description: string;
 }) {
   const colors = {
-    emerald: "border-emerald-200 bg-emerald-50",
-    blue: "border-blue-200 bg-blue-50",
-    gray: "border-gray-200 bg-gray-50",
+    emerald: "border-emerald-200 dark:border-emerald-800 bg-emerald-50 dark:bg-emerald-900/20",
+    blue: "border-blue-200 dark:border-blue-800 bg-blue-50 dark:bg-blue-900/20",
+    gray: "border-gray-200 dark:border-gray-600 bg-gray-50 dark:bg-gray-700/50",
   };
 
   const textColors = {
-    emerald: "text-emerald-700",
-    blue: "text-blue-700",
-    gray: "text-gray-700",
+    emerald: "text-emerald-700 dark:text-emerald-400",
+    blue: "text-blue-700 dark:text-blue-400",
+    gray: "text-gray-700 dark:text-gray-300",
   };
 
   return (
     <div className={`rounded-lg border p-4 ${colors[color]}`}>
       <div className="flex items-center justify-between">
         <span className={`text-lg font-bold ${textColors[color]}`}>Tier {tier}</span>
-        <span className="text-2xl font-bold text-gray-900">{count}</span>
+        <span className="text-2xl font-bold text-gray-900 dark:text-white">{count}</span>
       </div>
-      <p className="mt-1 font-medium text-gray-700">{label}</p>
-      <p className="mt-1 text-xs text-gray-500">{description}</p>
+      <p className="mt-1 font-medium text-gray-700 dark:text-gray-200">{label}</p>
+      <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">{description}</p>
     </div>
   );
 }
@@ -548,7 +548,7 @@ function LoadingSpinner() {
 function EmptyState({ message }: { message: string }) {
   return (
     <div className="flex flex-col items-center justify-center py-12 text-center">
-      <div className="mb-3 flex h-12 w-12 items-center justify-center rounded-full bg-gray-100">
+      <div className="mb-3 flex h-12 w-12 items-center justify-center rounded-full bg-gray-100 dark:bg-gray-700">
         <Brain className="h-6 w-6 text-gray-400" />
       </div>
       <p className="text-sm text-gray-500 dark:text-gray-400">{message}</p>
