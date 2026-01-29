@@ -519,15 +519,87 @@ Mejorar estados vacios con:
 
 ---
 
-## Sprint 10+ (Backlog)
+## Sprint 10: Notificaciones In-App + Mejoras UX
+
+### Objetivo
+Sistema de notificaciones en tiempo real dentro del dashboard, sin depender de Telegram.
+
+### Modelo de Datos
+```prisma
+model Notification {
+  id        String             @id @default(cuid())
+  userId    String
+  user      User               @relation(fields: [userId], references: [id])
+  type      NotificationType
+  title     String
+  message   String
+  data      Json?              // Metadata (mentionId, clientId, etc.)
+  read      Boolean            @default(false)
+  readAt    DateTime?
+  createdAt DateTime           @default(now())
+
+  @@index([userId, read])
+  @@index([createdAt])
+}
+
+enum NotificationType {
+  MENTION_CRITICAL
+  MENTION_HIGH
+  CRISIS_ALERT
+  WEEKLY_REPORT
+  EMERGING_TOPIC
+  SYSTEM
+}
+```
+
+### Componentes UI
+| Componente | Descripción |
+|------------|-------------|
+| `NotificationBell` | Ícono campana con badge contador en sidebar |
+| `NotificationDropdown` | Dropdown con últimas 10 notificaciones |
+| `NotificationItem` | Card individual con ícono por tipo |
+| `/dashboard/notifications` | Página completa con filtros |
+
+### Funcionalidades
+- [ ] Badge con contador de no leídas
+- [ ] Dropdown con últimas 10 notificaciones
+- [ ] Marcar como leída al hacer click
+- [ ] Marcar todas como leídas
+- [ ] Página completa con filtros y paginación
+- [ ] Polling cada 30s para actualizaciones
+
+### Integraciones Automáticas
+Crear notificación cuando:
+- Nueva mención CRITICAL o HIGH
+- Crisis detectada
+- Tema emergente detectado
+- Reporte semanal generado
+
+### Mejoras UX Adicionales
+- [ ] Loading skeletons en tablas principales
+- [ ] Empty states mejorados con ilustraciones
+- [ ] Sidebar colapsable con persistencia
+
+### Archivos a Crear/Modificar
+| Archivo | Propósito |
+|---------|-----------|
+| `prisma/schema.prisma` | Modelo Notification |
+| `packages/web/src/server/routers/notifications.ts` | API tRPC |
+| `packages/web/src/components/notifications/` | Componentes UI |
+| `packages/web/src/app/dashboard/notifications/` | Página centro |
+| `packages/workers/src/notification-creator.ts` | Crear notificaciones |
+
+---
+
+## Sprint 11+ (Backlog)
 
 1. **YouTube Data API**: Cuota gratuita de 10,000 units/día
 2. **Google Alerts RSS**: Alternativa sin costo a Google CSE
-3. **View Transitions API**: Animaciones entre paginas
-4. **API publica**: Endpoints REST + webhooks
-5. **App movil**: Notificaciones push nativas (React Native)
+3. **View Transitions API**: Animaciones entre páginas
+4. **API pública**: Endpoints REST + webhooks
+5. **App móvil**: Notificaciones push nativas (React Native)
 6. **White-label**: Dashboard personalizable por cliente
-7. **Multi-idioma**: i18n para expansion internacional
+7. **Multi-idioma**: i18n para expansión internacional
 
 **Nota**: Twitter/X API descartada por costo prohibitivo ($5000+/mes Enterprise tier).
 

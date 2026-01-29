@@ -172,7 +172,7 @@ export const clientsRouter = router({
   // ==================== SPRINT 8: ONBOARDING MAGICO ====================
 
   /**
-   * Busca noticias recientes en INTERNET usando Google Custom Search.
+   * Busca noticias recientes en INTERNET usando Gemini con grounding.
    * Primera fase del wizard de onboarding.
    */
   searchNews: protectedProcedure
@@ -185,6 +185,7 @@ export const clientsRouter = router({
     )
     .mutation(async ({ input }) => {
       const { config } = await import("@mediabot/shared");
+      const { GoogleGenerativeAI } = await import("@google/generative-ai");
 
       const foundArticles: Array<{
         id: string;
@@ -198,82 +199,88 @@ export const clientsRouter = router({
       let searchedOnline = false;
       let googleError: string | null = null;
 
-      // Solo intentar Google CSE si está configurado
-      if (config.google.cseApiKey && config.google.cseCx) {
-        const GOOGLE_CSE_API = "https://www.googleapis.com/customsearch/v1";
+      // Usar Gemini con grounding para buscar noticias
+      if (config.google.apiKey) {
+        try {
+          const genAI = new GoogleGenerativeAI(config.google.apiKey);
+          const model = genAI.getGenerativeModel({
+            model: "gemini-2.0-flash",
+            generationConfig: {
+              temperature: 0.3,
+              maxOutputTokens: 4096,
+            },
+          });
 
-        // Construir queries de búsqueda
-        const searchQueries = [
-          `"${input.clientName}" noticias`,
-          input.industry ? `"${input.clientName}" ${input.industry}` : null,
-        ].filter(Boolean) as string[];
+          const industryContext = input.industry ? ` en el sector ${input.industry}` : "";
+          const prompt = `Busca noticias recientes sobre "${input.clientName}"${industryContext} en México publicadas en los últimos ${input.days} días.
 
-        for (const query of searchQueries) {
-          try {
-            const params = new URLSearchParams({
-              key: config.google.cseApiKey,
-              cx: config.google.cseCx,
-              q: query,
-              lr: "lang_es",
-              sort: "date",
-              num: "10",
-              dateRestrict: `d${input.days}`, // Últimos N días
-            });
+Para cada noticia encontrada, proporciona la información en el siguiente formato JSON:
+{
+  "articles": [
+    {
+      "title": "título de la noticia",
+      "source": "nombre del medio (ej: Milenio, El Universal, Reforma)",
+      "url": "URL completa del artículo",
+      "snippet": "resumen breve de 1-2 oraciones",
+      "date": "fecha de publicación en formato YYYY-MM-DD"
+    }
+  ]
+}
 
-            const response = await fetch(`${GOOGLE_CSE_API}?${params}`);
+IMPORTANTE:
+- Busca en fuentes de noticias mexicanas reales y verificables
+- Solo incluye noticias que realmente mencionen a "${input.clientName}"
+- Proporciona URLs reales y funcionales
+- Responde ÚNICAMENTE con el JSON, sin texto adicional`;
 
-            if (!response.ok) {
-              if (response.status === 429) {
-                console.warn("[SearchNews] Google CSE rate limit reached");
-                googleError = "Límite de búsquedas alcanzado. Usando solo artículos locales.";
-                break;
-              }
-              if (response.status === 403) {
-                console.warn("[SearchNews] Google CSE API key issue - falling back to DB search");
-                googleError = "API de Google no disponible. Usando artículos locales.";
-                break;
-              }
-              continue;
-            }
+          const result = await model.generateContent({
+            contents: [{ role: "user", parts: [{ text: prompt }] }],
+            tools: [{ googleSearch: {} }] as unknown as import("@google/generative-ai").Tool[],
+          });
 
-            searchedOnline = true;
+          const response = result.response;
+          const text = response.text();
 
-            const data = await response.json() as {
-              items?: Array<{
-                link: string;
+          // Extraer JSON de la respuesta
+          const jsonMatch = text.match(/\{[\s\S]*"articles"[\s\S]*\}/);
+          if (jsonMatch) {
+            const parsed = JSON.parse(jsonMatch[0]) as {
+              articles: Array<{
                 title: string;
-                displayLink: string;
+                source: string;
+                url: string;
                 snippet?: string;
-                pagemap?: {
-                  metatags?: Array<{ "article:published_time"?: string }>;
-                };
+                date?: string;
               }>;
             };
 
-            if (!data.items) continue;
+            searchedOnline = true;
+            console.log(`[SearchNews] Gemini found ${parsed.articles?.length || 0} articles`);
 
-            for (const item of data.items) {
-              // Evitar duplicados por URL
-              if (foundArticles.some((a) => a.url === item.link)) continue;
+            for (const item of parsed.articles || []) {
+              if (!item.url || !item.title) continue;
+              if (foundArticles.some((a) => a.url === item.url)) continue;
 
-              // Intentar extraer fecha de publicación
+              // Parsear fecha si existe
               let publishedAt: Date | undefined;
-              const metaDate = item.pagemap?.metatags?.[0]?.["article:published_time"];
-              if (metaDate) {
-                publishedAt = new Date(metaDate);
+              if (item.date) {
+                const parsed = new Date(item.date);
+                if (!isNaN(parsed.getTime())) {
+                  publishedAt = parsed;
+                }
               }
 
               // Crear o encontrar el artículo en la base de datos
               let article = await prisma.article.findFirst({
-                where: { url: item.link },
+                where: { url: item.url },
               });
 
               if (!article) {
                 article = await prisma.article.create({
                   data: {
-                    url: item.link,
+                    url: item.url,
                     title: item.title,
-                    source: item.displayLink || "Google",
+                    source: item.source || "Google",
                     content: item.snippet || null,
                     publishedAt: publishedAt || null,
                   },
@@ -283,24 +290,19 @@ export const clientsRouter = router({
               foundArticles.push({
                 id: article.id,
                 title: item.title,
-                source: item.displayLink || "Google",
-                url: item.link,
+                source: item.source || "Google",
+                url: item.url,
                 snippet: item.snippet,
                 publishedAt,
               });
             }
-          } catch (error) {
-            console.error("[SearchNews] Google CSE error:", error);
-            googleError = "Error al buscar en internet. Usando artículos locales.";
           }
-
-          // Evitar rate limiting - pequeña pausa entre queries
-          if (searchQueries.indexOf(query) < searchQueries.length - 1) {
-            await new Promise((resolve) => setTimeout(resolve, 500));
-          }
+        } catch (error) {
+          console.error("[SearchNews] Gemini search error:", error);
+          googleError = "Error al buscar en internet. Usando artículos locales.";
         }
       } else {
-        console.warn("[SearchNews] Google CSE not configured");
+        console.warn("[SearchNews] GOOGLE_API_KEY not configured");
         googleError = "Búsqueda en internet no configurada. Usando artículos locales.";
       }
 

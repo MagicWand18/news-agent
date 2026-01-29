@@ -34,6 +34,7 @@ export const config = {
   google: {
     cseApiKey: optionalEnv("GOOGLE_CSE_API_KEY", ""),
     cseCx: optionalEnv("GOOGLE_CSE_CX", ""),
+    apiKey: optionalEnv("GOOGLE_API_KEY", ""), // Gemini API key for search grounding
   },
   newsdata: {
     apiKey: optionalEnv("NEWSDATA_API_KEY", ""),
