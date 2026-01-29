@@ -211,27 +211,34 @@ export const clientsRouter = router({
             },
           });
 
-          const industryContext = input.industry ? ` en el sector ${input.industry}` : "";
-          const prompt = `Busca noticias recientes sobre "${input.clientName}"${industryContext} en México publicadas en los últimos ${input.days} días.
+          const industryContext = input.industry ? ` relacionadas con ${input.industry}` : "";
+          const prompt = `Eres un investigador de medios. Busca entre 10 y 20 noticias recientes sobre "${input.clientName}"${industryContext}.
 
-Para cada noticia encontrada, proporciona la información en el siguiente formato JSON:
+CRITERIOS DE BÚSQUEDA:
+- Noticias de los últimos ${input.days} días
+- Fuentes: periódicos mexicanos (El Universal, Milenio, Reforma, Excélsior, La Jornada, El Financiero, Forbes México, Expansión), agencias internacionales (Reuters, AFP, EFE), y medios digitales
+- Incluir menciones directas e indirectas (competidores, industria, ejecutivos)
+- Priorizar noticias con impacto mediático
+
+Responde en formato JSON:
 {
   "articles": [
     {
-      "title": "título de la noticia",
-      "source": "nombre del medio (ej: Milenio, El Universal, Reforma)",
-      "url": "URL completa del artículo",
-      "snippet": "resumen breve de 1-2 oraciones",
-      "date": "fecha de publicación en formato YYYY-MM-DD"
+      "title": "título completo de la noticia",
+      "source": "nombre del medio",
+      "url": "URL completa y funcional del artículo",
+      "snippet": "resumen de 2-3 oraciones del contenido",
+      "date": "YYYY-MM-DD"
     }
   ]
 }
 
-IMPORTANTE:
-- Busca en fuentes de noticias mexicanas reales y verificables
-- Solo incluye noticias que realmente mencionen a "${input.clientName}"
-- Proporciona URLs reales y funcionales
-- Responde ÚNICAMENTE con el JSON, sin texto adicional`;
+REGLAS:
+- Mínimo 10 artículos, máximo 20
+- URLs deben ser reales y accesibles
+- No inventar noticias - solo incluir las que realmente existen
+- Si hay pocas noticias directas, incluir noticias relacionadas con la industria o competidores
+- Responde SOLO con el JSON, sin explicaciones`;
 
           const result = await model.generateContent({
             contents: [{ role: "user", parts: [{ text: prompt }] }],
