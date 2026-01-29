@@ -86,6 +86,9 @@ export default function NewClientWizardPage() {
   // Confetti
   const [showConfetti, setShowConfetti] = useState(false);
 
+  // Search warning (when Google CSE is not available)
+  const [searchWarning, setSearchWarning] = useState<string | null>(null);
+
   // Mutations
   const searchNewsMutation = trpc.clients.searchNews.useMutation();
   const generateConfigMutation = trpc.clients.generateOnboardingConfig.useMutation();
@@ -116,6 +119,13 @@ export default function NewClientWizardPage() {
 
       setSearchProgress(100);
       clearInterval(progressInterval);
+
+      // Store warning if online search was not available
+      if (result.warning) {
+        setSearchWarning(result.warning);
+      } else {
+        setSearchWarning(null);
+      }
 
       setArticles(
         result.articles.map((a) => ({
@@ -562,6 +572,16 @@ export default function NewClientWizardPage() {
           </div>
         )}
       </div>
+
+      {/* Warning message (when online search not available) */}
+      {searchWarning && !isSearching && (
+        <div className="rounded-lg bg-amber-50 dark:bg-amber-900/30 p-4 text-sm text-amber-700 dark:text-amber-400 flex items-center gap-2">
+          <svg className="h-5 w-5 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+          </svg>
+          {searchWarning}
+        </div>
+      )}
 
       {/* Error message */}
       {(searchNewsMutation.isError ||

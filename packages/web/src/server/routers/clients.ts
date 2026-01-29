@@ -186,15 +186,6 @@ export const clientsRouter = router({
     .mutation(async ({ input }) => {
       const { config } = await import("@mediabot/shared");
 
-      // Verificar que Google CSE está configurado
-      if (!config.google.cseApiKey || !config.google.cseCx) {
-        throw new TRPCError({
-          code: "PRECONDITION_FAILED",
-          message: "Google Custom Search no está configurado. Contacta al administrador.",
-        });
-      }
-
-      const GOOGLE_CSE_API = "https://www.googleapis.com/customsearch/v1";
       const foundArticles: Array<{
         id: string;
         title: string;
@@ -204,104 +195,116 @@ export const clientsRouter = router({
         publishedAt?: Date;
       }> = [];
 
-      // Construir queries de búsqueda
-      const searchQueries = [
-        `"${input.clientName}" noticias`,
-        input.industry ? `"${input.clientName}" ${input.industry}` : null,
-      ].filter(Boolean) as string[];
+      let searchedOnline = false;
+      let googleError: string | null = null;
 
-      for (const query of searchQueries) {
-        try {
-          const params = new URLSearchParams({
-            key: config.google.cseApiKey,
-            cx: config.google.cseCx,
-            q: query,
-            lr: "lang_es",
-            sort: "date",
-            num: "10",
-            dateRestrict: `d${input.days}`, // Últimos N días
-          });
+      // Solo intentar Google CSE si está configurado
+      if (config.google.cseApiKey && config.google.cseCx) {
+        const GOOGLE_CSE_API = "https://www.googleapis.com/customsearch/v1";
 
-          const response = await fetch(`${GOOGLE_CSE_API}?${params}`);
+        // Construir queries de búsqueda
+        const searchQueries = [
+          `"${input.clientName}" noticias`,
+          input.industry ? `"${input.clientName}" ${input.industry}` : null,
+        ].filter(Boolean) as string[];
 
-          if (!response.ok) {
-            if (response.status === 429) {
-              console.warn("[SearchNews] Google CSE rate limit reached");
-              break;
-            }
-            if (response.status === 403) {
-              console.error("[SearchNews] Google CSE API key issue");
-              throw new TRPCError({
-                code: "FORBIDDEN",
-                message: "Error de API de Google. Verifica la configuración.",
-              });
-            }
-            continue;
-          }
-
-          const data = await response.json() as {
-            items?: Array<{
-              link: string;
-              title: string;
-              displayLink: string;
-              snippet?: string;
-              pagemap?: {
-                metatags?: Array<{ "article:published_time"?: string }>;
-              };
-            }>;
-          };
-
-          if (!data.items) continue;
-
-          for (const item of data.items) {
-            // Evitar duplicados por URL
-            if (foundArticles.some((a) => a.url === item.link)) continue;
-
-            // Intentar extraer fecha de publicación
-            let publishedAt: Date | undefined;
-            const metaDate = item.pagemap?.metatags?.[0]?.["article:published_time"];
-            if (metaDate) {
-              publishedAt = new Date(metaDate);
-            }
-
-            // Crear o encontrar el artículo en la base de datos
-            let article = await prisma.article.findFirst({
-              where: { url: item.link },
+        for (const query of searchQueries) {
+          try {
+            const params = new URLSearchParams({
+              key: config.google.cseApiKey,
+              cx: config.google.cseCx,
+              q: query,
+              lr: "lang_es",
+              sort: "date",
+              num: "10",
+              dateRestrict: `d${input.days}`, // Últimos N días
             });
 
-            if (!article) {
-              article = await prisma.article.create({
-                data: {
-                  url: item.link,
-                  title: item.title,
-                  source: item.displayLink || "Google",
-                  content: item.snippet || null,
-                  publishedAt: publishedAt || null,
-                },
-              });
+            const response = await fetch(`${GOOGLE_CSE_API}?${params}`);
+
+            if (!response.ok) {
+              if (response.status === 429) {
+                console.warn("[SearchNews] Google CSE rate limit reached");
+                googleError = "Límite de búsquedas alcanzado. Usando solo artículos locales.";
+                break;
+              }
+              if (response.status === 403) {
+                console.warn("[SearchNews] Google CSE API key issue - falling back to DB search");
+                googleError = "API de Google no disponible. Usando artículos locales.";
+                break;
+              }
+              continue;
             }
 
-            foundArticles.push({
-              id: article.id,
-              title: item.title,
-              source: item.displayLink || "Google",
-              url: item.link,
-              snippet: item.snippet,
-              publishedAt,
-            });
-          }
-        } catch (error) {
-          if (error instanceof TRPCError) throw error;
-          console.error("[SearchNews] Google CSE error:", error);
-        }
+            searchedOnline = true;
 
-        // Evitar rate limiting - pequeña pausa entre queries
-        if (searchQueries.indexOf(query) < searchQueries.length - 1) {
-          await new Promise((resolve) => setTimeout(resolve, 500));
+            const data = await response.json() as {
+              items?: Array<{
+                link: string;
+                title: string;
+                displayLink: string;
+                snippet?: string;
+                pagemap?: {
+                  metatags?: Array<{ "article:published_time"?: string }>;
+                };
+              }>;
+            };
+
+            if (!data.items) continue;
+
+            for (const item of data.items) {
+              // Evitar duplicados por URL
+              if (foundArticles.some((a) => a.url === item.link)) continue;
+
+              // Intentar extraer fecha de publicación
+              let publishedAt: Date | undefined;
+              const metaDate = item.pagemap?.metatags?.[0]?.["article:published_time"];
+              if (metaDate) {
+                publishedAt = new Date(metaDate);
+              }
+
+              // Crear o encontrar el artículo en la base de datos
+              let article = await prisma.article.findFirst({
+                where: { url: item.link },
+              });
+
+              if (!article) {
+                article = await prisma.article.create({
+                  data: {
+                    url: item.link,
+                    title: item.title,
+                    source: item.displayLink || "Google",
+                    content: item.snippet || null,
+                    publishedAt: publishedAt || null,
+                  },
+                });
+              }
+
+              foundArticles.push({
+                id: article.id,
+                title: item.title,
+                source: item.displayLink || "Google",
+                url: item.link,
+                snippet: item.snippet,
+                publishedAt,
+              });
+            }
+          } catch (error) {
+            console.error("[SearchNews] Google CSE error:", error);
+            googleError = "Error al buscar en internet. Usando artículos locales.";
+          }
+
+          // Evitar rate limiting - pequeña pausa entre queries
+          if (searchQueries.indexOf(query) < searchQueries.length - 1) {
+            await new Promise((resolve) => setTimeout(resolve, 500));
+          }
         }
+      } else {
+        console.warn("[SearchNews] Google CSE not configured");
+        googleError = "Búsqueda en internet no configurada. Usando artículos locales.";
       }
 
-      // También buscar en artículos existentes en la DB (complementario)
+      // Buscar en artículos existentes en la DB (siempre, como fallback o complemento)
       const since = subDays(new Date(), input.days);
       const dbArticles = await prisma.article.findMany({
         where: {
@@ -349,7 +352,8 @@ export const clientsRouter = router({
         total: uniqueArticles.length,
         searchTerm: input.clientName,
         since,
-        searchedOnline: true,
+        searchedOnline,
+        warning: googleError,
       };
     }),
 
