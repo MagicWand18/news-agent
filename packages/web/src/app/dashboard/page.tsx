@@ -37,8 +37,8 @@ export default function DashboardPage() {
   return (
     <div className="space-y-8">
       <div>
-        <h2 className="text-2xl font-bold text-gray-900">Dashboard</h2>
-        <p className="mt-1 text-sm text-gray-500">
+        <h2 className="text-2xl font-bold text-gray-900 dark:text-gray-100">Dashboard</h2>
+        <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">
           Resumen general de tu monitoreo de medios
         </p>
       </div>
@@ -84,9 +84,9 @@ export default function DashboardPage() {
 
       {/* Charts */}
       <div className="grid grid-cols-1 gap-6 lg:grid-cols-3">
-        <div className="col-span-1 rounded-xl border border-gray-100 bg-white p-6 shadow-sm lg:col-span-2">
-          <h3 className="font-semibold text-gray-900">Menciones por dia</h3>
-          <p className="mb-4 text-sm text-gray-500">Ultimos 7 dias</p>
+        <div className="col-span-1 rounded-xl border border-gray-100 bg-white p-6 shadow-sm lg:col-span-2 dark:border-gray-700 dark:bg-gray-800">
+          <h3 className="font-semibold text-gray-900 dark:text-gray-100">Menciones por dia</h3>
+          <p className="mb-4 text-sm text-gray-500 dark:text-gray-400">Ultimos 7 dias</p>
           {stats.isLoading ? (
             <div className="flex h-[300px] items-center justify-center">
               <div className="h-8 w-8 animate-spin rounded-full border-2 border-gray-200 border-t-brand-600" />
@@ -144,9 +144,9 @@ export default function DashboardPage() {
           )}
         </div>
 
-        <div className="rounded-xl border border-gray-100 bg-white p-6 shadow-sm">
-          <h3 className="font-semibold text-gray-900">Sentimiento</h3>
-          <p className="mb-4 text-sm text-gray-500">Ultimos 7 dias</p>
+        <div className="rounded-xl border border-gray-100 bg-white p-6 shadow-sm dark:border-gray-700 dark:bg-gray-800">
+          <h3 className="font-semibold text-gray-900 dark:text-gray-100">Sentimiento</h3>
+          <p className="mb-4 text-sm text-gray-500 dark:text-gray-400">Ultimos 7 dias</p>
           {stats.isLoading ? (
             <div className="flex h-[300px] items-center justify-center">
               <div className="h-8 w-8 animate-spin rounded-full border-2 border-gray-200 border-t-brand-600" />
@@ -183,11 +183,11 @@ export default function DashboardPage() {
                         className="h-3 w-3 rounded-full"
                         style={{ backgroundColor: SENTIMENT_COLORS[entry.sentiment] || "#9ca3af" }}
                       />
-                      <span className="text-gray-600">
+                      <span className="text-gray-600 dark:text-gray-400">
                         {SENTIMENT_LABELS[entry.sentiment] || entry.sentiment}
                       </span>
                     </div>
-                    <span className="font-semibold text-gray-900">{entry.count}</span>
+                    <span className="font-semibold text-gray-900 dark:text-gray-100">{entry.count}</span>
                   </div>
                 ))}
               </div>
@@ -199,11 +199,11 @@ export default function DashboardPage() {
       </div>
 
       {/* Recent Mentions - Timeline */}
-      <div className="rounded-xl border border-gray-100 bg-white p-6 shadow-sm">
+      <div className="rounded-xl border border-gray-100 bg-white p-6 shadow-sm dark:border-gray-700 dark:bg-gray-800">
         <div className="mb-6 flex items-center justify-between">
           <div>
-            <h3 className="font-semibold text-gray-900">Menciones recientes</h3>
-            <p className="text-sm text-gray-500">Ultimas menciones detectadas</p>
+            <h3 className="font-semibold text-gray-900 dark:text-gray-100">Menciones recientes</h3>
+            <p className="text-sm text-gray-500 dark:text-gray-400">Ultimas menciones detectadas</p>
           </div>
         </div>
         {recent.isLoading ? (
@@ -219,11 +219,11 @@ export default function DashboardPage() {
 function EmptyState({ message }: { message: string }) {
   return (
     <div className="flex flex-col items-center justify-center py-12 text-center">
-      <div className="mb-3 flex h-12 w-12 items-center justify-center rounded-full bg-gray-100">
-        <Newspaper className="h-6 w-6 text-gray-400" />
+      <div className="mb-3 flex h-12 w-12 items-center justify-center rounded-full bg-gray-100 dark:bg-gray-700">
+        <Newspaper className="h-6 w-6 text-gray-400 dark:text-gray-500" />
       </div>
-      <p className="text-sm text-gray-500">{message}</p>
-      <p className="mt-1 text-xs text-gray-400">
+      <p className="text-sm text-gray-500 dark:text-gray-400">{message}</p>
+      <p className="mt-1 text-xs text-gray-400 dark:text-gray-500">
         Los datos apareceran cuando se detecten nuevas menciones
       </p>
     </div>

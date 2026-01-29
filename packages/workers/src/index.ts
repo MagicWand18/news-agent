@@ -7,6 +7,7 @@ import { startNotificationWorker } from "./notifications/worker.js";
 import { startDigestWorker } from "./notifications/digest.js";
 import { startReportWorker } from "./reports/worker.js";
 import { startInsightsWorker, startTopicWorker } from "./analysis/insights-worker.js";
+import { startEmergingTopicsWorker } from "./workers/emerging-topics-worker.js";
 
 async function main() {
   console.log("🔄 Starting MediaBot workers...");
@@ -22,6 +23,7 @@ async function main() {
   startReportWorker();
   startInsightsWorker();
   startTopicWorker();
+  startEmergingTopicsWorker();
 
   console.log("✅ All workers started");
 

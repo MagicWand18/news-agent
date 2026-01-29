@@ -4,6 +4,7 @@ import { signIn, useSession } from "next-auth/react";
 import { useState, useEffect, Suspense } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { Newspaper, BarChart3, Bell, Shield } from "lucide-react";
+import { AuroraBackground } from "@/components/aurora-background";
 
 function LoginForm() {
   const [email, setEmail] = useState("");
@@ -105,8 +106,11 @@ function LoginForm() {
 export default function LoginPage() {
   return (
     <div className="flex min-h-screen">
-      {/* Left panel - Branding */}
-      <div className="hidden lg:flex lg:w-1/2 flex-col justify-between bg-gradient-to-br from-brand-900 via-brand-700 to-blue-500 p-12 text-white">
+      {/* Left panel - Branding con Aurora */}
+      <AuroraBackground
+        variant="brand"
+        className="hidden lg:flex lg:w-1/2 flex-col justify-between p-12 text-white"
+      >
         <div>
           <div className="flex items-center gap-3">
             <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-white/20 backdrop-blur-sm">
@@ -143,7 +147,7 @@ export default function LoginPage() {
         <p className="text-sm text-blue-200">
           MediaBot - Monitoreo de medios profesional
         </p>
-      </div>
+      </AuroraBackground>
 
       {/* Right panel - Login form */}
       <div className="flex w-full items-center justify-center bg-gray-50 px-4 lg:w-1/2">

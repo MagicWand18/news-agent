@@ -115,6 +115,7 @@ npm run dev:bot
 | `COLLECTOR_RSS_CRON` | `*/10 * * * *` | Cron para colector RSS |
 | `COLLECTOR_GOOGLE_CRON` | `0 */2 * * *` | Cron para colector Google CSE |
 | `DIGEST_CRON` | `0 8 * * *` | Cron para digest diario |
+| `EMERGING_TOPICS_CRON` | `0 */4 * * *` | Cron para alertas de temas emergentes |
 
 ### Opcionales - Workers
 
@@ -170,6 +171,7 @@ npm run dev:bot        # Solo bot
 9. **Digest**: Resumen diario se envia a las 8:00 AM con menciones agrupadas
 10. **Topic Extraction**: AI extrae tema principal de cada mencion
 11. **Weekly Insights**: Lunes 6:00 AM se generan insights accionables
+12. **Emerging Topics**: Cada 4h se detectan y notifican temas nuevos con traccion
 
 ## Colectores
 
@@ -258,6 +260,19 @@ Dashboard avanzado de inteligencia de medios en `/dashboard/intelligence`:
 - Generadas automaticamente cada lunes
 - Insights accionables basados en tendencias
 - Incluidos en reporte PDF semanal
+
+## UI/UX (Sprint 7)
+
+### Dark Mode
+- Toggle en sidebar para cambiar entre modo claro/oscuro/sistema
+- Persistencia en localStorage
+- Respeta preferencia del sistema (`prefers-color-scheme`)
+- Sin flash de tema incorrecto al cargar
+
+### Alertas de Temas Emergentes
+- Deteccion automatica cada 4 horas de temas nuevos
+- Notificacion via Telegram cuando un tema nuevo tiene >= 3 menciones en 24h
+- No duplica notificaciones del mismo tema en 24h
 
 ## Troubleshooting
 

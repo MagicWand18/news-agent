@@ -15,9 +15,12 @@ import {
   X,
   BarChart3,
   Brain,
+  Sun,
+  Moon,
 } from "lucide-react";
 import { signOut, useSession } from "next-auth/react";
 import { useState } from "react";
+import { useTheme } from "./theme-provider";
 
 const navigation = [
   { name: "Dashboard", href: "/dashboard", icon: LayoutDashboard },
@@ -34,6 +37,11 @@ export function Sidebar() {
   const pathname = usePathname();
   const { data: session } = useSession();
   const [mobileOpen, setMobileOpen] = useState(false);
+  const { resolvedTheme, setTheme } = useTheme();
+
+  const toggleTheme = () => {
+    setTheme(resolvedTheme === "dark" ? "light" : "dark");
+  };
 
   const userInitials = session?.user?.name
     ? session.user.name
@@ -53,12 +61,25 @@ export function Sidebar() {
           </div>
           <h1 className="text-xl font-bold tracking-tight">MediaBot</h1>
         </div>
-        <button
-          onClick={() => setMobileOpen(false)}
-          className="rounded-lg p-1 text-gray-300 hover:bg-white/10 lg:hidden"
-        >
-          <X className="h-5 w-5" />
-        </button>
+        <div className="flex items-center gap-1">
+          <button
+            onClick={toggleTheme}
+            className="rounded-lg p-1.5 text-gray-300 hover:bg-white/10 transition-colors"
+            aria-label={resolvedTheme === "dark" ? "Cambiar a modo claro" : "Cambiar a modo oscuro"}
+          >
+            {resolvedTheme === "dark" ? (
+              <Sun className="h-4 w-4" />
+            ) : (
+              <Moon className="h-4 w-4" />
+            )}
+          </button>
+          <button
+            onClick={() => setMobileOpen(false)}
+            className="rounded-lg p-1 text-gray-300 hover:bg-white/10 lg:hidden"
+          >
+            <X className="h-5 w-5" />
+          </button>
+        </div>
       </div>
 
       <nav className="flex-1 space-y-0.5 px-3 py-4">

@@ -94,7 +94,7 @@ export default function ClientsPage() {
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
-        <h2 className="text-2xl font-bold">Clientes</h2>
+        <h2 className="text-2xl font-bold text-gray-900 dark:text-gray-100">Clientes</h2>
         <button
           onClick={() => setShowForm(!showForm)}
           className="flex items-center gap-2 rounded-lg bg-brand-600 px-4 py-2 text-white hover:bg-brand-700"
@@ -105,8 +105,8 @@ export default function ClientsPage() {
       </div>
 
       {showForm && (
-        <div className="rounded-xl bg-white p-6 shadow-sm">
-          <h3 className="mb-4 font-semibold">Agregar cliente</h3>
+        <div className="rounded-xl bg-white p-6 shadow-sm dark:bg-gray-800">
+          <h3 className="mb-4 font-semibold text-gray-900 dark:text-gray-100">Agregar cliente</h3>
           <form
             onSubmit={(e) => {
               e.preventDefault();
@@ -119,7 +119,7 @@ export default function ClientsPage() {
               required
               value={formData.name}
               onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-              className="rounded-lg border px-3 py-2"
+              className="rounded-lg border px-3 py-2 dark:border-gray-600 dark:bg-gray-700 dark:text-gray-100 dark:placeholder-gray-400"
             />
             <input
               placeholder="Descripcion"
@@ -127,7 +127,7 @@ export default function ClientsPage() {
               onChange={(e) =>
                 setFormData({ ...formData, description: e.target.value })
               }
-              className="rounded-lg border px-3 py-2"
+              className="rounded-lg border px-3 py-2 dark:border-gray-600 dark:bg-gray-700 dark:text-gray-100 dark:placeholder-gray-400"
             />
             <input
               placeholder="Industria"
@@ -135,7 +135,7 @@ export default function ClientsPage() {
               onChange={(e) =>
                 setFormData({ ...formData, industry: e.target.value })
               }
-              className="rounded-lg border px-3 py-2"
+              className="rounded-lg border px-3 py-2 dark:border-gray-600 dark:bg-gray-700 dark:text-gray-100 dark:placeholder-gray-400"
             />
             <div className="sm:col-span-3">
               <button
@@ -153,14 +153,14 @@ export default function ClientsPage() {
       {/* Filtros */}
       <FilterBar activeCount={activeFilterCount} onClear={handleClearFilters}>
         <div className="relative flex-1 min-w-[200px]">
-          <label className="mb-1 block text-xs font-medium text-gray-500">Buscar</label>
+          <label className="mb-1 block text-xs font-medium text-gray-500 dark:text-gray-400">Buscar</label>
           <div className="relative">
-            <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400" />
+            <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400 dark:text-gray-500" />
             <input
               placeholder="Buscar cliente..."
               value={search}
               onChange={(e) => setSearch(e.target.value)}
-              className="w-full rounded-lg border border-gray-200 bg-white py-2 pl-9 pr-4 text-sm transition-colors hover:border-gray-300 focus:border-brand-500 focus:outline-none focus:ring-1 focus:ring-brand-500"
+              className="w-full rounded-lg border border-gray-200 bg-white py-2 pl-9 pr-4 text-sm transition-colors hover:border-gray-300 focus:border-brand-500 focus:outline-none focus:ring-1 focus:ring-brand-500 dark:border-gray-600 dark:bg-gray-800 dark:text-gray-100 dark:placeholder-gray-400 dark:hover:border-gray-500"
             />
           </div>
         </div>
@@ -185,10 +185,10 @@ export default function ClientsPage() {
       {/* Chips de filtros activos */}
       <FilterChips chips={filterChips} onRemove={handleRemoveChip} />
 
-      <div className="rounded-xl bg-white shadow-sm">
+      <div className="rounded-xl bg-white shadow-sm dark:bg-gray-800">
         <table className="w-full">
           <thead>
-            <tr className="border-b text-left text-sm text-gray-500">
+            <tr className="border-b text-left text-sm text-gray-500 dark:border-gray-700 dark:text-gray-400">
               <th className="px-6 py-3 font-medium">Nombre</th>
               <th className="px-6 py-3 font-medium">Industria</th>
               <th className="px-6 py-3 font-medium">Keywords</th>
@@ -199,25 +199,25 @@ export default function ClientsPage() {
           </thead>
           <tbody>
             {filtered?.map((client) => (
-              <tr key={client.id} className="border-b last:border-0 hover:bg-gray-50">
+              <tr key={client.id} className="border-b last:border-0 hover:bg-gray-50 dark:border-gray-700 dark:hover:bg-gray-700/50">
                 <td className="px-6 py-4">
                   <Link
                     href={`/dashboard/clients/${client.id}`}
-                    className="font-medium text-brand-600 hover:underline"
+                    className="font-medium text-brand-600 hover:underline dark:text-brand-400"
                   >
                     {client.name}
                   </Link>
                 </td>
-                <td className="px-6 py-4 text-gray-500">{client.industry || "-"}</td>
-                <td className="px-6 py-4">{client._count.keywords}</td>
-                <td className="px-6 py-4">{client._count.mentions}</td>
-                <td className="px-6 py-4">{client._count.tasks}</td>
+                <td className="px-6 py-4 text-gray-500 dark:text-gray-400">{client.industry || "-"}</td>
+                <td className="px-6 py-4 dark:text-gray-300">{client._count.keywords}</td>
+                <td className="px-6 py-4 dark:text-gray-300">{client._count.mentions}</td>
+                <td className="px-6 py-4 dark:text-gray-300">{client._count.tasks}</td>
                 <td className="px-6 py-4">
                   <span
                     className={`rounded-full px-2 py-1 text-xs font-medium ${
                       client.active
-                        ? "bg-green-100 text-green-800"
-                        : "bg-gray-100 text-gray-600"
+                        ? "bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400"
+                        : "bg-gray-100 text-gray-600 dark:bg-gray-700 dark:text-gray-400"
                     }`}
                   >
                     {client.active ? "Activo" : "Inactivo"}
@@ -228,7 +228,7 @@ export default function ClientsPage() {
           </tbody>
         </table>
         {filtered?.length === 0 && (
-          <p className="p-6 text-center text-gray-500">
+          <p className="p-6 text-center text-gray-500 dark:text-gray-400">
             No se encontraron clientes.
           </p>
         )}

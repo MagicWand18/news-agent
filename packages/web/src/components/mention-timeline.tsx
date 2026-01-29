@@ -62,10 +62,10 @@ export function MentionTimeline({ mentions, className }: MentionTimelineProps) {
   if (!mentions.length) {
     return (
       <div className="flex flex-col items-center justify-center py-12 text-center">
-        <div className="mb-3 flex h-12 w-12 items-center justify-center rounded-full bg-gray-100">
-          <TrendingUp className="h-6 w-6 text-gray-400" />
+        <div className="mb-3 flex h-12 w-12 items-center justify-center rounded-full bg-gray-100 dark:bg-gray-700">
+          <TrendingUp className="h-6 w-6 text-gray-400 dark:text-gray-500" />
         </div>
-        <p className="text-sm text-gray-500">No hay menciones recientes</p>
+        <p className="text-sm text-gray-500 dark:text-gray-400">No hay menciones recientes</p>
       </div>
     );
   }
@@ -73,7 +73,7 @@ export function MentionTimeline({ mentions, className }: MentionTimelineProps) {
   return (
     <div className={cn("relative", className)}>
       {/* Vertical line */}
-      <div className="absolute left-[19px] top-4 bottom-4 w-0.5 bg-gray-200" />
+      <div className="absolute left-[19px] top-4 bottom-4 w-0.5 bg-gray-200 dark:bg-gray-700" />
 
       {/* Timeline items */}
       <div className="space-y-4">
@@ -118,6 +118,7 @@ function TimelineItem({ mention, index }: TimelineItemProps) {
       <div
         className={cn(
           "flex-1 rounded-xl border border-gray-100 bg-white p-4 shadow-sm transition-all hover:shadow-md",
+          "dark:border-gray-700 dark:bg-gray-800",
           "border-l-4",
           getSentimentBorderColor(mention.sentiment)
         )}
@@ -125,14 +126,14 @@ function TimelineItem({ mention, index }: TimelineItemProps) {
         {/* Header */}
         <div className="flex items-start justify-between gap-3">
           <div className="min-w-0 flex-1">
-            <div className="flex items-center gap-2 text-xs text-gray-500">
-              <span className="font-semibold text-gray-700">{mention.article.source}</span>
-              <span className="text-gray-300">|</span>
+            <div className="flex items-center gap-2 text-xs text-gray-500 dark:text-gray-400">
+              <span className="font-semibold text-gray-700 dark:text-gray-300">{mention.article.source}</span>
+              <span className="text-gray-300 dark:text-gray-600">|</span>
               <span>{timeAgo(mention.createdAt)}</span>
             </div>
             <Link
               href={`/dashboard/mentions/${mention.id}`}
-              className="mt-1 block font-medium text-gray-900 transition-colors hover:text-brand-600 line-clamp-2"
+              className="mt-1 block font-medium text-gray-900 transition-colors hover:text-brand-600 line-clamp-2 dark:text-gray-100 dark:hover:text-brand-400"
             >
               {mention.article.title}
             </Link>
@@ -153,16 +154,16 @@ function TimelineItem({ mention, index }: TimelineItemProps) {
 
         {/* Summary */}
         {mention.aiSummary && (
-          <p className="mt-2 text-sm text-gray-600 line-clamp-2">
+          <p className="mt-2 text-sm text-gray-600 line-clamp-2 dark:text-gray-400">
             {mention.aiSummary}
           </p>
         )}
 
         {/* Footer */}
-        <div className="mt-3 flex items-center justify-between border-t border-gray-50 pt-3">
+        <div className="mt-3 flex items-center justify-between border-t border-gray-50 pt-3 dark:border-gray-700">
           <div className="flex items-center gap-4 text-xs">
             {/* Client */}
-            <span className="font-medium text-brand-600">{mention.client.name}</span>
+            <span className="font-medium text-brand-600 dark:text-brand-400">{mention.client.name}</span>
 
             {/* Urgency */}
             <span className={cn("rounded px-1.5 py-0.5 font-medium", urg.color)}>
@@ -170,7 +171,7 @@ function TimelineItem({ mention, index }: TimelineItemProps) {
             </span>
 
             {/* Relevance */}
-            <div className="flex items-center gap-1.5 text-gray-500">
+            <div className="flex items-center gap-1.5 text-gray-500 dark:text-gray-400">
               <BarChart3 className="h-3.5 w-3.5" />
               <span>Rel: {mention.relevance}/10</span>
             </div>
@@ -181,7 +182,7 @@ function TimelineItem({ mention, index }: TimelineItemProps) {
             href={mention.article.url}
             target="_blank"
             rel="noopener noreferrer"
-            className="inline-flex items-center gap-1 text-xs text-brand-600 transition-colors hover:text-brand-700"
+            className="inline-flex items-center gap-1 text-xs text-brand-600 transition-colors hover:text-brand-700 dark:text-brand-400 dark:hover:text-brand-300"
           >
             <ExternalLink className="h-3.5 w-3.5" />
             <span className="hidden sm:inline">Ver articulo</span>
@@ -195,23 +196,23 @@ function TimelineItem({ mention, index }: TimelineItemProps) {
 export function MentionTimelineSkeleton() {
   return (
     <div className="relative">
-      <div className="absolute left-[19px] top-4 bottom-4 w-0.5 bg-gray-200" />
+      <div className="absolute left-[19px] top-4 bottom-4 w-0.5 bg-gray-200 dark:bg-gray-700" />
       <div className="space-y-4">
         {[1, 2, 3].map((i) => (
           <div key={i} className="relative flex gap-4 pl-2 animate-pulse">
-            <div className="h-9 w-9 rounded-full bg-gray-200" />
-            <div className="flex-1 rounded-xl border border-gray-100 bg-white p-4">
+            <div className="h-9 w-9 rounded-full bg-gray-200 dark:bg-gray-700" />
+            <div className="flex-1 rounded-xl border border-gray-100 bg-white p-4 dark:border-gray-700 dark:bg-gray-800">
               <div className="flex items-start justify-between gap-3">
                 <div className="flex-1 space-y-2">
-                  <div className="h-3 w-24 rounded bg-gray-200" />
-                  <div className="h-4 w-3/4 rounded bg-gray-200" />
+                  <div className="h-3 w-24 rounded bg-gray-200 dark:bg-gray-700" />
+                  <div className="h-4 w-3/4 rounded bg-gray-200 dark:bg-gray-700" />
                 </div>
-                <div className="h-5 w-16 rounded-full bg-gray-200" />
+                <div className="h-5 w-16 rounded-full bg-gray-200 dark:bg-gray-700" />
               </div>
-              <div className="mt-3 h-3 w-full rounded bg-gray-100" />
-              <div className="mt-3 flex items-center justify-between border-t border-gray-50 pt-3">
-                <div className="h-3 w-32 rounded bg-gray-100" />
-                <div className="h-3 w-16 rounded bg-gray-100" />
+              <div className="mt-3 h-3 w-full rounded bg-gray-100 dark:bg-gray-700" />
+              <div className="mt-3 flex items-center justify-between border-t border-gray-50 pt-3 dark:border-gray-700">
+                <div className="h-3 w-32 rounded bg-gray-100 dark:bg-gray-700" />
+                <div className="h-3 w-16 rounded bg-gray-100 dark:bg-gray-700" />
               </div>
             </div>
           </div>

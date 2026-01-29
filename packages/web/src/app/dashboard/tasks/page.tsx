@@ -1,9 +1,10 @@
 "use client";
 
 import { trpc } from "@/lib/trpc";
-import { useState } from "react";
+import { useState, useMemo } from "react";
 import { cn } from "@/lib/cn";
-import { Plus } from "lucide-react";
+import { Plus, ListFilter, Users, AlertTriangle } from "lucide-react";
+import { FilterBar, FilterSelect, FilterChips } from "@/components/filters";
 
 const statusLabels: Record<string, string> = {
   PENDING: "Pendiente",
@@ -13,15 +14,30 @@ const statusLabels: Record<string, string> = {
 };
 
 const priorityConfig: Record<string, { label: string; color: string }> = {
-  URGENT: { label: "Urgente", color: "bg-red-100 text-red-800" },
-  HIGH: { label: "Alta", color: "bg-orange-100 text-orange-800" },
-  MEDIUM: { label: "Media", color: "bg-yellow-100 text-yellow-800" },
-  LOW: { label: "Baja", color: "bg-green-100 text-green-800" },
+  URGENT: { label: "Urgente", color: "bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-400" },
+  HIGH: { label: "Alta", color: "bg-orange-100 text-orange-800 dark:bg-orange-900/30 dark:text-orange-400" },
+  MEDIUM: { label: "Media", color: "bg-yellow-100 text-yellow-800 dark:bg-yellow-900/30 dark:text-yellow-400" },
+  LOW: { label: "Baja", color: "bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400" },
 };
+
+const STATUS_OPTIONS = [
+  { value: "PENDING", label: "Pendiente" },
+  { value: "IN_PROGRESS", label: "En progreso" },
+  { value: "COMPLETED", label: "Completada" },
+  { value: "CANCELLED", label: "Cancelada" },
+];
+
+const PRIORITY_OPTIONS = [
+  { value: "URGENT", label: "Urgente" },
+  { value: "HIGH", label: "Alta" },
+  { value: "MEDIUM", label: "Media" },
+  { value: "LOW", label: "Baja" },
+];
 
 export default function TasksPage() {
   const [statusFilter, setStatusFilter] = useState<string>("");
   const [clientFilter, setClientFilter] = useState<string>("");
+  const [priorityFilter, setPriorityFilter] = useState<string>("");
   const [showForm, setShowForm] = useState(false);
   const [formData, setFormData] = useState({
     title: "",
@@ -34,6 +50,7 @@ export default function TasksPage() {
   const tasks = trpc.tasks.list.useQuery({
     status: (statusFilter || undefined) as "PENDING" | "IN_PROGRESS" | "COMPLETED" | "CANCELLED" | undefined,
     clientId: clientFilter || undefined,
+    priority: (priorityFilter || undefined) as "URGENT" | "HIGH" | "MEDIUM" | "LOW" | undefined,
   });
   const createTask = trpc.tasks.create.useMutation({
     onSuccess: () => {
@@ -46,10 +63,49 @@ export default function TasksPage() {
     onSuccess: () => tasks.refetch(),
   });
 
+  // Opciones de clientes para el filtro
+  const clientOptions = useMemo(() => {
+    if (!clients.data) return [];
+    return clients.data.map((c) => ({ value: c.id, label: c.name }));
+  }, [clients.data]);
+
+  // Conteo de filtros activos
+  const activeFilterCount = [statusFilter, clientFilter, priorityFilter].filter(Boolean).length;
+
+  // Chips de filtros activos
+  const filterChips = useMemo(() => {
+    const chips = [];
+    if (statusFilter) {
+      const label = STATUS_OPTIONS.find((s) => s.value === statusFilter)?.label || statusFilter;
+      chips.push({ key: "status", label: "Estado", value: label });
+    }
+    if (priorityFilter) {
+      const label = PRIORITY_OPTIONS.find((p) => p.value === priorityFilter)?.label || priorityFilter;
+      chips.push({ key: "priority", label: "Prioridad", value: label });
+    }
+    if (clientFilter) {
+      const label = clientOptions.find((c) => c.value === clientFilter)?.label || clientFilter;
+      chips.push({ key: "client", label: "Cliente", value: label });
+    }
+    return chips;
+  }, [statusFilter, priorityFilter, clientFilter, clientOptions]);
+
+  const handleClearFilters = () => {
+    setStatusFilter("");
+    setPriorityFilter("");
+    setClientFilter("");
+  };
+
+  const handleRemoveChip = (key: string) => {
+    if (key === "status") setStatusFilter("");
+    if (key === "priority") setPriorityFilter("");
+    if (key === "client") setClientFilter("");
+  };
+
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
-        <h2 className="text-2xl font-bold">Tareas</h2>
+        <h2 className="text-2xl font-bold text-gray-900 dark:text-gray-100">Tareas</h2>
         <button
           onClick={() => setShowForm(!showForm)}
           className="flex items-center gap-2 rounded-lg bg-brand-600 px-4 py-2 text-white hover:bg-brand-700"
@@ -60,8 +116,8 @@ export default function TasksPage() {
       </div>
 
       {showForm && (
-        <div className="rounded-xl bg-white p-6 shadow-sm">
-          <h3 className="mb-4 font-semibold">Nueva tarea</h3>
+        <div className="rounded-xl bg-white p-6 shadow-sm dark:bg-gray-800">
+          <h3 className="mb-4 font-semibold text-gray-900 dark:text-gray-100">Nueva tarea</h3>
           <form
             onSubmit={(e) => {
               e.preventDefault();
@@ -77,7 +133,7 @@ export default function TasksPage() {
               required
               value={formData.title}
               onChange={(e) => setFormData({ ...formData, title: e.target.value })}
-              className="rounded-lg border px-3 py-2 sm:col-span-2"
+              className="rounded-lg border px-3 py-2 sm:col-span-2 dark:border-gray-600 dark:bg-gray-700 dark:text-gray-100 dark:placeholder-gray-400"
             />
             <input
               placeholder="Descripcion (opcional)"
@@ -85,14 +141,14 @@ export default function TasksPage() {
               onChange={(e) =>
                 setFormData({ ...formData, description: e.target.value })
               }
-              className="rounded-lg border px-3 py-2 sm:col-span-2"
+              className="rounded-lg border px-3 py-2 sm:col-span-2 dark:border-gray-600 dark:bg-gray-700 dark:text-gray-100 dark:placeholder-gray-400"
             />
             <select
               value={formData.priority}
               onChange={(e) =>
                 setFormData({ ...formData, priority: e.target.value as "URGENT" | "HIGH" | "MEDIUM" | "LOW" })
               }
-              className="rounded-lg border px-3 py-2"
+              className="rounded-lg border px-3 py-2 dark:border-gray-600 dark:bg-gray-700 dark:text-gray-100"
             >
               <option value="URGENT">Urgente</option>
               <option value="HIGH">Alta</option>
@@ -104,7 +160,7 @@ export default function TasksPage() {
               onChange={(e) =>
                 setFormData({ ...formData, clientId: e.target.value })
               }
-              className="rounded-lg border px-3 py-2"
+              className="rounded-lg border px-3 py-2 dark:border-gray-600 dark:bg-gray-700 dark:text-gray-100"
             >
               <option value="">Sin cliente</option>
               {clients.data?.map((c) => (
@@ -124,37 +180,42 @@ export default function TasksPage() {
         </div>
       )}
 
-      {/* Filters */}
-      <div className="flex gap-4">
-        <select
+      {/* Filtros modernos */}
+      <FilterBar activeCount={activeFilterCount} onClear={handleClearFilters}>
+        <FilterSelect
+          label="Estado"
           value={statusFilter}
-          onChange={(e) => setStatusFilter(e.target.value)}
-          className="rounded-lg border bg-white px-3 py-2"
-        >
-          <option value="">Todos los estados</option>
-          <option value="PENDING">Pendiente</option>
-          <option value="IN_PROGRESS">En progreso</option>
-          <option value="COMPLETED">Completada</option>
-        </select>
-        <select
+          options={STATUS_OPTIONS}
+          onChange={setStatusFilter}
+          placeholder="Todos"
+          icon={<ListFilter className="h-4 w-4" />}
+        />
+        <FilterSelect
+          label="Prioridad"
+          value={priorityFilter}
+          options={PRIORITY_OPTIONS}
+          onChange={setPriorityFilter}
+          placeholder="Todas"
+          icon={<AlertTriangle className="h-4 w-4" />}
+        />
+        <FilterSelect
+          label="Cliente"
           value={clientFilter}
-          onChange={(e) => setClientFilter(e.target.value)}
-          className="rounded-lg border bg-white px-3 py-2"
-        >
-          <option value="">Todos los clientes</option>
-          {clients.data?.map((c) => (
-            <option key={c.id} value={c.id}>
-              {c.name}
-            </option>
-          ))}
-        </select>
-      </div>
+          options={clientOptions}
+          onChange={setClientFilter}
+          placeholder="Todos"
+          icon={<Users className="h-4 w-4" />}
+        />
+      </FilterBar>
+
+      {/* Chips de filtros activos */}
+      <FilterChips chips={filterChips} onRemove={handleRemoveChip} />
 
       {/* Tasks table */}
-      <div className="rounded-xl bg-white shadow-sm">
+      <div className="rounded-xl bg-white shadow-sm dark:bg-gray-800">
         <table className="w-full">
           <thead>
-            <tr className="border-b text-left text-sm text-gray-500">
+            <tr className="border-b text-left text-sm text-gray-500 dark:border-gray-700 dark:text-gray-400">
               <th className="px-6 py-3 font-medium">Tarea</th>
               <th className="px-6 py-3 font-medium">Cliente</th>
               <th className="px-6 py-3 font-medium">Asignado</th>
@@ -165,19 +226,19 @@ export default function TasksPage() {
           </thead>
           <tbody>
             {tasks.data?.map((task) => (
-              <tr key={task.id} className="border-b last:border-0 hover:bg-gray-50">
+              <tr key={task.id} className="border-b last:border-0 hover:bg-gray-50 dark:border-gray-700 dark:hover:bg-gray-700/50">
                 <td className="px-6 py-4">
-                  <p className="font-medium">{task.title}</p>
+                  <p className="font-medium text-gray-900 dark:text-gray-100">{task.title}</p>
                   {task.mention?.article && (
-                    <p className="text-xs text-gray-400">
+                    <p className="text-xs text-gray-400 dark:text-gray-500">
                       Desde: {task.mention.article.title.slice(0, 50)}...
                     </p>
                   )}
                 </td>
-                <td className="px-6 py-4 text-gray-500">
+                <td className="px-6 py-4 text-gray-500 dark:text-gray-400">
                   {task.client?.name || "-"}
                 </td>
-                <td className="px-6 py-4 text-gray-500">
+                <td className="px-6 py-4 text-gray-500 dark:text-gray-400">
                   {task.assignee?.name || "Sin asignar"}
                 </td>
                 <td className="px-6 py-4">
@@ -191,7 +252,7 @@ export default function TasksPage() {
                   </span>
                 </td>
                 <td className="px-6 py-4">
-                  <span className="text-sm">{statusLabels[task.status]}</span>
+                  <span className="text-sm text-gray-700 dark:text-gray-300">{statusLabels[task.status]}</span>
                 </td>
                 <td className="px-6 py-4">
                   {task.status === "PENDING" && (
@@ -199,7 +260,7 @@ export default function TasksPage() {
                       onClick={() =>
                         updateTask.mutate({ id: task.id, status: "IN_PROGRESS" })
                       }
-                      className="text-sm text-brand-600 hover:underline"
+                      className="text-sm text-brand-600 hover:underline dark:text-brand-400"
                     >
                       Iniciar
                     </button>
@@ -209,7 +270,7 @@ export default function TasksPage() {
                       onClick={() =>
                         updateTask.mutate({ id: task.id, status: "COMPLETED" })
                       }
-                      className="text-sm text-green-600 hover:underline"
+                      className="text-sm text-green-600 hover:underline dark:text-green-400"
                     >
                       Completar
                     </button>
@@ -220,7 +281,7 @@ export default function TasksPage() {
           </tbody>
         </table>
         {tasks.data?.length === 0 && (
-          <p className="p-6 text-center text-gray-500">No hay tareas.</p>
+          <p className="p-6 text-center text-gray-500 dark:text-gray-400">No hay tareas.</p>
         )}
       </div>
     </div>

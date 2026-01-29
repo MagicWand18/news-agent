@@ -170,7 +170,67 @@ export function startNotificationWorker() {
     console.error(`Crisis notification job ${job?.id} failed:`, err);
   });
 
-  console.log(`🔔 Notification workers started (alerts: ${config.workers.notification.concurrency}, crisis: 2)`);
+  // Emerging topic notification worker
+  const emergingTopicWorker = new Worker(
+    QUEUE_NAMES.NOTIFY_EMERGING_TOPIC,
+    async (job) => {
+      const {
+        clientId,
+        clientName,
+        telegramGroupId,
+        topic,
+        count,
+        clientMentionCount,
+      } = job.data as {
+        clientId: string;
+        clientName: string;
+        telegramGroupId: string;
+        topic: string;
+        count: number;
+        clientMentionCount: number;
+      };
+
+      // Formatear mensaje de tema emergente (escapar Markdown)
+      const safeTopic = escapeMarkdown(topic);
+      const safeClientName = escapeMarkdown(clientName);
+      const message =
+        `📈 *TEMA EMERGENTE DETECTADO*\n` +
+        `━━━━━━━━━━━━━━━━━━━━\n\n` +
+        `🏷️ Tema: *${safeTopic}*\n` +
+        `📊 Menciones totales (24h): ${count}\n` +
+        `👤 Menciones de ${safeClientName}: ${clientMentionCount}\n` +
+        `🆕 Estado: *Tema nuevo*\n\n` +
+        `💡 Este tema esta ganando traccion en medios.\n` +
+        `Considera preparar una posicion al respecto.`;
+
+      const keyboard = new InlineKeyboard()
+        .text("📋 Ver menciones", `view_topic_mentions:${clientId}:${encodeURIComponent(topic)}`)
+        .text("✅ Crear tarea", `create_topic_task:${clientId}:${encodeURIComponent(topic)}`);
+
+      await bot.api.sendMessage(telegramGroupId, message, {
+        parse_mode: "Markdown",
+        reply_markup: keyboard,
+      });
+
+      // Registrar que hemos notificado este tema
+      await prisma.emergingTopicNotification.create({
+        data: {
+          clientId,
+          topic,
+          mentionCount: count,
+        },
+      });
+
+      console.log(`📈 Emerging topic notification sent: client=${clientName} topic="${topic}"`);
+    },
+    { connection, concurrency: 2 }
+  );
+
+  emergingTopicWorker.on("failed", (job, err) => {
+    console.error(`Emerging topic notification job ${job?.id} failed:`, err);
+  });
+
+  console.log(`🔔 Notification workers started (alerts: ${config.workers.notification.concurrency}, crisis: 2, emerging: 2)`);
 }
 
 function getTimeAgo(date: Date): string {
@@ -183,4 +243,11 @@ function getTimeAgo(date: Date): string {
   if (hours < 24) return `hace ${hours}h`;
   const days = Math.floor(hours / 24);
   return `hace ${days}d`;
+}
+
+/**
+ * Escapa caracteres especiales de Markdown para mensajes de Telegram
+ */
+function escapeMarkdown(text: string): string {
+  return text.replace(/[*_`\[\]()~>#+=|{}.!-]/g, "\\$&");
 }

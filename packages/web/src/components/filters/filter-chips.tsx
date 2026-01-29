@@ -23,13 +23,13 @@ export function FilterChips({ chips, onRemove, className }: FilterChipsProps) {
       {chips.map((chip) => (
         <span
           key={chip.key}
-          className="inline-flex items-center gap-1.5 rounded-full bg-brand-50 px-3 py-1 text-xs font-medium text-brand-700"
+          className="inline-flex items-center gap-1.5 rounded-full bg-brand-50 px-3 py-1 text-xs font-medium text-brand-700 dark:bg-brand-900/30 dark:text-brand-300"
         >
-          <span className="text-brand-400">{chip.label}:</span>
+          <span className="text-brand-400 dark:text-brand-500">{chip.label}:</span>
           {chip.value}
           <button
             onClick={() => onRemove(chip.key)}
-            className="ml-0.5 rounded-full p-0.5 transition-colors hover:bg-brand-100"
+            className="ml-0.5 rounded-full p-0.5 transition-colors hover:bg-brand-100 dark:hover:bg-brand-800/50"
             aria-label={`Remover filtro ${chip.label}`}
           >
             <X className="h-3 w-3" />

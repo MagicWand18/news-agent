@@ -290,3 +290,14 @@ model WeeklyInsight {
   @@unique([clientId, weekStart])
   @@index([clientId, weekStart])
 }
+
+// Sprint 7: Notificaciones de temas emergentes
+model EmergingTopicNotification {
+  id           String   @id @default(cuid())
+  clientId     String
+  topic        String
+  mentionCount Int
+  createdAt    DateTime @default(now())
+
+  @@index([clientId, topic, createdAt])
+}

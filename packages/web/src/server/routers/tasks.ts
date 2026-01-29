@@ -9,6 +9,7 @@ export const tasksRouter = router({
       z.object({
         clientId: z.string().optional(),
         status: z.enum(["PENDING", "IN_PROGRESS", "COMPLETED", "CANCELLED"]).optional(),
+        priority: z.enum(["URGENT", "HIGH", "MEDIUM", "LOW"]).optional(),
         assigneeId: z.string().optional(),
       })
     )
@@ -18,6 +19,7 @@ export const tasksRouter = router({
           client: { orgId: ctx.user.orgId },
           ...(input.clientId && { clientId: input.clientId }),
           ...(input.status && { status: input.status }),
+          ...(input.priority && { priority: input.priority }),
           ...(input.assigneeId && { assigneeId: input.assigneeId }),
         },
         include: {

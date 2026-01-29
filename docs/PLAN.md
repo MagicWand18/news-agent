@@ -41,6 +41,10 @@ MediaBot es un sistema de monitoreo de medios que permite a agencias de comunica
 | **Scoring de Fuentes** | OK | Tiers 1/2/3 con ponderacion (Sprint 6) |
 | **Recomendaciones IA** | OK | Insights semanales automaticos (Sprint 6) |
 | **Pagina Intelligence** | OK | Dashboard de inteligencia (Sprint 6) |
+| **Dark Mode** | OK | Toggle tema oscuro con persistencia (Sprint 7) |
+| **Aurora Background** | OK | Efecto visual animado en login (Sprint 7) |
+| **Filtros Modernos Tareas** | OK | FilterBar/FilterChips en tareas (Sprint 7) |
+| **Alertas Temas Emergentes** | OK | Notificaciones Telegram automaticas (Sprint 7) |
 
 ### Funciones de IA
 
@@ -55,14 +59,15 @@ MediaBot es un sistema de monitoreo de medios que permite a agencias de comunica
 | `findClusterParent` | Automatico | Post-analisis (relevance >= 5) | `analysis/clustering.ts` |
 | `extractTopic` | Automatico | Post-analisis | `analysis/ai.ts:347` |
 | `generateWeeklyInsights` | Cron semanal | Lunes 6:00 AM | `analysis/ai.ts:407` |
+| `detectEmergingTopics` | Cron cada 4h | Automatico | `analysis/topic-extractor.ts:118` |
 
 ### Pendiente / En Progreso
 
 | Feature | Prioridad | Descripcion |
 |---------|-----------|-------------|
-| Dark Mode | Baja | Toggle de tema oscuro |
-| Filtros en Tareas | Baja | Filtros avanzados en pagina de tareas |
-| Aurora Background | Baja | Efecto visual en login |
+| Integracion Twitter/X | Media | API de Twitter para menciones |
+| Integracion YouTube | Media | Deteccion de menciones en videos |
+| Mas fuentes RSS | Baja | Agregar mas feeds de noticias |
 
 ## Problemas Conocidos
 
@@ -153,11 +158,12 @@ MediaBot es un sistema de monitoreo de medios que permite a agencias de comunica
   - [x] CountUp en KPIs con easeOutExpo
   - [x] Soporte prefers-reduced-motion
 
-### Fase 5: Polish y Escala - PENDIENTE
+### Fase 5: Polish y Escala - EN PROGRESO
 
-- [ ] Dark mode toggle
-- [ ] Aurora background en login
-- [ ] Filtros avanzados en Tareas
+- [x] Dark mode toggle (Sprint 7)
+- [x] Aurora background en login (Sprint 7)
+- [x] Filtros avanzados en Tareas (Sprint 7)
+- [x] Alertas de temas emergentes (Sprint 7)
 - [ ] Transiciones de pagina completas
 - [ ] Agregar mas fuentes RSS
 - [ ] Integrar Twitter/X API
@@ -185,6 +191,14 @@ MediaBot es un sistema de monitoreo de medios que permite a agencias de comunica
 - **SOV en Cliente**: Seccion con donut chart y tendencia historica
 - **Temas en Analytics**: Tag cloud y temas emergentes
 - **PDF mejorado**: Incluye SOV, temas e insights
+
+### Sprint 7 (Completado - 2026-01-28)
+- **Dark Mode**: Toggle de tema con persistencia en localStorage
+- **Aurora Background**: Efecto visual animado en pagina de login
+- **Filtros Modernos Tareas**: FilterBar, FilterSelect, FilterChips
+- **Alertas Temas Emergentes**: Deteccion automatica cada 4h con notificaciones Telegram
+- **Modelo EmergingTopicNotification**: Tracking de notificaciones enviadas
+- **Dark Mode en Componentes**: StatCard, MentionTimeline, FilterBar, etc.
 
 ## Metricas de Exito
 
@@ -241,11 +255,11 @@ MediaBot es un sistema de monitoreo de medios que permite a agencias de comunica
 
 ## Proximos Pasos
 
-1. **Sprint 7**: Implementar dark mode y polish visual
+1. **Sprint 8**: Integraciones externas (Twitter/X API, YouTube)
 2. **Escala**: Agregar mas fuentes de noticias (RSS, APIs)
-3. **Integraciones**: Twitter/X API, YouTube mentions
-4. **Alertas avanzadas**: Notificaciones de temas emergentes
-5. **API publica**: Exponer endpoints para integraciones externas
+3. **API publica**: Exponer endpoints para integraciones externas
+4. **App movil**: Notificaciones push nativas
+5. **Dashboard white-label**: Personalizacion por cliente
 
 ## Contacto
 

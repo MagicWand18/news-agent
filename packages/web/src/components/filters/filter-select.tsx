@@ -36,7 +36,7 @@ export function FilterSelect({
 
     return (
       <div className={cn("relative", className)}>
-        <label className="mb-1 block text-xs font-medium text-gray-500">{label}</label>
+        <label className="mb-1 block text-xs font-medium text-gray-500 dark:text-gray-400">{label}</label>
         <div className="flex flex-wrap gap-1.5">
           {options.map((opt) => {
             const isSelected = selectedValues.includes(opt.value);
@@ -54,7 +54,7 @@ export function FilterSelect({
                   "rounded-full px-3 py-1 text-xs font-medium transition-colors",
                   isSelected
                     ? "bg-brand-500 text-white"
-                    : "bg-white text-gray-600 hover:bg-gray-100"
+                    : "bg-white text-gray-600 hover:bg-gray-100 dark:bg-gray-800 dark:text-gray-300 dark:hover:bg-gray-700"
                 )}
               >
                 {opt.label}
@@ -70,10 +70,10 @@ export function FilterSelect({
 
   return (
     <div className={cn("relative", className)}>
-      <label className="mb-1 block text-xs font-medium text-gray-500">{label}</label>
+      <label className="mb-1 block text-xs font-medium text-gray-500 dark:text-gray-400">{label}</label>
       <div className="relative">
         {icon && (
-          <div className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-gray-400">
+          <div className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 dark:text-gray-500">
             {icon}
           </div>
         )}
@@ -82,6 +82,7 @@ export function FilterSelect({
           onChange={(e) => onChange(e.target.value)}
           className={cn(
             "w-full appearance-none rounded-lg border border-gray-200 bg-white py-2 pr-8 text-sm transition-colors hover:border-gray-300 focus:border-brand-500 focus:outline-none focus:ring-1 focus:ring-brand-500",
+            "dark:border-gray-600 dark:bg-gray-800 dark:text-gray-100 dark:hover:border-gray-500",
             icon ? "pl-9" : "pl-3"
           )}
         >
@@ -92,7 +93,7 @@ export function FilterSelect({
             </option>
           ))}
         </select>
-        <ChevronDown className="pointer-events-none absolute right-2.5 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400" />
+        <ChevronDown className="pointer-events-none absolute right-2.5 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400 dark:text-gray-500" />
       </div>
     </div>
   );

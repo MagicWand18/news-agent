@@ -15,9 +15,11 @@ export const QUEUE_NAMES = {
   ANALYZE_MENTION: "analyze-mention",
   NOTIFY_ALERT: "notify-alert",
   NOTIFY_CRISIS: "notify-crisis",
+  NOTIFY_EMERGING_TOPIC: "notify-emerging-topic",
   DIGEST: "notify-digest",
   ONBOARDING: "onboarding",
   CRISIS_CHECK: "crisis-check",
+  EMERGING_TOPICS: "emerging-topics",
   WEEKLY_REPORT: "weekly-report",
   WEEKLY_INSIGHTS: "weekly-insights",
   EXTRACT_TOPIC: "extract-topic",
@@ -33,9 +35,11 @@ export function setupQueues() {
     analyzeMention: new Queue(QUEUE_NAMES.ANALYZE_MENTION, { connection }),
     notifyAlert: new Queue(QUEUE_NAMES.NOTIFY_ALERT, { connection }),
     notifyCrisis: new Queue(QUEUE_NAMES.NOTIFY_CRISIS, { connection }),
+    notifyEmergingTopic: new Queue(QUEUE_NAMES.NOTIFY_EMERGING_TOPIC, { connection }),
     digest: new Queue(QUEUE_NAMES.DIGEST, { connection }),
     onboarding: new Queue(QUEUE_NAMES.ONBOARDING, { connection }),
     crisisCheck: new Queue(QUEUE_NAMES.CRISIS_CHECK, { connection }),
+    emergingTopics: new Queue(QUEUE_NAMES.EMERGING_TOPICS, { connection }),
     weeklyReport: new Queue(QUEUE_NAMES.WEEKLY_REPORT, { connection }),
     weeklyInsights: new Queue(QUEUE_NAMES.WEEKLY_INSIGHTS, { connection }),
     extractTopic: new Queue(QUEUE_NAMES.EXTRACT_TOPIC, { connection }),
@@ -101,6 +105,15 @@ export function setupQueues() {
     { name: "weekly-insights" }
   );
   console.log(`📅 Weekly Insights cron: ${weeklyInsightsCron}`);
+
+  // Emerging topics check (default: every 4 hours)
+  const emergingTopicsCron = process.env.EMERGING_TOPICS_CRON || "0 */4 * * *";
+  queues.emergingTopics.upsertJobScheduler(
+    "emerging-topics-cron",
+    { pattern: emergingTopicsCron },
+    { name: "check-emerging-topics" }
+  );
+  console.log(`📅 Emerging Topics cron: ${emergingTopicsCron}`);
 
   return {
     ...queues,

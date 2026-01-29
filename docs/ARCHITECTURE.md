@@ -210,7 +210,46 @@ Calcula el porcentaje de menciones de un cliente vs competidores:
 - **SOV ponderado**: Multiplica por tier de fuente (Tier 1 = 3x, Tier 2 = 2x, Tier 3 = 1x)
 - **Historico**: Tendencia de las ultimas 8 semanas
 
-### 4.4 Generacion de Respuesta (`packages/web/src/server/routers/mentions.ts`)
+### 4.4 Alertas de Temas Emergentes (`packages/workers/src/workers/emerging-topics-worker.ts`)
+
+Detecta y notifica temas nuevos que estan ganando traccion:
+
+```
+┌────────────────────────────────────────────────────────────────┐
+│                  EMERGING TOPICS DETECTION                      │
+├────────────────────────────────────────────────────────────────┤
+│                                                                │
+│   ┌────────────────┐                                           │
+│   │ Cron job       │                                           │
+│   │ cada 4 horas   │                                           │
+│   └───────┬────────┘                                           │
+│           │                                                    │
+│           ▼                                                    │
+│   ┌────────────────────────────────────────┐                   │
+│   │ detectEmergingTopics(orgId, 24h, 3)    │                   │
+│   │                                        │                   │
+│   │ - Buscar temas con >= 3 menciones      │                   │
+│   │ - Verificar si es nuevo (no existia    │                   │
+│   │   hace 7 dias)                         │                   │
+│   └───────┬────────────────────────────────┘                   │
+│           │                                                    │
+│           ▼                                                    │
+│   ┌─────────────────┐    No hay    ┌─────────────────┐        │
+│   │ Temas nuevos?   │──────────────▶│ No-op           │        │
+│   └───────┬─────────┘              └─────────────────┘        │
+│           │ Si                                                  │
+│           ▼                                                    │
+│   ┌─────────────────────────────────────────┐                  │
+│   │ Para cada cliente con menciones:        │                  │
+│   │ - Verificar telegramGroupId             │                  │
+│   │ - Verificar no notificado en 24h        │                  │
+│   │ - Encolar NOTIFY_EMERGING_TOPIC         │                  │
+│   └─────────────────────────────────────────┘                  │
+│                                                                │
+└────────────────────────────────────────────────────────────────┘
+```
+
+### 4.5 Generacion de Respuesta (`packages/web/src/server/routers/mentions.ts`)
 
 Genera borradores de comunicados de prensa on-demand:
 
@@ -268,6 +307,7 @@ Genera borradores de comunicados de prensa on-demand:
 | `Article` | Articulo colectado de cualquier fuente |
 | `Mention` | Match de articulo con cliente |
 | `Task` | Tarea asignada a usuario para seguimiento |
+| `EmergingTopicNotification` | Registro de notificaciones de temas emergentes |
 
 ## Sistema de Colas (BullMQ)
 
@@ -292,6 +332,8 @@ Genera borradores de comunicados de prensa on-demand:
 │   onboarding       : Generar keywords iniciales para cliente    │
 │   extract-topic    : Extraer tema de mencion con AI             │
 │   weekly-insights  : Generar insights semanales (Lun 6:00 AM)   │
+│   emerging-topics  : Detectar temas emergentes (cada 4h)        │
+│   notify-emerging  : Notificar tema emergente via Telegram      │
 │                                                                 │
 └─────────────────────────────────────────────────────────────────┘
 ```
