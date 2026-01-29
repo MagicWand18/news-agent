@@ -301,3 +301,54 @@ model EmergingTopicNotification {
 
   @@index([clientId, topic, createdAt])
 }
+
+// Sprint 8: Fuentes RSS expandidas
+model RssSource {
+  id         String     @id @default(cuid())
+  name       String
+  url        String     @unique
+  tier       Int        @default(3) // 1=nacional, 2=estatal, 3=municipal
+  type       SourceType @default(NATIONAL)
+  state      String?    // NULL para nacionales
+  city       String?    // NULL para estatales/nacionales
+  active     Boolean    @default(true)
+  lastFetch  DateTime?
+  errorCount Int        @default(0)
+  createdAt  DateTime   @default(now())
+  updatedAt  DateTime   @updatedAt
+
+  @@index([type, state])
+  @@index([active])
+}
+
+enum SourceType {
+  NATIONAL    // Medios nacionales
+  STATE       // Medios estatales
+  MUNICIPAL   // Medios municipales
+  SPECIALIZED // Negocios, deportes, tech
+}
+
+// Sprint 8: Sistema de solicitud de fuentes
+model SourceRequest {
+  id          String        @id @default(cuid())
+  name        String
+  url         String
+  state       String?
+  city        String?
+  requestedBy String        // userId
+  status      RequestStatus @default(PENDING)
+  notes       String?
+  reviewedBy  String?       // adminId
+  reviewedAt  DateTime?
+  createdAt   DateTime      @default(now())
+
+  @@index([status])
+  @@index([requestedBy])
+}
+
+enum RequestStatus {
+  PENDING
+  APPROVED
+  REJECTED
+  INTEGRATED
+}

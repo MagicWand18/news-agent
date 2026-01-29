@@ -55,7 +55,7 @@ Cada colector normaliza articulos al tipo `NormalizedArticle`:
 
 | Archivo | Fuente | Intervalo | Descripcion |
 |---------|--------|-----------|-------------|
-| `rss.ts` | RSS Feeds | 10 min | 9 medios mexicanos e internacionales |
+| `rss.ts` | RSS Feeds (DB) | 10 min | 300+ medios mexicanos desde tabla RssSource |
 | `newsdata.ts` | NewsData.io | 30 min | API de noticias con filtro pais |
 | `gdelt.ts` | GDELT | 15 min | Base de datos global de eventos |
 | `google.ts` | Google CSE | 2 horas | Busqueda personalizada |
@@ -308,6 +308,8 @@ Genera borradores de comunicados de prensa on-demand:
 | `Mention` | Match de articulo con cliente |
 | `Task` | Tarea asignada a usuario para seguimiento |
 | `EmergingTopicNotification` | Registro de notificaciones de temas emergentes |
+| `RssSource` | Fuente RSS configurable (300+ medios mexicanos) |
+| `SourceRequest` | Solicitud de inclusion de nueva fuente |
 
 ## Sistema de Colas (BullMQ)
 
@@ -454,6 +456,98 @@ MediaBot utiliza un sistema de configuracion de dos niveles:
 └─────────────────────────────────────────────────────────────────┘
 ```
 
+### 4.6 Fuentes RSS Dinamicas (`packages/workers/src/collectors/rss.ts`)
+
+Sprint 8 migra las fuentes RSS de config hardcodeada a base de datos:
+
+```
+┌────────────────────────────────────────────────────────────────┐
+│                    RSS COLLECTOR FLOW                           │
+├────────────────────────────────────────────────────────────────┤
+│                                                                │
+│   ┌────────────────┐                                           │
+│   │ Cron job       │                                           │
+│   │ cada 10 min    │                                           │
+│   └───────┬────────┘                                           │
+│           │                                                    │
+│           ▼                                                    │
+│   ┌────────────────────────────────────────┐                   │
+│   │ getRssSources()                        │                   │
+│   │                                        │                   │
+│   │ 1. Query tabla RssSource (active=true) │                   │
+│   │ 2. Si hay resultados, usar DB          │                   │
+│   │ 3. Si no, fallback a config.rssFeeds   │                   │
+│   └───────┬────────────────────────────────┘                   │
+│           │                                                    │
+│           ▼                                                    │
+│   ┌────────────────────────────────────────┐                   │
+│   │ Para cada fuente:                      │                   │
+│   │ - Parsear RSS feed                     │                   │
+│   │ - Match keywords                       │                   │
+│   │ - Actualizar lastFetch/errorCount      │                   │
+│   └───────┬────────────────────────────────┘                   │
+│           │                                                    │
+│           ▼                                                    │
+│   ┌────────────────────────────────────────┐                   │
+│   │ deactivateFailingSources()             │                   │
+│   │ Desactiva fuentes con 10+ errores      │                   │
+│   └────────────────────────────────────────┘                   │
+│                                                                │
+└────────────────────────────────────────────────────────────────┘
+```
+
+### 4.7 Onboarding Magico con IA (`packages/web/src/app/dashboard/clients/new/`)
+
+Wizard de 4 pasos para crear clientes con configuracion automatica:
+
+```
+┌────────────────────────────────────────────────────────────────┐
+│                    ONBOARDING WIZARD FLOW                       │
+├────────────────────────────────────────────────────────────────┤
+│                                                                │
+│   PASO 1: INFO BASICA                                          │
+│   ┌────────────────────────────────────────┐                   │
+│   │ Input: nombre, descripcion, industria  │                   │
+│   └───────┬────────────────────────────────┘                   │
+│           │                                                    │
+│           ▼                                                    │
+│   PASO 2: BUSQUEDA DE NOTICIAS                                 │
+│   ┌────────────────────────────────────────┐                   │
+│   │ clients.searchNews()                   │                   │
+│   │ - Busca articulos del ultimo mes       │                   │
+│   │ - Filtra por nombre del cliente        │                   │
+│   │ - Retorna hasta 50 resultados          │                   │
+│   └───────┬────────────────────────────────┘                   │
+│           │                                                    │
+│           ▼                                                    │
+│   ┌────────────────────────────────────────┐                   │
+│   │ clients.generateOnboardingConfig()     │                   │
+│   │ - Envia articulos a Claude             │                   │
+│   │ - Genera keywords sugeridos            │                   │
+│   │ - Identifica competidores              │                   │
+│   └───────┬────────────────────────────────┘                   │
+│           │                                                    │
+│           ▼                                                    │
+│   PASO 3: REVISION Y SELECCION                                 │
+│   ┌────────────────────────────────────────┐                   │
+│   │ Usuario revisa y edita:                │                   │
+│   │ - Keywords sugeridos                   │                   │
+│   │ - Articulos a importar                 │                   │
+│   │ - Puede agregar keywords manuales      │                   │
+│   └───────┬────────────────────────────────┘                   │
+│           │                                                    │
+│           ▼                                                    │
+│   PASO 4: CREACION                                             │
+│   ┌────────────────────────────────────────┐                   │
+│   │ clients.createWithOnboarding()         │                   │
+│   │ - Crea cliente en DB                   │                   │
+│   │ - Crea keywords seleccionados          │                   │
+│   │ - Crea menciones de articulos          │                   │
+│   └────────────────────────────────────────┘                   │
+│                                                                │
+└────────────────────────────────────────────────────────────────┘
+```
+
 ### Flujo de Carga de Configuracion
 
 ```
@@ -579,12 +673,13 @@ El sistema detecta automaticamente situaciones de crisis mediaticas.
 | Router | Descripcion | Endpoints |
 |--------|-------------|-----------|
 | `dashboard` | Metricas principales | `stats`, `recentMentions` |
-| `clients` | Gestion de clientes | `list`, `getById`, `create`, `update`, `addKeyword`, `removeKeyword` |
+| `clients` | Gestion de clientes | `list`, `getById`, `create`, `update`, `addKeyword`, `removeKeyword`, `searchNews`, `generateOnboardingConfig`, `createWithOnboarding` |
 | `mentions` | Consulta de menciones | `list`, `getById`, `generateResponse` |
 | `tasks` | Gestion de tareas | `list`, `create`, `update` |
 | `team` | Gestion de equipo | `list`, `create`, `update` |
 | `settings` | Configuracion dinamica | `list`, `get`, `update`, `reset`, `seedDefaults` |
 | `intelligence` | Media Intelligence | `getSOV`, `getTopics`, `getWeeklyInsights`, `getSourceTiers`, `getKPIs` |
+| `sources` | Gestion de fuentes RSS | `list`, `stats`, `create`, `update`, `delete`, `requestSource`, `listRequests`, `approveRequest`, `rejectRequest`, `integrateRequest` |
 
 ### Proteccion de Endpoints
 

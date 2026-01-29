@@ -3,6 +3,15 @@ import { TRPCError } from "@trpc/server";
 import { router, protectedProcedure } from "../trpc";
 import { prisma, getOnboardingQueue } from "@mediabot/shared";
 
+/**
+ * Resta días a una fecha.
+ */
+function subDays(date: Date, days: number): Date {
+  const result = new Date(date);
+  result.setDate(result.getDate() - days);
+  return result;
+}
+
 export const clientsRouter = router({
   list: protectedProcedure.query(async ({ ctx }) => {
     return prisma.client.findMany({
@@ -135,6 +144,246 @@ export const clientsRouter = router({
         where: { id: input.id },
         data: { active: false },
       });
+    }),
+
+  // ==================== SPRINT 8: ONBOARDING MAGICO ====================
+
+  /**
+   * Busca noticias recientes que mencionen el nombre del cliente.
+   * Primera fase del wizard de onboarding.
+   */
+  searchNews: protectedProcedure
+    .input(
+      z.object({
+        clientName: z.string().min(1),
+        industry: z.string().optional(),
+        days: z.number().min(7).max(60).default(30),
+      })
+    )
+    .mutation(async ({ input }) => {
+      const since = subDays(new Date(), input.days);
+
+      // Buscar articulos existentes en la base de datos
+      const articles = await prisma.article.findMany({
+        where: {
+          publishedAt: { gte: since },
+          OR: [
+            { title: { contains: input.clientName, mode: "insensitive" } },
+            { content: { contains: input.clientName, mode: "insensitive" } },
+          ],
+        },
+        select: {
+          id: true,
+          title: true,
+          source: true,
+          url: true,
+          content: true,
+          publishedAt: true,
+        },
+        orderBy: { publishedAt: "desc" },
+        take: 50,
+      });
+
+      return {
+        articles: articles.map((a) => ({
+          id: a.id,
+          title: a.title,
+          source: a.source,
+          url: a.url,
+          snippet: a.content?.slice(0, 300) || undefined,
+          publishedAt: a.publishedAt,
+        })),
+        total: articles.length,
+        searchTerm: input.clientName,
+        since,
+      };
+    }),
+
+  /**
+   * Genera keywords y configuracion con IA basado en noticias encontradas.
+   * Segunda fase del wizard de onboarding.
+   */
+  generateOnboardingConfig: protectedProcedure
+    .input(
+      z.object({
+        clientName: z.string().min(1),
+        description: z.string().optional(),
+        industry: z.string().optional(),
+        articles: z.array(
+          z.object({
+            title: z.string(),
+            source: z.string(),
+            snippet: z.string().optional(),
+          })
+        ),
+      })
+    )
+    .mutation(async ({ input }) => {
+      // Llamar a la API de Claude para generar keywords
+      const Anthropic = (await import("@anthropic-ai/sdk")).default;
+      const { config } = await import("@mediabot/shared");
+
+      const anthropic = new Anthropic({
+        apiKey: config.anthropic.apiKey,
+      });
+
+      const articlesContext = input.articles
+        .slice(0, 15)
+        .map(
+          (a, i) =>
+            `${i + 1}. "${a.title}" - ${a.source}${a.snippet ? `\n   ${a.snippet.slice(0, 200)}` : ""}`
+        )
+        .join("\n\n");
+
+      const message = await anthropic.messages.create({
+        model: config.anthropic.model,
+        max_tokens: 1500,
+        messages: [
+          {
+            role: "user",
+            content: `Eres un experto en monitoreo de medios y relaciones publicas en Mexico.
+Analiza las siguientes noticias recientes sobre un cliente y genera una estrategia de monitoreo.
+
+CLIENTE:
+Nombre: ${input.clientName}
+Descripcion: ${input.description || "No proporcionada"}
+Industria: ${input.industry || "No especificada"}
+
+NOTICIAS RECIENTES (${input.articles.length} articulos):
+${articlesContext || "No se encontraron noticias recientes"}
+
+Genera keywords y configuracion basada en estas noticias REALES.
+
+Responde en JSON con este formato:
+{
+  "suggestedKeywords": [
+    {
+      "word": "palabra exacta",
+      "type": "NAME|BRAND|COMPETITOR|TOPIC|ALIAS",
+      "confidence": <0.5 a 1.0>,
+      "reason": "Por que es relevante"
+    }
+  ],
+  "competitors": [
+    {"name": "Competidor", "reason": "Por que es competidor"}
+  ],
+  "sensitiveTopics": ["tema1", "tema2"],
+  "industryContext": "Contexto de la industria",
+  "monitoringStrategy": ["Estrategia 1", "Estrategia 2"]
+}
+
+IMPORTANTE: Genera 8-12 keywords variados basados en las noticias.
+Solo responde con el JSON.`,
+          },
+        ],
+      });
+
+      const content = message.content[0];
+      if (content.type !== "text") {
+        throw new TRPCError({
+          code: "INTERNAL_SERVER_ERROR",
+          message: "Error al generar configuracion",
+        });
+      }
+
+      try {
+        // Extraer JSON de la respuesta
+        const jsonMatch = content.text.match(/```(?:json)?\s*\n?([\s\S]*?)\n?\s*```/);
+        const jsonText = jsonMatch ? jsonMatch[1].trim() : content.text.trim();
+        return JSON.parse(jsonText);
+      } catch {
+        console.error("[Onboarding] Parse error:", content.text.slice(0, 500));
+        return {
+          suggestedKeywords: [
+            {
+              word: input.clientName,
+              type: "NAME",
+              confidence: 1,
+              reason: "Nombre del cliente",
+            },
+          ],
+          competitors: [],
+          sensitiveTopics: [],
+          industryContext: "Configuracion manual requerida",
+          monitoringStrategy: ["Agregar keywords manualmente"],
+        };
+      }
+    }),
+
+  /**
+   * Crea un cliente con la configuracion completa del wizard.
+   * Fase final del onboarding.
+   */
+  createWithOnboarding: protectedProcedure
+    .input(
+      z.object({
+        name: z.string().min(1),
+        description: z.string().optional(),
+        industry: z.string().optional(),
+        keywords: z.array(
+          z.object({
+            word: z.string(),
+            type: z.enum(["NAME", "BRAND", "COMPETITOR", "TOPIC", "ALIAS"]),
+          })
+        ),
+        competitors: z.array(z.string()).optional(),
+        selectedArticleIds: z.array(z.string()).optional(),
+      })
+    )
+    .mutation(async ({ input, ctx }) => {
+      // Crear cliente
+      const client = await prisma.client.create({
+        data: {
+          name: input.name,
+          description: input.description,
+          industry: input.industry,
+          orgId: ctx.user.orgId,
+          onboarding: {
+            completedAt: new Date().toISOString(),
+            method: "wizard",
+            keywordsCount: input.keywords.length,
+            competitorsCount: input.competitors?.length || 0,
+          },
+        },
+      });
+
+      // Crear keywords
+      if (input.keywords.length > 0) {
+        await prisma.keyword.createMany({
+          data: input.keywords.map((kw) => ({
+            word: kw.word,
+            type: kw.type,
+            clientId: client.id,
+            active: true,
+          })),
+          skipDuplicates: true,
+        });
+      }
+
+      // Crear menciones de articulos seleccionados
+      if (input.selectedArticleIds && input.selectedArticleIds.length > 0) {
+        for (const articleId of input.selectedArticleIds) {
+          try {
+            await prisma.mention.create({
+              data: {
+                articleId,
+                clientId: client.id,
+                keywordMatched: input.name,
+                sentiment: "NEUTRAL",
+                relevance: 7,
+              },
+            });
+          } catch {
+            // Ignorar duplicados
+          }
+        }
+      }
+
+      return {
+        client,
+        keywordsCreated: input.keywords.length,
+        mentionsCreated: input.selectedArticleIds?.length || 0,
+      };
     }),
 
   compareCompetitors: protectedProcedure

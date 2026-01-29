@@ -3,7 +3,8 @@
 import { trpc } from "@/lib/trpc";
 import { useState, useMemo } from "react";
 import Link from "next/link";
-import { Plus, Search, Building2, CheckCircle } from "lucide-react";
+import { useRouter } from "next/navigation";
+import { Plus, Search, Building2, CheckCircle, Sparkles } from "lucide-react";
 import { FilterBar, FilterSelect, FilterChips } from "@/components/filters";
 
 const STATUS_OPTIONS = [
@@ -12,6 +13,7 @@ const STATUS_OPTIONS = [
 ];
 
 export default function ClientsPage() {
+  const router = useRouter();
   const clients = trpc.clients.list.useQuery();
   const createClient = trpc.clients.create.useMutation({
     onSuccess: () => {
@@ -95,13 +97,22 @@ export default function ClientsPage() {
     <div className="space-y-6">
       <div className="flex items-center justify-between">
         <h2 className="text-2xl font-bold text-gray-900 dark:text-gray-100">Clientes</h2>
-        <button
-          onClick={() => setShowForm(!showForm)}
-          className="flex items-center gap-2 rounded-lg bg-brand-600 px-4 py-2 text-white hover:bg-brand-700"
-        >
-          <Plus className="h-4 w-4" />
-          Nuevo cliente
-        </button>
+        <div className="flex gap-2">
+          <button
+            onClick={() => router.push("/dashboard/clients/new")}
+            className="flex items-center gap-2 rounded-lg bg-gradient-to-r from-brand-600 to-purple-600 px-4 py-2 text-white hover:from-brand-700 hover:to-purple-700"
+          >
+            <Sparkles className="h-4 w-4" />
+            Onboarding Magico
+          </button>
+          <button
+            onClick={() => setShowForm(!showForm)}
+            className="flex items-center gap-2 rounded-lg bg-gray-100 px-4 py-2 text-gray-700 hover:bg-gray-200 dark:bg-gray-700 dark:text-gray-200 dark:hover:bg-gray-600"
+          >
+            <Plus className="h-4 w-4" />
+            Crear Rapido
+          </button>
+        </div>
       </div>
 
       {showForm && (

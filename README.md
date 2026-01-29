@@ -177,10 +177,57 @@ npm run dev:bot        # Solo bot
 
 | Colector | Intervalo | Descripcion |
 |----------|-----------|-------------|
-| RSS | 10 min | 9 feeds de medios mexicanos e internacionales |
+| RSS | 10 min | 300+ feeds de medios mexicanos (desde DB) |
 | NewsData | 30 min | API de noticias con filtro por pais |
 | GDELT | 15 min | Base de datos global de eventos |
 | Google CSE | 2 horas | Busqueda personalizada de Google |
+
+## Gestion de Fuentes RSS (Sprint 8)
+
+El sistema ahora permite gestionar fuentes RSS desde la base de datos:
+
+### Cobertura de Medios Mexicanos
+- **Tier 1 (Nacional)**: 26 fuentes - El Universal, Milenio, Reforma, etc.
+- **Tier 2 (Estatal)**: 136 fuentes - 4+ por cada estado de Mexico
+- **Tier 3 (Municipal)**: 75+ fuentes - Ciudades principales
+- **Especializados**: 28 fuentes - Tecnologia, deportes, negocios
+
+### Pagina de Gestion (/dashboard/sources)
+- Lista de fuentes con filtros (tipo, estado, tier, activo)
+- CRUD completo para administradores
+- Sistema de solicitud de nuevas fuentes
+- Estadisticas de cobertura
+
+### Sistema de Solicitudes
+Los usuarios pueden solicitar nuevas fuentes. Workflow:
+1. Usuario envia solicitud (nombre, URL, ubicacion)
+2. Admin revisa y aprueba/rechaza
+3. Si aprobada, se integra automaticamente al sistema
+
+## Onboarding Magico (Sprint 8)
+
+Nuevo wizard de 4 pasos para crear clientes en `/dashboard/clients/new`:
+
+### Paso 1: Informacion Basica
+- Nombre de la empresa/persona
+- Descripcion opcional
+- Industria
+
+### Paso 2: Busqueda de Noticias
+- Busca automaticamente noticias del ultimo mes
+- Muestra progreso con animaciones
+- Encuentra articulos relevantes en la base de datos
+
+### Paso 3: Revision y Configuracion
+- IA genera keywords sugeridos basados en noticias reales
+- Usuario puede seleccionar/deseleccionar keywords
+- Muestra competidores identificados
+- Permite agregar keywords manualmente
+
+### Paso 4: Completado
+- Crea cliente con keywords configurados
+- Importa menciones de articulos seleccionados
+- Muestra resumen con confetti de celebracion
 
 ## Sistema de Configuracion
 

@@ -418,6 +418,24 @@ export interface WeeklyInsightsResult {
   riskAlerts: string[];
 }
 
+// ==================== SPRINT 8: ONBOARDING MEJORADO ====================
+
+export interface EnhancedOnboardingResult {
+  suggestedKeywords: Array<{
+    word: string;
+    type: "NAME" | "BRAND" | "COMPETITOR" | "TOPIC" | "ALIAS";
+    confidence: number;
+    reason: string;
+  }>;
+  competitors: Array<{
+    name: string;
+    reason: string;
+  }>;
+  sensitiveTopics: string[];
+  industryContext: string;
+  monitoringStrategy: string[];
+}
+
 /**
  * Genera insights semanales accionables basados en datos de la semana.
  */
@@ -520,6 +538,127 @@ Los insights deben ser especificos, con datos, y orientados a la accion.`,
       topicsSummary: "Resumen no disponible",
       recommendedActions: ["Revisar datos manualmente"],
       riskAlerts: [],
+    };
+  }
+}
+
+/**
+ * Onboarding mejorado con analisis de noticias reales.
+ * Genera keywords mas precisos basados en noticias recientes.
+ */
+export async function runEnhancedOnboarding(params: {
+  clientName: string;
+  description?: string;
+  industry?: string;
+  recentArticles: Array<{
+    title: string;
+    source: string;
+    snippet?: string;
+    publishedAt?: Date;
+  }>;
+}): Promise<EnhancedOnboardingResult> {
+  const articlesContext = params.recentArticles
+    .slice(0, 15)
+    .map((a, i) => `${i + 1}. "${a.title}" - ${a.source}${a.snippet ? `\n   ${a.snippet.slice(0, 200)}` : ""}`)
+    .join("\n\n");
+
+  const message = await anthropic.messages.create({
+    model: config.anthropic.model,
+    max_tokens: 1500,
+    messages: [
+      {
+        role: "user",
+        content: `Eres un experto en monitoreo de medios y relaciones publicas en Mexico.
+Analiza las siguientes noticias recientes sobre un nuevo cliente y genera una estrategia de monitoreo.
+
+CLIENTE:
+Nombre: ${params.clientName}
+Descripcion: ${params.description || "No proporcionada"}
+Industria: ${params.industry || "No especificada"}
+
+NOTICIAS RECIENTES ENCONTRADAS (${params.recentArticles.length} articulos):
+${articlesContext || "No se encontraron noticias recientes"}
+
+Basandote en estas noticias REALES, genera:
+
+1. KEYWORDS: Palabras clave especificas que aparecen en las noticias
+   - Incluye el nombre exacto del cliente y variaciones
+   - Incluye nombres de productos/marcas mencionados
+   - Incluye competidores que aparecen en las mismas noticias
+   - Incluye temas especificos de la industria
+
+2. COMPETIDORES: Empresas que compiten directamente (mencionadas o contextuales)
+
+3. TEMAS SENSIBLES: Temas que requieren atencion especial
+
+Responde en JSON con este formato exacto:
+{
+  "suggestedKeywords": [
+    {
+      "word": "palabra exacta",
+      "type": "NAME|BRAND|COMPETITOR|TOPIC|ALIAS",
+      "confidence": <0.5 a 1.0>,
+      "reason": "Por que es relevante (ej: aparece en X noticias)"
+    }
+  ],
+  "competitors": [
+    {
+      "name": "Nombre del competidor",
+      "reason": "Por que es competidor"
+    }
+  ],
+  "sensitiveTopics": ["tema1", "tema2"],
+  "industryContext": "Breve contexto de la industria y posicion del cliente",
+  "monitoringStrategy": ["Estrategia 1", "Estrategia 2"]
+}
+
+IMPORTANTE:
+- Genera al menos 8-12 keywords variados y especificos
+- Los keywords deben ser REALES, basados en las noticias proporcionadas
+- Incluye variaciones del nombre (con/sin acentos, abreviaciones)
+- La confianza debe reflejar cuantas veces aparece en las noticias
+
+Solo responde con el JSON, sin markdown ni texto adicional.`,
+      },
+    ],
+  });
+
+  const content = message.content[0];
+  if (content.type !== "text") {
+    throw new Error("Unexpected response type from Claude");
+  }
+
+  const rawText = content.text;
+  console.log("[AI] Enhanced onboarding response:", rawText.slice(0, 400));
+
+  try {
+    const cleaned = cleanJsonResponse(rawText);
+    const result = JSON.parse(cleaned) as EnhancedOnboardingResult;
+
+    // Validar tipos de keywords
+    const validTypes = ["NAME", "BRAND", "COMPETITOR", "TOPIC", "ALIAS"] as const;
+    result.suggestedKeywords = result.suggestedKeywords.map((kw) => ({
+      ...kw,
+      type: validTypes.includes(kw.type as typeof validTypes[number]) ? kw.type : "TOPIC",
+      confidence: Math.max(0.5, Math.min(1, kw.confidence || 0.7)),
+    }));
+
+    return result;
+  } catch {
+    console.error("[AI] Failed to parse enhanced onboarding response:", rawText);
+    return {
+      suggestedKeywords: [
+        {
+          word: params.clientName,
+          type: "NAME",
+          confidence: 1,
+          reason: "Nombre del cliente",
+        },
+      ],
+      competitors: [],
+      sensitiveTopics: [],
+      industryContext: "Configuracion manual requerida",
+      monitoringStrategy: ["Agregar keywords manualmente"],
     };
   }
 }

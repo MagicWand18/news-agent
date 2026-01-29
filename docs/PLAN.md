@@ -45,6 +45,10 @@ MediaBot es un sistema de monitoreo de medios que permite a agencias de comunica
 | **Aurora Background** | OK | Efecto visual animado en login (Sprint 7) |
 | **Filtros Modernos Tareas** | OK | FilterBar/FilterChips en tareas (Sprint 7) |
 | **Alertas Temas Emergentes** | OK | Notificaciones Telegram automaticas (Sprint 7) |
+| **Fuentes RSS Expandidas** | OK | 300+ medios mexicanos en DB (Sprint 8) |
+| **Gestion de Fuentes** | OK | CRUD y solicitudes de fuentes (Sprint 8) |
+| **Onboarding Magico** | OK | Wizard de 4 pasos con IA (Sprint 8) |
+| **Busqueda de Noticias** | OK | Importar menciones historicas (Sprint 8) |
 
 ### Funciones de IA
 
@@ -60,6 +64,7 @@ MediaBot es un sistema de monitoreo de medios que permite a agencias de comunica
 | `extractTopic` | Automatico | Post-analisis | `analysis/ai.ts:347` |
 | `generateWeeklyInsights` | Cron semanal | Lunes 6:00 AM | `analysis/ai.ts:407` |
 | `detectEmergingTopics` | Cron cada 4h | Automatico | `analysis/topic-extractor.ts:118` |
+| `runEnhancedOnboarding` | On-demand | Wizard nuevo cliente | `analysis/ai.ts` |
 
 ### Pendiente / En Progreso
 
@@ -253,13 +258,63 @@ MediaBot es un sistema de monitoreo de medios que permite a agencias de comunica
 
 **Razon**: Mantiene bundle size minimo, usa CSS puro + React hooks para animaciones, filtrado client-side donde es posible.
 
+## Sprint 8: Fuentes Expandidas + Onboarding Magico - COMPLETADO
+
+### Implementado
+
+| Feature | Estado | Archivo(s) |
+|---------|--------|------------|
+| Modelo RssSource | OK | `prisma/schema.prisma` |
+| Modelo SourceRequest | OK | `prisma/schema.prisma` |
+| Seed 300+ fuentes | OK | `prisma/seed-rss-sources.ts` |
+| Colector RSS desde DB | OK | `packages/workers/src/collectors/rss.ts` |
+| API tRPC de fuentes | OK | `packages/web/src/server/routers/sources.ts` |
+| Pagina /dashboard/sources | OK | `packages/web/src/app/dashboard/sources/page.tsx` |
+| Wizard de onboarding | OK | `packages/web/src/app/dashboard/clients/new/page.tsx` |
+| Componentes magic-effects | OK | `packages/web/src/components/client-wizard/` |
+| runEnhancedOnboarding | OK | `packages/workers/src/analysis/ai.ts` |
+
+### Cobertura de Medios
+
+- **Nacionales (Tier 1)**: 26 fuentes
+- **Estatales (Tier 2)**: 136 fuentes (4+ por estado)
+- **Municipales (Tier 3)**: 75+ fuentes
+- **Especializados**: 28 fuentes (tech, deportes, negocios)
+- **Total**: 300+ medios mexicanos
+
+### Wizard de Onboarding
+
+1. **Info**: Nombre, descripcion, industria
+2. **Buscar**: Busca noticias del ultimo mes en la DB
+3. **Revisar**: Muestra keywords sugeridos y articulos encontrados
+4. **Completo**: Crea cliente, keywords y menciones en un solo paso
+
+### Sistema de Solicitud de Fuentes
+
+- Usuarios pueden solicitar nuevas fuentes
+- Admins aprueban/rechazan/integran
+- Workflow: PENDING → APPROVED → INTEGRATED
+
 ## Proximos Pasos
 
-1. **Sprint 8**: Integraciones externas (Twitter/X API, YouTube)
-2. **Escala**: Agregar mas fuentes de noticias (RSS, APIs)
-3. **API publica**: Exponer endpoints para integraciones externas
-4. **App movil**: Notificaciones push nativas
-5. **Dashboard white-label**: Personalizacion por cliente
+### Sprint 9: Performance y Cobertura (Próximo)
+
+| Feature | Descripción | Prioridad |
+|---------|-------------|-----------|
+| YouTube Data API | Cuota gratuita 10,000 units/día | Media |
+| View Transitions | Animaciones suaves entre páginas | Media |
+| Notificaciones In-App | Centro de notificaciones interno | Alta |
+| Pruebas E2E | Playwright tests completos | Alta |
+
+**Decisión**: Se descartó Twitter/X API por costo prohibitivo ($5000+/mes Enterprise).
+
+### Sprint 9+ (Backlog)
+
+1. **YouTube Data API**: Cuota gratuita de 10,000 units/día
+2. **Google Alerts RSS**: Alternativa sin costo a Google CSE
+3. **API pública**: Endpoints REST + webhooks
+4. **App móvil**: Notificaciones push nativas
+5. **White-label**: Dashboard personalizable por cliente
 
 ## Contacto
 
