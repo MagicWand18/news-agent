@@ -99,11 +99,11 @@ export default function IntelligencePage() {
       {/* Header */}
       <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
         <div>
-          <h2 className="text-2xl font-bold text-gray-900">
+          <h2 className="text-2xl font-bold text-gray-900 dark:text-white">
             <Brain className="mr-2 inline-block h-7 w-7 text-brand-600" />
             Media Intelligence
           </h2>
-          <p className="mt-1 text-sm text-gray-500">
+          <p className="mt-1 text-sm text-gray-500 dark:text-gray-400 dark:text-gray-400">
             Insights accionables y analisis competitivo avanzado
           </p>
         </div>
@@ -163,9 +163,9 @@ export default function IntelligencePage() {
       {/* Row 2: SOV Chart + SOV Breakdown */}
       <div className="grid grid-cols-1 gap-6 lg:grid-cols-3">
         {/* SOV Trend */}
-        <div className="col-span-1 rounded-xl border border-gray-100 bg-white p-6 shadow-sm lg:col-span-2">
-          <h3 className="font-semibold text-gray-900">Tendencia Share of Voice</h3>
-          <p className="mb-4 text-sm text-gray-500">Ultimas 8 semanas</p>
+        <div className="col-span-1 rounded-xl border border-gray-100 dark:border-gray-700 bg-white dark:bg-gray-800 p-6 shadow-sm dark:shadow-gray-900/20 lg:col-span-2">
+          <h3 className="font-semibold text-gray-900 dark:text-white">Tendencia Share of Voice</h3>
+          <p className="mb-4 text-sm text-gray-500 dark:text-gray-400">Ultimas 8 semanas</p>
           {sov.isLoading ? (
             <LoadingSpinner />
           ) : sovChartData.length > 0 ? (
@@ -214,9 +214,9 @@ export default function IntelligencePage() {
         </div>
 
         {/* SOV Pie */}
-        <div className="rounded-xl border border-gray-100 bg-white p-6 shadow-sm">
-          <h3 className="font-semibold text-gray-900">Share of Voice</h3>
-          <p className="mb-4 text-sm text-gray-500">vs Competidores</p>
+        <div className="rounded-xl border border-gray-100 dark:border-gray-700 bg-white dark:bg-gray-800 p-6 shadow-sm dark:shadow-gray-900/20">
+          <h3 className="font-semibold text-gray-900 dark:text-white">Share of Voice</h3>
+          <p className="mb-4 text-sm text-gray-500 dark:text-gray-400">vs Competidores</p>
           {sov.isLoading ? (
             <LoadingSpinner />
           ) : sovPieData.length > 0 ? (
@@ -250,7 +250,7 @@ export default function IntelligencePage() {
                       />
                       <span className="truncate text-gray-600">{entry.name}</span>
                     </div>
-                    <span className="font-semibold text-gray-900">{entry.value.toFixed(1)}%</span>
+                    <span className="font-semibold text-gray-900 dark:text-white">{entry.value.toFixed(1)}%</span>
                   </div>
                 ))}
               </div>
@@ -264,11 +264,11 @@ export default function IntelligencePage() {
       {/* Row 3: Topics + Insights */}
       <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
         {/* Topics */}
-        <div className="rounded-xl border border-gray-100 bg-white p-6 shadow-sm">
+        <div className="rounded-xl border border-gray-100 dark:border-gray-700 bg-white dark:bg-gray-800 p-6 shadow-sm dark:shadow-gray-900/20">
           <div className="mb-4 flex items-center justify-between">
             <div>
-              <h3 className="font-semibold text-gray-900">Temas Principales</h3>
-              <p className="text-sm text-gray-500">Top temas detectados</p>
+              <h3 className="font-semibold text-gray-900 dark:text-white">Temas Principales</h3>
+              <p className="text-sm text-gray-500 dark:text-gray-400">Top temas detectados</p>
             </div>
             {(topics.data?.emergingTopics?.length ?? 0) > 0 && (
               <span className="flex items-center gap-1 rounded-full bg-amber-100 px-2 py-1 text-xs font-medium text-amber-700">
@@ -298,10 +298,10 @@ export default function IntelligencePage() {
         </div>
 
         {/* AI Insights */}
-        <div className="rounded-xl border border-gray-100 bg-white p-6 shadow-sm">
+        <div className="rounded-xl border border-gray-100 dark:border-gray-700 bg-white dark:bg-gray-800 p-6 shadow-sm dark:shadow-gray-900/20">
           <div className="mb-4 flex items-center gap-2">
             <Lightbulb className="h-5 w-5 text-amber-500" />
-            <h3 className="font-semibold text-gray-900">Recomendaciones IA</h3>
+            <h3 className="font-semibold text-gray-900 dark:text-white">Recomendaciones IA</h3>
           </div>
           {insights.isLoading ? (
             <LoadingSpinner />
@@ -322,7 +322,7 @@ export default function IntelligencePage() {
               <div className="mb-3 flex h-12 w-12 items-center justify-center rounded-full bg-amber-100">
                 <Lightbulb className="h-6 w-6 text-amber-500" />
               </div>
-              <p className="text-sm text-gray-500">Los insights se generan semanalmente</p>
+              <p className="text-sm text-gray-500 dark:text-gray-400">Los insights se generan semanalmente</p>
               <p className="mt-1 text-xs text-gray-400">
                 Disponibles cada lunes con analisis de la semana anterior
               </p>
@@ -332,9 +332,9 @@ export default function IntelligencePage() {
       </div>
 
       {/* Row 4: Source Tiers */}
-      <div className="rounded-xl border border-gray-100 bg-white p-6 shadow-sm">
-        <h3 className="font-semibold text-gray-900">Fuentes por Tier</h3>
-        <p className="mb-4 text-sm text-gray-500">
+      <div className="rounded-xl border border-gray-100 dark:border-gray-700 bg-white dark:bg-gray-800 p-6 shadow-sm dark:shadow-gray-900/20">
+        <h3 className="font-semibold text-gray-900 dark:text-white">Fuentes por Tier</h3>
+        <p className="mb-4 text-sm text-gray-500 dark:text-gray-400">
           Clasificacion de fuentes por alcance e impacto
         </p>
         {sourceTiers.isLoading ? (
@@ -392,17 +392,17 @@ function KPICard({
   };
 
   return (
-    <div className="rounded-xl border border-gray-100 bg-white p-5 shadow-sm">
+    <div className="rounded-xl border border-gray-100 dark:border-gray-700 bg-white dark:bg-gray-800 p-5 shadow-sm dark:shadow-gray-900/20">
       <div className="flex items-center gap-3">
         <div className={`flex h-10 w-10 items-center justify-center rounded-lg ${colors[color]}`}>
           {icon}
         </div>
         <div>
-          <p className="text-sm text-gray-500">{title}</p>
-          <p className="text-2xl font-bold text-gray-900">{value}</p>
+          <p className="text-sm text-gray-500 dark:text-gray-400">{title}</p>
+          <p className="text-2xl font-bold text-gray-900 dark:text-white">{value}</p>
         </div>
       </div>
-      <p className="mt-2 text-xs text-gray-400">{subtitle}</p>
+      <p className="mt-2 text-xs text-gray-400 dark:text-gray-500">{subtitle}</p>
     </div>
   );
 }
@@ -551,7 +551,7 @@ function EmptyState({ message }: { message: string }) {
       <div className="mb-3 flex h-12 w-12 items-center justify-center rounded-full bg-gray-100">
         <Brain className="h-6 w-6 text-gray-400" />
       </div>
-      <p className="text-sm text-gray-500">{message}</p>
+      <p className="text-sm text-gray-500 dark:text-gray-400">{message}</p>
     </div>
   );
 }

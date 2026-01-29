@@ -253,10 +253,10 @@ export default function NewClientWizardPage() {
 
       {/* Header */}
       <div className="text-center">
-        <h1 className="text-3xl font-bold text-gray-900">
+        <h1 className="text-3xl font-bold text-gray-900 dark:text-white">
           {step === "complete" ? "¡Cliente Creado!" : "Crear Nuevo Cliente"}
         </h1>
-        <p className="mt-2 text-gray-500">
+        <p className="mt-2 text-gray-500 dark:text-gray-400">
           {step === "info" && "Ingresa la información básica del cliente"}
           {step === "search" && "Buscando noticias relevantes..."}
           {step === "review" && "Revisa y personaliza la configuración"}
@@ -268,43 +268,43 @@ export default function NewClientWizardPage() {
       <WizardStepper steps={steps} currentStep={stepIndex} />
 
       {/* Step Content */}
-      <div className="rounded-2xl bg-white p-8 shadow-lg">
+      <div className="rounded-2xl bg-white dark:bg-gray-800 p-8 shadow-lg dark:shadow-gray-900/30">
         {/* PASO 1: Información básica */}
         {step === "info" && (
           <div className="space-y-6">
             <div>
-              <label className="block text-sm font-medium text-gray-700">
+              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">
                 Nombre de la empresa/persona *
               </label>
               <input
                 type="text"
                 value={clientName}
                 onChange={(e) => setClientName(e.target.value)}
-                className="mt-2 w-full rounded-lg border border-gray-300 px-4 py-3 text-lg focus:border-brand-500 focus:ring-2 focus:ring-brand-200"
+                className="mt-2 w-full rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 px-4 py-3 text-lg text-gray-900 dark:text-white placeholder-gray-400 dark:placeholder-gray-500 focus:border-brand-500 focus:ring-2 focus:ring-brand-200"
                 placeholder="Ej: Coca-Cola México"
                 autoFocus
               />
             </div>
 
             <div>
-              <label className="block text-sm font-medium text-gray-700">
+              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">
                 Descripción (opcional)
               </label>
               <textarea
                 value={description}
                 onChange={(e) => setDescription(e.target.value)}
                 rows={3}
-                className="mt-2 w-full rounded-lg border border-gray-300 px-4 py-3 focus:border-brand-500 focus:ring-2 focus:ring-brand-200"
+                className="mt-2 w-full rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 px-4 py-3 text-gray-900 dark:text-white placeholder-gray-400 dark:placeholder-gray-500 focus:border-brand-500 focus:ring-2 focus:ring-brand-200"
                 placeholder="Breve descripción del cliente y su actividad..."
               />
             </div>
 
             <div>
-              <label className="block text-sm font-medium text-gray-700">Industria</label>
+              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">Industria</label>
               <select
                 value={industry}
                 onChange={(e) => setIndustry(e.target.value)}
-                className="mt-2 w-full rounded-lg border border-gray-300 px-4 py-3 focus:border-brand-500 focus:ring-2 focus:ring-brand-200"
+                className="mt-2 w-full rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 px-4 py-3 text-gray-900 dark:text-white focus:border-brand-500 focus:ring-2 focus:ring-brand-200"
               >
                 <option value="">Selecciona una industria</option>
                 {INDUSTRIES.map((ind) => (
@@ -340,7 +340,7 @@ export default function NewClientWizardPage() {
                   <div className="mt-8 w-full max-w-md">
                     <MagicProgress progress={searchProgress} label="Progreso" />
                   </div>
-                  <div className="mt-6 space-y-2 text-center text-sm text-gray-500">
+                  <div className="mt-6 space-y-2 text-center text-sm text-gray-500 dark:text-gray-400">
                     <p>
                       <Search className="mr-2 inline h-4 w-4" />
                       Analizando medios mexicanos...
@@ -356,7 +356,7 @@ export default function NewClientWizardPage() {
               ) : isGenerating ? (
                 <>
                   <SearchingAnimation text="Generando configuración con IA..." />
-                  <p className="mt-4 text-sm text-gray-500">
+                  <p className="mt-4 text-sm text-gray-500 dark:text-gray-400">
                     Analizando contenido y extrayendo keywords...
                   </p>
                 </>
@@ -370,18 +370,18 @@ export default function NewClientWizardPage() {
           <div className="space-y-8">
             {/* Noticias encontradas */}
             <div>
-              <h3 className="flex items-center gap-2 text-lg font-semibold text-gray-900">
+              <h3 className="flex items-center gap-2 text-lg font-semibold text-gray-900 dark:text-white">
                 <Search className="h-5 w-5 text-brand-600" />
                 Noticias Encontradas ({articles.filter((a) => a.selected).length}/
                 {articles.length})
               </h3>
-              <p className="mt-1 text-sm text-gray-500">
+              <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">
                 Selecciona las noticias relevantes para crear menciones iniciales
               </p>
 
-              <div className="mt-4 max-h-64 space-y-2 overflow-y-auto rounded-lg border bg-gray-50 p-4">
+              <div className="mt-4 max-h-64 space-y-2 overflow-y-auto rounded-lg border border-gray-200 dark:border-gray-600 bg-gray-50 dark:bg-gray-700/50 p-4">
                 {articles.length === 0 ? (
-                  <p className="py-4 text-center text-gray-500">
+                  <p className="py-4 text-center text-gray-500 dark:text-gray-400">
                     No se encontraron noticias recientes
                   </p>
                 ) : (
@@ -406,11 +406,11 @@ export default function NewClientWizardPage() {
 
             {/* Keywords sugeridos */}
             <div>
-              <h3 className="flex items-center gap-2 text-lg font-semibold text-gray-900">
+              <h3 className="flex items-center gap-2 text-lg font-semibold text-gray-900 dark:text-white">
                 <Sparkles className="h-5 w-5 text-brand-600" />
                 Keywords Sugeridos ({keywords.filter((k) => k.selected).length})
               </h3>
-              <p className="mt-1 text-sm text-gray-500">
+              <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">
                 Haz clic para seleccionar/deseleccionar
               </p>
 
@@ -434,13 +434,13 @@ export default function NewClientWizardPage() {
                   value={newKeyword}
                   onChange={(e) => setNewKeyword(e.target.value)}
                   placeholder="Agregar keyword..."
-                  className="flex-1 rounded-lg border px-3 py-2 text-sm"
+                  className="flex-1 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 px-3 py-2 text-sm text-gray-900 dark:text-white placeholder-gray-400"
                   onKeyPress={(e) => e.key === "Enter" && handleAddKeyword()}
                 />
                 <select
                   value={newKeywordType}
                   onChange={(e) => setNewKeywordType(e.target.value as SuggestedKeyword["type"])}
-                  className="rounded-lg border px-3 py-2 text-sm"
+                  className="rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 px-3 py-2 text-sm text-gray-900 dark:text-white"
                 >
                   <option value="NAME">Nombre</option>
                   <option value="BRAND">Marca</option>

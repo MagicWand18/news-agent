@@ -248,15 +248,15 @@ export default function SourcesPage() {
       {/* Header */}
       <div className="flex items-center justify-between">
         <div>
-          <h2 className="text-2xl font-bold">Fuentes de Medios</h2>
-          <p className="mt-1 text-sm text-gray-500">
+          <h2 className="text-2xl font-bold text-gray-900 dark:text-white text-gray-900 dark:text-white">Fuentes de Medios</h2>
+          <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">
             {statsQuery.data?.total || 0} fuentes configuradas, {statsQuery.data?.active || 0} activas
           </p>
         </div>
         <div className="flex gap-2">
           <button
             onClick={() => setShowRequestModal(true)}
-            className="flex items-center gap-2 rounded-lg bg-gray-100 px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-200"
+            className="flex items-center gap-2 rounded-lg bg-gray-100 dark:bg-gray-700 px-4 py-2 text-sm font-medium text-gray-700 dark:text-gray-200 hover:bg-gray-200 dark:hover:bg-gray-600"
           >
             <Send className="h-4 w-4" />
             Solicitar Fuente
@@ -275,58 +275,58 @@ export default function SourcesPage() {
 
       {/* Stats Cards */}
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-5">
-        <div className="rounded-xl bg-white p-4 shadow-sm">
+        <div className="rounded-xl bg-white dark:bg-gray-800 p-4 shadow-sm dark:shadow-gray-900/20">
           <div className="flex items-center gap-3">
             <div className="rounded-lg bg-blue-100 p-2">
               <Globe className="h-5 w-5 text-blue-600" />
             </div>
             <div>
-              <p className="text-2xl font-bold">{statsQuery.data?.byType?.NATIONAL || 0}</p>
-              <p className="text-xs text-gray-500">Nacionales</p>
+              <p className="text-2xl font-bold text-gray-900 dark:text-white">{statsQuery.data?.byType?.NATIONAL || 0}</p>
+              <p className="text-xs text-gray-500 dark:text-gray-400">Nacionales</p>
             </div>
           </div>
         </div>
-        <div className="rounded-xl bg-white p-4 shadow-sm">
+        <div className="rounded-xl bg-white dark:bg-gray-800 p-4 shadow-sm dark:shadow-gray-900/20">
           <div className="flex items-center gap-3">
             <div className="rounded-lg bg-green-100 p-2">
               <MapPin className="h-5 w-5 text-green-600" />
             </div>
             <div>
-              <p className="text-2xl font-bold">{statsQuery.data?.byType?.STATE || 0}</p>
-              <p className="text-xs text-gray-500">Estatales</p>
+              <p className="text-2xl font-bold text-gray-900 dark:text-white">{statsQuery.data?.byType?.STATE || 0}</p>
+              <p className="text-xs text-gray-500 dark:text-gray-400">Estatales</p>
             </div>
           </div>
         </div>
-        <div className="rounded-xl bg-white p-4 shadow-sm">
+        <div className="rounded-xl bg-white dark:bg-gray-800 p-4 shadow-sm dark:shadow-gray-900/20">
           <div className="flex items-center gap-3">
             <div className="rounded-lg bg-purple-100 p-2">
               <Building2 className="h-5 w-5 text-purple-600" />
             </div>
             <div>
-              <p className="text-2xl font-bold">{statsQuery.data?.byType?.MUNICIPAL || 0}</p>
-              <p className="text-xs text-gray-500">Municipales</p>
+              <p className="text-2xl font-bold text-gray-900 dark:text-white">{statsQuery.data?.byType?.MUNICIPAL || 0}</p>
+              <p className="text-xs text-gray-500 dark:text-gray-400">Municipales</p>
             </div>
           </div>
         </div>
-        <div className="rounded-xl bg-white p-4 shadow-sm">
+        <div className="rounded-xl bg-white dark:bg-gray-800 p-4 shadow-sm dark:shadow-gray-900/20">
           <div className="flex items-center gap-3">
             <div className="rounded-lg bg-orange-100 p-2">
               <Briefcase className="h-5 w-5 text-orange-600" />
             </div>
             <div>
-              <p className="text-2xl font-bold">{statsQuery.data?.byType?.SPECIALIZED || 0}</p>
-              <p className="text-xs text-gray-500">Especializados</p>
+              <p className="text-2xl font-bold text-gray-900 dark:text-white">{statsQuery.data?.byType?.SPECIALIZED || 0}</p>
+              <p className="text-xs text-gray-500 dark:text-gray-400">Especializados</p>
             </div>
           </div>
         </div>
-        <div className="rounded-xl bg-white p-4 shadow-sm">
+        <div className="rounded-xl bg-white dark:bg-gray-800 p-4 shadow-sm dark:shadow-gray-900/20">
           <div className="flex items-center gap-3">
             <div className="rounded-lg bg-red-100 p-2">
               <AlertTriangle className="h-5 w-5 text-red-600" />
             </div>
             <div>
-              <p className="text-2xl font-bold">{statsQuery.data?.failing || 0}</p>
-              <p className="text-xs text-gray-500">Con errores</p>
+              <p className="text-2xl font-bold text-gray-900 dark:text-white">{statsQuery.data?.failing || 0}</p>
+              <p className="text-xs text-gray-500 dark:text-gray-400">Con errores</p>
             </div>
           </div>
         </div>
@@ -379,7 +379,7 @@ export default function SourcesPage() {
                   setSearch(e.target.value);
                   setPage(1);
                 }}
-                className="w-full rounded-lg border py-2 pl-10 pr-4 text-sm"
+                className="w-full rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 py-2 pl-10 pr-4 text-sm text-gray-900 dark:text-white placeholder-gray-400"
               />
             </div>
             <select
@@ -388,7 +388,7 @@ export default function SourcesPage() {
                 setTypeFilter(e.target.value);
                 setPage(1);
               }}
-              className="rounded-lg border px-3 py-2 text-sm"
+              className="rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 px-3 py-2 text-sm text-gray-900 dark:text-white"
             >
               <option value="">Todos los tipos</option>
               <option value="NATIONAL">Nacional</option>
@@ -402,7 +402,7 @@ export default function SourcesPage() {
                 setStateFilter(e.target.value);
                 setPage(1);
               }}
-              className="rounded-lg border px-3 py-2 text-sm"
+              className="rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 px-3 py-2 text-sm text-gray-900 dark:text-white"
             >
               <option value="">Todos los estados</option>
               {statesQuery.data?.map((state) => (
@@ -417,7 +417,7 @@ export default function SourcesPage() {
                 setTierFilter(e.target.value);
                 setPage(1);
               }}
-              className="rounded-lg border px-3 py-2 text-sm"
+              className="rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 px-3 py-2 text-sm text-gray-900 dark:text-white"
             >
               <option value="">Todos los tiers</option>
               <option value="1">Tier 1</option>
@@ -430,7 +430,7 @@ export default function SourcesPage() {
                 setActiveFilter(e.target.value);
                 setPage(1);
               }}
-              className="rounded-lg border px-3 py-2 text-sm"
+              className="rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 px-3 py-2 text-sm text-gray-900 dark:text-white"
             >
               <option value="">Todos</option>
               <option value="true">Activos</option>
@@ -439,9 +439,9 @@ export default function SourcesPage() {
           </div>
 
           {/* Sources Table */}
-          <div className="rounded-xl bg-white shadow-sm overflow-hidden">
+          <div className="rounded-xl bg-white dark:bg-gray-800 shadow-sm dark:shadow-gray-900/20 overflow-hidden">
             <table className="w-full">
-              <thead className="bg-gray-50 text-left text-xs font-medium uppercase text-gray-500">
+              <thead className="bg-gray-50 dark:bg-gray-700 text-left text-xs font-medium uppercase text-gray-500 dark:text-gray-400">
                 <tr>
                   <th className="px-4 py-3">Fuente</th>
                   <th className="px-4 py-3">Tipo</th>
@@ -452,7 +452,7 @@ export default function SourcesPage() {
                   {isAdmin && <th className="px-4 py-3">Acciones</th>}
                 </tr>
               </thead>
-              <tbody className="divide-y">
+              <tbody className="divide-y divide-gray-200 dark:divide-gray-700">
                 {sourcesQuery.isLoading ? (
                   <tr>
                     <td colSpan={7} className="px-4 py-8 text-center text-gray-500">
@@ -467,17 +467,17 @@ export default function SourcesPage() {
                   </tr>
                 ) : (
                   sourcesQuery.data?.sources.map((source) => (
-                    <tr key={source.id} className="hover:bg-gray-50">
+                    <tr key={source.id} className="hover:bg-gray-50 dark:hover:bg-gray-700/50">
                       <td className="px-4 py-3">
                         <div className="flex items-center gap-2">
                           <Rss className="h-4 w-4 text-gray-400" />
                           <div>
-                            <p className="font-medium text-gray-900">{source.name}</p>
+                            <p className="font-medium text-gray-900 dark:text-white">{source.name}</p>
                             <a
                               href={source.url}
                               target="_blank"
                               rel="noopener noreferrer"
-                              className="flex items-center gap-1 text-xs text-gray-500 hover:text-brand-600"
+                              className="flex items-center gap-1 text-xs text-gray-500 dark:text-gray-400 hover:text-brand-600"
                             >
                               {source.url.slice(0, 50)}...
                               <ExternalLink className="h-3 w-3" />
@@ -486,12 +486,12 @@ export default function SourcesPage() {
                         </div>
                       </td>
                       <td className="px-4 py-3">
-                        <span className="inline-flex items-center gap-1 rounded-full bg-gray-100 px-2 py-1 text-xs">
+                        <span className="inline-flex items-center gap-1 rounded-full bg-gray-100 dark:bg-gray-700 px-2 py-1 text-xs text-gray-700 dark:text-gray-300">
                           {typeLabels[source.type]?.icon}
                           {typeLabels[source.type]?.label}
                         </span>
                       </td>
-                      <td className="px-4 py-3 text-sm text-gray-600">
+                      <td className="px-4 py-3 text-sm text-gray-600 dark:text-gray-300">
                         {source.city && source.state
                           ? `${source.city}, ${source.state}`
                           : source.state || "-"}
@@ -683,7 +683,7 @@ export default function SourcesPage() {
                             href={request.url}
                             target="_blank"
                             rel="noopener noreferrer"
-                            className="flex items-center gap-1 text-xs text-gray-500 hover:text-brand-600"
+                            className="flex items-center gap-1 text-xs text-gray-500 dark:text-gray-400 hover:text-brand-600"
                           >
                             {request.url.slice(0, 50)}...
                             <ExternalLink className="h-3 w-3" />
@@ -693,7 +693,7 @@ export default function SourcesPage() {
                           )}
                         </div>
                       </td>
-                      <td className="px-4 py-3 text-sm text-gray-600">
+                      <td className="px-4 py-3 text-sm text-gray-600 dark:text-gray-300">
                         {request.city && request.state
                           ? `${request.city}, ${request.state}`
                           : request.state || "-"}

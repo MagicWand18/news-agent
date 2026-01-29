@@ -123,8 +123,8 @@ export default function AnalyticsPage() {
       {/* Header */}
       <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
         <div>
-          <h2 className="text-2xl font-bold text-gray-900">Analiticas</h2>
-          <p className="mt-1 text-sm text-gray-500">
+          <h2 className="text-2xl font-bold text-gray-900 dark:text-white">Analiticas</h2>
+          <p className="mt-1 text-sm text-gray-500 dark:text-gray-400 dark:text-gray-400">
             Estadisticas avanzadas de menciones y tendencias
           </p>
         </div>
@@ -166,9 +166,9 @@ export default function AnalyticsPage() {
       </FilterBar>
 
       {/* Row 1: Mentions by Day */}
-      <div className="rounded-xl border border-gray-100 bg-white p-6 shadow-sm">
-        <h3 className="font-semibold text-gray-900">Menciones por dia</h3>
-        <p className="mb-4 text-sm text-gray-500">Ultimos {days} dias</p>
+      <div className="rounded-xl border border-gray-100 dark:border-gray-700 bg-white dark:bg-gray-800 p-6 shadow-sm dark:shadow-gray-900/20">
+        <h3 className="font-semibold text-gray-900 dark:text-white">Menciones por dia</h3>
+        <p className="mb-4 text-sm text-gray-500 dark:text-gray-400">Ultimos {days} dias</p>
         {isLoading ? (
           <LoadingSpinner />
         ) : (data?.mentionsByDay?.length ?? 0) > 0 ? (
@@ -231,9 +231,9 @@ export default function AnalyticsPage() {
       {/* Row 2: Sentiment Trend + Urgency */}
       <div className="grid grid-cols-1 gap-6 lg:grid-cols-3">
         {/* Sentiment Trend */}
-        <div className="col-span-1 rounded-xl border border-gray-100 bg-white p-6 shadow-sm lg:col-span-2">
-          <h3 className="font-semibold text-gray-900">Tendencia de sentimiento</h3>
-          <p className="mb-4 text-sm text-gray-500">Por semana</p>
+        <div className="col-span-1 rounded-xl border border-gray-100 dark:border-gray-700 bg-white dark:bg-gray-800 p-6 shadow-sm dark:shadow-gray-900/20 lg:col-span-2">
+          <h3 className="font-semibold text-gray-900 dark:text-white">Tendencia de sentimiento</h3>
+          <p className="mb-4 text-sm text-gray-500 dark:text-gray-400">Por semana</p>
           {isLoading ? (
             <LoadingSpinner />
           ) : (data?.sentimentTrend?.length ?? 0) > 0 ? (
@@ -311,9 +311,9 @@ export default function AnalyticsPage() {
         </div>
 
         {/* Urgency Breakdown */}
-        <div className="rounded-xl border border-gray-100 bg-white p-6 shadow-sm">
-          <h3 className="font-semibold text-gray-900">Urgencia</h3>
-          <p className="mb-4 text-sm text-gray-500">Distribucion</p>
+        <div className="rounded-xl border border-gray-100 dark:border-gray-700 bg-white dark:bg-gray-800 p-6 shadow-sm dark:shadow-gray-900/20">
+          <h3 className="font-semibold text-gray-900 dark:text-white">Urgencia</h3>
+          <p className="mb-4 text-sm text-gray-500 dark:text-gray-400">Distribucion</p>
           {isLoading ? (
             <LoadingSpinner />
           ) : filteredUrgencyBreakdown.length > 0 ? (
@@ -354,11 +354,11 @@ export default function AnalyticsPage() {
                             URGENCY_COLORS[entry.urgency] || "#9ca3af",
                         }}
                       />
-                      <span className="text-gray-600">
+                      <span className="text-gray-600 dark:text-gray-300">
                         {URGENCY_LABELS[entry.urgency] || entry.urgency}
                       </span>
                     </div>
-                    <span className="font-semibold text-gray-900">
+                    <span className="font-semibold text-gray-900 dark:text-white">
                       {entry.count}
                     </span>
                   </div>
@@ -374,9 +374,9 @@ export default function AnalyticsPage() {
       {/* Row 3: Top Sources + Top Keywords */}
       <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
         {/* Top Sources */}
-        <div className="rounded-xl border border-gray-100 bg-white p-6 shadow-sm">
-          <h3 className="font-semibold text-gray-900">Top fuentes</h3>
-          <p className="mb-4 text-sm text-gray-500">Por numero de menciones</p>
+        <div className="rounded-xl border border-gray-100 dark:border-gray-700 bg-white dark:bg-gray-800 p-6 shadow-sm dark:shadow-gray-900/20">
+          <h3 className="font-semibold text-gray-900 dark:text-white">Top fuentes</h3>
+          <p className="mb-4 text-sm text-gray-500 dark:text-gray-400">Por numero de menciones</p>
           {isLoading ? (
             <LoadingSpinner />
           ) : (data?.topSources?.length ?? 0) > 0 ? (
@@ -415,9 +415,9 @@ export default function AnalyticsPage() {
         </div>
 
         {/* Top Keywords */}
-        <div className="rounded-xl border border-gray-100 bg-white p-6 shadow-sm">
-          <h3 className="font-semibold text-gray-900">Top keywords</h3>
-          <p className="mb-4 text-sm text-gray-500">Mas mencionados</p>
+        <div className="rounded-xl border border-gray-100 dark:border-gray-700 bg-white dark:bg-gray-800 p-6 shadow-sm dark:shadow-gray-900/20">
+          <h3 className="font-semibold text-gray-900 dark:text-white">Top keywords</h3>
+          <p className="mb-4 text-sm text-gray-500 dark:text-gray-400">Mas mencionados</p>
           {isLoading ? (
             <LoadingSpinner />
           ) : (data?.topKeywords?.length ?? 0) > 0 ? (
@@ -456,12 +456,12 @@ export default function AnalyticsPage() {
       {/* Row 4: Topics */}
       <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
         {/* Topic Cloud */}
-        <div className="rounded-xl border border-gray-100 bg-white p-6 shadow-sm">
+        <div className="rounded-xl border border-gray-100 dark:border-gray-700 bg-white dark:bg-gray-800 p-6 shadow-sm dark:shadow-gray-900/20">
           <div className="mb-4 flex items-center gap-2">
             <Tag className="h-5 w-5 text-purple-500" />
-            <h3 className="font-semibold text-gray-900">Temas Detectados</h3>
+            <h3 className="font-semibold text-gray-900 dark:text-white">Temas Detectados</h3>
           </div>
-          <p className="mb-4 text-sm text-gray-500">
+          <p className="mb-4 text-sm text-gray-500 dark:text-gray-400">
             Temas extraidos automaticamente de las menciones
           </p>
           {topics.isLoading ? (
@@ -502,7 +502,7 @@ export default function AnalyticsPage() {
               <div className="mb-3 flex h-12 w-12 items-center justify-center rounded-full bg-purple-100">
                 <Tag className="h-6 w-6 text-purple-400" />
               </div>
-              <p className="text-sm text-gray-500">Sin temas detectados</p>
+              <p className="text-sm text-gray-500 dark:text-gray-400">Sin temas detectados</p>
               <p className="mt-1 text-xs text-gray-400">
                 Los temas se extraen automaticamente de las menciones
               </p>
@@ -511,12 +511,12 @@ export default function AnalyticsPage() {
         </div>
 
         {/* Emerging Topics */}
-        <div className="rounded-xl border border-gray-100 bg-white p-6 shadow-sm">
+        <div className="rounded-xl border border-gray-100 dark:border-gray-700 bg-white dark:bg-gray-800 p-6 shadow-sm dark:shadow-gray-900/20">
           <div className="mb-4 flex items-center gap-2">
             <Zap className="h-5 w-5 text-amber-500" />
-            <h3 className="font-semibold text-gray-900">Temas Emergentes</h3>
+            <h3 className="font-semibold text-gray-900 dark:text-white">Temas Emergentes</h3>
           </div>
-          <p className="mb-4 text-sm text-gray-500">
+          <p className="mb-4 text-sm text-gray-500 dark:text-gray-400">
             Temas con 3+ menciones en las ultimas 24 horas
           </p>
           {topics.isLoading ? (
@@ -546,7 +546,7 @@ export default function AnalyticsPage() {
               <div className="mb-3 flex h-12 w-12 items-center justify-center rounded-full bg-amber-100">
                 <Zap className="h-6 w-6 text-amber-400" />
               </div>
-              <p className="text-sm text-gray-500">Sin temas emergentes</p>
+              <p className="text-sm text-gray-500 dark:text-gray-400">Sin temas emergentes</p>
               <p className="mt-1 text-xs text-gray-400">
                 Apareceran temas con alto volumen reciente
               </p>
@@ -572,7 +572,7 @@ function EmptyState({ message }: { message: string }) {
       <div className="mb-3 flex h-12 w-12 items-center justify-center rounded-full bg-gray-100">
         <BarChart3 className="h-6 w-6 text-gray-400" />
       </div>
-      <p className="text-sm text-gray-500">{message}</p>
+      <p className="text-sm text-gray-500 dark:text-gray-400">{message}</p>
       <p className="mt-1 text-xs text-gray-400">
         Los datos apareceran cuando haya menciones en el periodo seleccionado
       </p>

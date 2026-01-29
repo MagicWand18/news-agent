@@ -109,6 +109,29 @@ export const clientsRouter = router({
       });
     }),
 
+  delete: protectedProcedure
+    .input(z.object({ id: z.string() }))
+    .mutation(async ({ input, ctx }) => {
+      // Verificar que el cliente pertenece a la organización
+      const client = await prisma.client.findFirst({
+        where: { id: input.id, orgId: ctx.user.orgId },
+      });
+
+      if (!client) {
+        throw new TRPCError({ code: "NOT_FOUND", message: "Cliente no encontrado" });
+      }
+
+      // Eliminar en cascada: menciones, keywords, tareas relacionadas
+      await prisma.$transaction([
+        prisma.mention.deleteMany({ where: { clientId: input.id } }),
+        prisma.keyword.deleteMany({ where: { clientId: input.id } }),
+        prisma.task.deleteMany({ where: { clientId: input.id } }),
+        prisma.client.delete({ where: { id: input.id } }),
+      ]);
+
+      return { success: true };
+    }),
+
   addKeyword: protectedProcedure
     .input(
       z.object({

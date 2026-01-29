@@ -2,9 +2,9 @@
 
 import { trpc } from "@/lib/trpc";
 import { MentionRow } from "@/components/mention-row";
-import { useParams } from "next/navigation";
+import { useParams, useRouter } from "next/navigation";
 import { useState } from "react";
-import { ArrowLeft, Plus, X, BarChart3, Target, TrendingUp, TrendingDown, Minus } from "lucide-react";
+import { ArrowLeft, Plus, X, BarChart3, Target, TrendingUp, TrendingDown, Minus, Trash2 } from "lucide-react";
 import Link from "next/link";
 import {
   BarChart,
@@ -31,7 +31,10 @@ const typeLabels: Record<string, string> = {
 
 export default function ClientDetailPage() {
   const params = useParams();
+  const router = useRouter();
   const id = params.id as string;
+
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
 
   const client = trpc.clients.getById.useQuery({ id });
   const addKeyword = trpc.clients.addKeyword.useMutation({
@@ -43,22 +46,31 @@ export default function ClientDetailPage() {
   const removeKeyword = trpc.clients.removeKeyword.useMutation({
     onSuccess: () => client.refetch(),
   });
+  const deleteClient = trpc.clients.delete.useMutation({
+    onSuccess: () => {
+      router.push("/dashboard/clients");
+    },
+  });
 
   const [newKeyword, setNewKeyword] = useState<{
     word: string;
     type: (typeof KEYWORD_TYPES)[number];
   }>({ word: "", type: "NAME" });
 
-  if (client.isLoading) return <div>Cargando...</div>;
-  if (!client.data) return <div>Cliente no encontrado</div>;
+  if (client.isLoading) return <div className="text-gray-500 dark:text-gray-400">Cargando...</div>;
+  if (!client.data) return <div className="text-gray-500 dark:text-gray-400">Cliente no encontrado</div>;
 
   const c = client.data;
+
+  const handleDelete = () => {
+    deleteClient.mutate({ id });
+  };
 
   return (
     <div className="space-y-6">
       <Link
         href="/dashboard/clients"
-        className="flex items-center gap-2 text-gray-500 hover:text-gray-700"
+        className="flex items-center gap-2 text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200"
       >
         <ArrowLeft className="h-4 w-4" />
         Volver a clientes
@@ -66,37 +78,75 @@ export default function ClientDetailPage() {
 
       <div className="flex items-center justify-between">
         <div>
-          <h2 className="text-2xl font-bold">{c.name}</h2>
-          <p className="text-gray-500">
+          <h2 className="text-2xl font-bold text-gray-900 dark:text-white">{c.name}</h2>
+          <p className="text-gray-500 dark:text-gray-400">
             {c.industry || "Sin industria"} · {c.description || "Sin descripcion"}
           </p>
         </div>
-        <span
-          className={`rounded-full px-3 py-1 text-sm font-medium ${
-            c.active ? "bg-green-100 text-green-800" : "bg-gray-100 text-gray-600"
-          }`}
-        >
-          {c.active ? "Activo" : "Inactivo"}
-        </span>
+        <div className="flex items-center gap-3">
+          <span
+            className={`rounded-full px-3 py-1 text-sm font-medium ${
+              c.active ? "bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400" : "bg-gray-100 text-gray-600 dark:bg-gray-700 dark:text-gray-300"
+            }`}
+          >
+            {c.active ? "Activo" : "Inactivo"}
+          </span>
+          <button
+            onClick={() => setShowDeleteConfirm(true)}
+            className="flex items-center gap-2 rounded-lg bg-red-50 dark:bg-red-900/20 px-3 py-2 text-sm font-medium text-red-600 dark:text-red-400 hover:bg-red-100 dark:hover:bg-red-900/40 transition-colors"
+          >
+            <Trash2 className="h-4 w-4" />
+            Eliminar
+          </button>
+        </div>
       </div>
+
+      {/* Delete Confirmation Modal */}
+      {showDeleteConfirm && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50">
+          <div className="w-full max-w-md rounded-xl bg-white dark:bg-gray-800 p-6 shadow-xl">
+            <h3 className="text-lg font-semibold text-gray-900 dark:text-white">
+              ¿Eliminar cliente?
+            </h3>
+            <p className="mt-2 text-sm text-gray-500 dark:text-gray-400">
+              Esta acción eliminará permanentemente a <strong>{c.name}</strong> junto con todas sus menciones, keywords y tareas asociadas. Esta acción no se puede deshacer.
+            </p>
+            <div className="mt-6 flex justify-end gap-3">
+              <button
+                onClick={() => setShowDeleteConfirm(false)}
+                className="rounded-lg bg-gray-100 dark:bg-gray-700 px-4 py-2 text-sm font-medium text-gray-700 dark:text-gray-200 hover:bg-gray-200 dark:hover:bg-gray-600"
+              >
+                Cancelar
+              </button>
+              <button
+                onClick={handleDelete}
+                disabled={deleteClient.isPending}
+                className="rounded-lg bg-red-600 px-4 py-2 text-sm font-medium text-white hover:bg-red-700 disabled:opacity-50"
+              >
+                {deleteClient.isPending ? "Eliminando..." : "Sí, eliminar"}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Stats */}
       <div className="grid grid-cols-2 gap-4 sm:grid-cols-4">
-        <div className="rounded-lg bg-white p-4 shadow-sm">
-          <p className="text-sm text-gray-500">Menciones</p>
-          <p className="text-2xl font-bold">{c._count.mentions}</p>
+        <div className="rounded-lg bg-white dark:bg-gray-800 p-4 shadow-sm dark:shadow-gray-900/20">
+          <p className="text-sm text-gray-500 dark:text-gray-400">Menciones</p>
+          <p className="text-2xl font-bold text-gray-900 dark:text-white">{c._count.mentions}</p>
         </div>
-        <div className="rounded-lg bg-white p-4 shadow-sm">
-          <p className="text-sm text-gray-500">Tareas</p>
-          <p className="text-2xl font-bold">{c._count.tasks}</p>
+        <div className="rounded-lg bg-white dark:bg-gray-800 p-4 shadow-sm dark:shadow-gray-900/20">
+          <p className="text-sm text-gray-500 dark:text-gray-400">Tareas</p>
+          <p className="text-2xl font-bold text-gray-900 dark:text-white">{c._count.tasks}</p>
         </div>
-        <div className="rounded-lg bg-white p-4 shadow-sm">
-          <p className="text-sm text-gray-500">Keywords</p>
-          <p className="text-2xl font-bold">{c.keywords.length}</p>
+        <div className="rounded-lg bg-white dark:bg-gray-800 p-4 shadow-sm dark:shadow-gray-900/20">
+          <p className="text-sm text-gray-500 dark:text-gray-400">Keywords</p>
+          <p className="text-2xl font-bold text-gray-900 dark:text-white">{c.keywords.length}</p>
         </div>
-        <div className="rounded-lg bg-white p-4 shadow-sm">
-          <p className="text-sm text-gray-500">Grupo TG</p>
-          <p className="text-2xl font-bold">{c.telegramGroupId ? "Si" : "No"}</p>
+        <div className="rounded-lg bg-white dark:bg-gray-800 p-4 shadow-sm dark:shadow-gray-900/20">
+          <p className="text-sm text-gray-500 dark:text-gray-400">Grupo TG</p>
+          <p className="text-2xl font-bold text-gray-900 dark:text-white">{c.telegramGroupId ? "Si" : "No"}</p>
         </div>
       </div>
 
@@ -104,15 +154,15 @@ export default function ClientDetailPage() {
       <SOVSection clientId={id} />
 
       {/* Keywords */}
-      <div className="rounded-xl bg-white p-6 shadow-sm">
-        <h3 className="mb-4 font-semibold">Keywords</h3>
+      <div className="rounded-xl bg-white dark:bg-gray-800 p-6 shadow-sm dark:shadow-gray-900/20">
+        <h3 className="mb-4 font-semibold text-gray-900 dark:text-white">Keywords</h3>
         <div className="mb-4 flex flex-wrap gap-2">
           {c.keywords.map((kw) => (
             <span
               key={kw.id}
-              className="flex items-center gap-1 rounded-full bg-gray-100 px-3 py-1 text-sm"
+              className="flex items-center gap-1 rounded-full bg-gray-100 dark:bg-gray-700 px-3 py-1 text-sm text-gray-700 dark:text-gray-200"
             >
-              <span className="text-xs text-gray-400">{typeLabels[kw.type]}</span>
+              <span className="text-xs text-gray-400 dark:text-gray-500">{typeLabels[kw.type]}</span>
               {kw.word}
               <button
                 onClick={() => removeKeyword.mutate({ id: kw.id })}
@@ -136,7 +186,7 @@ export default function ClientDetailPage() {
             placeholder="Nuevo keyword"
             value={newKeyword.word}
             onChange={(e) => setNewKeyword({ ...newKeyword, word: e.target.value })}
-            className="flex-1 rounded-lg border px-3 py-2"
+            className="flex-1 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 px-3 py-2 text-gray-900 dark:text-white placeholder-gray-400"
           />
           <select
             value={newKeyword.type}
@@ -146,7 +196,7 @@ export default function ClientDetailPage() {
                 type: e.target.value as (typeof KEYWORD_TYPES)[number],
               })
             }
-            className="rounded-lg border px-3 py-2"
+            className="rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 px-3 py-2 text-gray-900 dark:text-white"
           >
             {KEYWORD_TYPES.map((t) => (
               <option key={t} value={t}>

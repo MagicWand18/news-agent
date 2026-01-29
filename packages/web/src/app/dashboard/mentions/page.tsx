@@ -125,11 +125,11 @@ export default function MentionsPage() {
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
-        <h2 className="text-2xl font-bold">Menciones</h2>
+        <h2 className="text-2xl font-bold text-gray-900 dark:text-white">Menciones</h2>
         <button
           onClick={handleExport}
           disabled={!mentions.data?.mentions.length}
-          className="flex items-center gap-2 rounded-lg bg-gray-100 px-4 py-2 text-sm font-medium text-gray-700 transition-colors hover:bg-gray-200 disabled:cursor-not-allowed disabled:opacity-50"
+          className="flex items-center gap-2 rounded-lg bg-gray-100 dark:bg-gray-700 px-4 py-2 text-sm font-medium text-gray-700 dark:text-gray-200 transition-colors hover:bg-gray-200 dark:hover:bg-gray-600 disabled:cursor-not-allowed disabled:opacity-50"
         >
           <Download className="h-4 w-4" />
           Exportar CSV
@@ -181,7 +181,7 @@ export default function MentionsPage() {
       <FilterChips chips={filterChips} onRemove={handleRemoveChip} />
 
       {/* Lista de menciones */}
-      <div className="rounded-xl bg-white p-6 shadow-sm">
+      <div className="rounded-xl bg-white dark:bg-gray-800 p-6 shadow-sm dark:shadow-gray-900/20">
         {mentions.isLoading && (
           <div className="flex items-center justify-center py-12">
             <div className="h-8 w-8 animate-spin rounded-full border-4 border-brand-500 border-t-transparent" />
@@ -204,10 +204,10 @@ export default function MentionsPage() {
           />
         ))}
         {mentions.data?.mentions.length === 0 && (
-          <p className="text-center text-gray-500 py-8">No hay menciones que coincidan con los filtros.</p>
+          <p className="text-center text-gray-500 dark:text-gray-400 py-8">No hay menciones que coincidan con los filtros.</p>
         )}
         {mentions.data?.nextCursor && (
-          <p className="mt-4 text-center text-sm text-gray-400">
+          <p className="mt-4 text-center text-sm text-gray-400 dark:text-gray-500">
             Hay mas resultados. Refina los filtros para ver menos.
           </p>
         )}
