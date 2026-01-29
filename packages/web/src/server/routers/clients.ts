@@ -39,7 +39,7 @@ export const clientsRouter = router({
           mentions: {
             include: { article: true },
             orderBy: { createdAt: "desc" },
-            take: 20,
+            take: 50,
           },
           _count: { select: { mentions: true, tasks: true } },
         },
@@ -305,8 +305,18 @@ REGLAS:
             }
           }
         } catch (error) {
-          console.error("[SearchNews] Gemini search error:", error);
-          googleError = "Error al buscar en internet. Usando artículos locales.";
+          const errMsg = error instanceof Error ? error.message : String(error);
+          console.error("[SearchNews] Gemini search error:", errMsg);
+          // Proporcionar mensaje más específico según el tipo de error
+          if (errMsg.includes("503") || errMsg.includes("Service Unavailable")) {
+            googleError = "El servicio de búsqueda está temporalmente no disponible. Intenta de nuevo en unos minutos.";
+          } else if (errMsg.includes("401") || errMsg.includes("403") || errMsg.includes("API key")) {
+            googleError = "Error de autenticación con el servicio de búsqueda. Contacta al administrador.";
+          } else if (errMsg.includes("429") || errMsg.includes("quota") || errMsg.includes("rate")) {
+            googleError = "Se alcanzó el límite de búsquedas. Intenta más tarde.";
+          } else {
+            googleError = "Error al buscar en internet. Usando artículos locales.";
+          }
         }
       } else {
         console.warn("[SearchNews] GOOGLE_API_KEY not configured");

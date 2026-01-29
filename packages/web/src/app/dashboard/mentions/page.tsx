@@ -2,7 +2,8 @@
 
 import { trpc } from "@/lib/trpc";
 import { MentionRow } from "@/components/mention-row";
-import { useState, useMemo } from "react";
+import { useState, useMemo, useEffect, Suspense } from "react";
+import { useSearchParams } from "next/navigation";
 import { Download, Users, TrendingUp, AlertTriangle, Globe } from "lucide-react";
 import { exportMentionsToCsv } from "@/lib/csv-export";
 import { FilterBar, FilterSelect, FilterDateRange, FilterChips } from "@/components/filters";
@@ -30,6 +31,32 @@ interface Filters {
 }
 
 export default function MentionsPage() {
+  return (
+    <Suspense fallback={<MentionsPageLoading />}>
+      <MentionsPageContent />
+    </Suspense>
+  );
+}
+
+function MentionsPageLoading() {
+  return (
+    <div className="space-y-6">
+      <div className="flex items-center justify-between">
+        <h2 className="text-2xl font-bold text-gray-900 dark:text-white">Menciones</h2>
+      </div>
+      <div className="rounded-xl bg-white dark:bg-gray-800 p-6 shadow-sm dark:shadow-gray-900/20">
+        <div className="flex items-center justify-center py-12">
+          <div className="h-8 w-8 animate-spin rounded-full border-4 border-brand-500 border-t-transparent" />
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function MentionsPageContent() {
+  const searchParams = useSearchParams();
+  const urlClientId = searchParams.get("clientId");
+
   const [filters, setFilters] = useState<Filters>({
     clientId: "",
     sentiment: "",
@@ -38,6 +65,13 @@ export default function MentionsPage() {
     startDate: null,
     endDate: null,
   });
+
+  // Inicializar el filtro clientId desde la URL
+  useEffect(() => {
+    if (urlClientId) {
+      setFilters((f) => ({ ...f, clientId: urlClientId }));
+    }
+  }, [urlClientId]);
 
   const clients = trpc.clients.list.useQuery();
 
