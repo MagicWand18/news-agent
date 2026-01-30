@@ -4,7 +4,7 @@ import { trpc } from "@/lib/trpc";
 import { MentionRow } from "@/components/mention-row";
 import { useParams, useRouter } from "next/navigation";
 import { useState } from "react";
-import { ArrowLeft, Plus, X, BarChart3, Target, TrendingUp, TrendingDown, Minus, Trash2, Settings, Search, Calendar, Loader2 } from "lucide-react";
+import { ArrowLeft, Plus, X, BarChart3, Target, TrendingUp, TrendingDown, Minus, Trash2, Settings, Search, Calendar, Loader2, MessageCircle, Building2, Users, User } from "lucide-react";
 import Link from "next/link";
 import {
   BarChart,
@@ -220,29 +220,8 @@ export default function ClientDetailPage() {
       {/* Competitor Comparison */}
       <CompetitorComparison clientId={id} />
 
-      {/* Telegram Warning */}
-      {!c.telegramGroupId && (
-        <div className="rounded-xl bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800 p-4">
-          <div className="flex items-start gap-3">
-            <div className="flex-shrink-0 mt-0.5">
-              <svg className="h-5 w-5 text-amber-600 dark:text-amber-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
-              </svg>
-            </div>
-            <div>
-              <h4 className="text-sm font-medium text-amber-800 dark:text-amber-300">
-                Notificaciones de Telegram no configuradas
-              </h4>
-              <p className="mt-1 text-sm text-amber-700 dark:text-amber-400">
-                Este cliente no tiene un grupo de Telegram vinculado. Las menciones importantes no generarán alertas.
-              </p>
-              <p className="mt-2 text-sm text-amber-600 dark:text-amber-500">
-                Para vincular: agrega el bot @MediaBotPR a un grupo y envía <code className="bg-amber-100 dark:bg-amber-900/50 px-1 rounded">/vincular {c.name}</code>
-              </p>
-            </div>
-          </div>
-        </div>
-      )}
+      {/* Telegram Recipients */}
+      <TelegramRecipientsSection clientId={id} clientName={c.name} />
 
       {/* Recent Mentions */}
       <div className="rounded-xl bg-white dark:bg-gray-800 p-6 shadow-sm dark:shadow-gray-900/20">
@@ -615,6 +594,149 @@ function CompetitorComparison({ clientId }: { clientId: string }) {
           </tbody>
         </table>
       </div>
+    </div>
+  );
+}
+
+const RECIPIENT_TYPES = {
+  AGENCY_INTERNAL: { icon: Building2, label: "Interno", color: "blue" },
+  CLIENT_GROUP: { icon: Users, label: "Cliente (Grupo)", color: "green" },
+  CLIENT_INDIVIDUAL: { icon: User, label: "Cliente (Individual)", color: "purple" },
+} as const;
+
+type RecipientType = keyof typeof RECIPIENT_TYPES;
+
+function TelegramRecipientsSection({ clientId, clientName }: { clientId: string; clientName: string }) {
+  const utils = trpc.useUtils();
+  const recipients = trpc.clients.getRecipients.useQuery({ clientId });
+  const removeRecipient = trpc.clients.removeRecipient.useMutation({
+    onSuccess: () => utils.clients.getRecipients.invalidate({ clientId }),
+  });
+  const updateRecipient = trpc.clients.updateRecipient.useMutation({
+    onSuccess: () => utils.clients.getRecipients.invalidate({ clientId }),
+  });
+
+  if (recipients.isLoading) {
+    return (
+      <div className="rounded-xl bg-white dark:bg-gray-800 p-6 shadow-sm dark:shadow-gray-900/20">
+        <h3 className="mb-4 font-semibold text-gray-900 dark:text-white flex items-center gap-2">
+          <MessageCircle className="h-5 w-5 text-brand-600" />
+          Destinatarios de Telegram
+        </h3>
+        <div className="flex h-[100px] items-center justify-center">
+          <div className="h-8 w-8 animate-spin rounded-full border-2 border-gray-200 dark:border-gray-600 border-t-brand-600" />
+        </div>
+      </div>
+    );
+  }
+
+  const data = recipients.data;
+  type RecipientData = NonNullable<typeof data>["recipients"][number];
+  const activeRecipients = data?.recipients.filter((r: RecipientData) => r.active) || [];
+  const hasRecipients = activeRecipients.length > 0;
+
+  // Agrupar por tipo
+  const grouped = activeRecipients.reduce(
+    (acc: Record<RecipientType, RecipientData[]>, r: RecipientData) => {
+      if (!acc[r.type as RecipientType]) {
+        acc[r.type as RecipientType] = [];
+      }
+      acc[r.type as RecipientType].push(r);
+      return acc;
+    },
+    {} as Record<RecipientType, RecipientData[]>
+  );
+
+  return (
+    <div className="rounded-xl bg-white dark:bg-gray-800 p-6 shadow-sm dark:shadow-gray-900/20">
+      <div className="mb-4 flex items-center justify-between">
+        <h3 className="font-semibold text-gray-900 dark:text-white flex items-center gap-2">
+          <MessageCircle className="h-5 w-5 text-brand-600" />
+          Destinatarios de Telegram
+        </h3>
+        <span className="text-sm text-gray-500 dark:text-gray-400">
+          {activeRecipients.length} activo{activeRecipients.length !== 1 ? "s" : ""}
+        </span>
+      </div>
+
+      {!hasRecipients ? (
+        <div className="rounded-lg bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800 p-4">
+          <div className="flex items-start gap-3">
+            <div className="flex-shrink-0 mt-0.5">
+              <svg className="h-5 w-5 text-amber-600 dark:text-amber-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+              </svg>
+            </div>
+            <div>
+              <h4 className="text-sm font-medium text-amber-800 dark:text-amber-300">
+                Sin destinatarios configurados
+              </h4>
+              <p className="mt-1 text-sm text-amber-700 dark:text-amber-400">
+                Las menciones importantes no generarán alertas de Telegram.
+              </p>
+              <p className="mt-2 text-sm text-amber-600 dark:text-amber-500">
+                Para vincular: agrega el bot @MediaBotPR a un grupo y envía{" "}
+                <code className="bg-amber-100 dark:bg-amber-900/50 px-1 rounded">/vincular {clientName}</code>
+              </p>
+            </div>
+          </div>
+        </div>
+      ) : (
+        <div className="space-y-4">
+          {(["AGENCY_INTERNAL", "CLIENT_GROUP", "CLIENT_INDIVIDUAL"] as RecipientType[]).map((type) => {
+            const typeRecipients = grouped[type];
+            if (!typeRecipients || typeRecipients.length === 0) return null;
+
+            const { icon: Icon, label, color } = RECIPIENT_TYPES[type];
+            const colorClasses = {
+              blue: "bg-blue-50 dark:bg-blue-900/20 text-blue-700 dark:text-blue-400",
+              green: "bg-green-50 dark:bg-green-900/20 text-green-700 dark:text-green-400",
+              purple: "bg-purple-50 dark:bg-purple-900/20 text-purple-700 dark:text-purple-400",
+            };
+
+            return (
+              <div key={type}>
+                <div className="flex items-center gap-2 mb-2">
+                  <Icon className={`h-4 w-4 ${colorClasses[color].split(" ")[1]}`} />
+                  <span className="text-sm font-medium text-gray-700 dark:text-gray-300">{label}</span>
+                  <span className="text-xs text-gray-400">({typeRecipients.length})</span>
+                </div>
+                <div className="space-y-2 ml-6">
+                  {typeRecipients.map((recipient: RecipientData) => (
+                    <div
+                      key={recipient.id}
+                      className={`flex items-center justify-between rounded-lg px-3 py-2 ${colorClasses[color]}`}
+                    >
+                      <div className="flex items-center gap-2">
+                        <span className="font-medium">{recipient.label || "Sin nombre"}</span>
+                        <span className="text-xs opacity-60">
+                          ID: ...{recipient.chatId.slice(-8)}
+                        </span>
+                      </div>
+                      <button
+                        onClick={() => removeRecipient.mutate({ id: recipient.id })}
+                        disabled={removeRecipient.isPending}
+                        className="text-gray-400 hover:text-red-500 dark:hover:text-red-400 transition-colors p-1"
+                        title="Eliminar destinatario"
+                      >
+                        <X className="h-4 w-4" />
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            );
+          })}
+
+          {/* Instrucciones */}
+          <div className="mt-4 pt-4 border-t border-gray-200 dark:border-gray-700">
+            <p className="text-xs text-gray-500 dark:text-gray-400">
+              <strong>Agregar más:</strong> Usa <code className="bg-gray-100 dark:bg-gray-700 px-1 rounded">/vincular {clientName} [tipo]</code> en el bot de Telegram.
+              Tipos: <code className="bg-gray-100 dark:bg-gray-700 px-1 rounded">interno</code> | <code className="bg-gray-100 dark:bg-gray-700 px-1 rounded">cliente</code>
+            </p>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

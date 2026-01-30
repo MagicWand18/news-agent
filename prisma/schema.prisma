@@ -39,8 +39,8 @@ model Client {
   name            String
   description     String?
   industry        String?
-  telegramGroupId String?
-  clientGroupId   String?
+  telegramGroupId String?         // LEGACY: usar telegramRecipients
+  clientGroupId   String?         // LEGACY: usar telegramRecipients
   active          Boolean         @default(true)
   orgId           String
   org             Organization    @relation(fields: [orgId], references: [id])
@@ -53,6 +53,9 @@ model Client {
   onboarding      Json?
   createdAt       DateTime        @default(now())
   updatedAt       DateTime        @updatedAt
+
+  // Sprint 9: Múltiples destinatarios de Telegram
+  telegramRecipients TelegramRecipient[]
 
   // Grounding Config - Configuración de búsqueda automática con Gemini
   groundingEnabled         Boolean   @default(false)  // Habilitar grounding automático
@@ -361,4 +364,28 @@ enum RequestStatus {
   APPROVED
   REJECTED
   INTEGRATED
+}
+
+// Sprint 9: Sistema de múltiples destinatarios de Telegram
+
+model TelegramRecipient {
+  id        String        @id @default(cuid())
+  clientId  String
+  client    Client        @relation(fields: [clientId], references: [id], onDelete: Cascade)
+  chatId    String        // Telegram chat ID (grupo o usuario)
+  type      RecipientType
+  label     String?       // Etiqueta descriptiva ej: "Grupo Interno", "Juan Pérez (CMO)"
+  active    Boolean       @default(true)
+  addedBy   String?       // userId que lo agregó
+  createdAt DateTime      @default(now())
+
+  @@unique([clientId, chatId])
+  @@index([clientId, active])
+  @@index([type])
+}
+
+enum RecipientType {
+  AGENCY_INTERNAL   // Grupo interno del equipo de la agencia
+  CLIENT_GROUP      // Grupo compartido con el cliente
+  CLIENT_INDIVIDUAL // Usuario individual del lado del cliente
 }

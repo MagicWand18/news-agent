@@ -696,6 +696,210 @@ Solo responde con el JSON.`,
       }
     }),
 
+  // ==================== TELEGRAM RECIPIENTS ====================
+
+  /**
+   * Obtiene los destinatarios de Telegram de un cliente.
+   */
+  getRecipients: protectedProcedure
+    .input(z.object({ clientId: z.string() }))
+    .query(async ({ input, ctx }) => {
+      // Verificar que el cliente pertenece a la organización
+      const client = await prisma.client.findFirst({
+        where: { id: input.clientId, orgId: ctx.user.orgId },
+        select: {
+          id: true,
+          telegramGroupId: true,
+          clientGroupId: true,
+        },
+      });
+
+      if (!client) {
+        throw new TRPCError({ code: "NOT_FOUND", message: "Cliente no encontrado" });
+      }
+
+      const recipients = await prisma.telegramRecipient.findMany({
+        where: { clientId: input.clientId },
+        orderBy: [{ type: "asc" }, { createdAt: "asc" }],
+      });
+
+      return {
+        recipients,
+        // Info legacy para compatibilidad
+        legacyGroupId: client.telegramGroupId,
+        legacyClientGroupId: client.clientGroupId,
+      };
+    }),
+
+  /**
+   * Agrega un destinatario de Telegram a un cliente.
+   */
+  addRecipient: protectedProcedure
+    .input(
+      z.object({
+        clientId: z.string(),
+        chatId: z.string().min(1),
+        type: z.enum(["AGENCY_INTERNAL", "CLIENT_GROUP", "CLIENT_INDIVIDUAL"]),
+        label: z.string().optional(),
+      })
+    )
+    .mutation(async ({ input, ctx }) => {
+      // Verificar que el cliente pertenece a la organización
+      const client = await prisma.client.findFirst({
+        where: { id: input.clientId, orgId: ctx.user.orgId },
+      });
+
+      if (!client) {
+        throw new TRPCError({ code: "NOT_FOUND", message: "Cliente no encontrado" });
+      }
+
+      // Verificar si ya existe (activo o inactivo)
+      const existing = await prisma.telegramRecipient.findUnique({
+        where: {
+          clientId_chatId: {
+            clientId: input.clientId,
+            chatId: input.chatId,
+          },
+        },
+      });
+
+      if (existing) {
+        // Reactivar si estaba inactivo
+        if (!existing.active) {
+          return prisma.telegramRecipient.update({
+            where: { id: existing.id },
+            data: {
+              active: true,
+              type: input.type,
+              label: input.label || existing.label,
+              addedBy: ctx.user.id,
+            },
+          });
+        }
+        throw new TRPCError({
+          code: "CONFLICT",
+          message: "Este destinatario ya existe para este cliente",
+        });
+      }
+
+      const recipient = await prisma.telegramRecipient.create({
+        data: {
+          clientId: input.clientId,
+          chatId: input.chatId,
+          type: input.type,
+          label: input.label,
+          addedBy: ctx.user.id,
+        },
+      });
+
+      // Actualizar campos legacy para compatibilidad
+      if (input.type === "AGENCY_INTERNAL" && !client.telegramGroupId) {
+        await prisma.client.update({
+          where: { id: client.id },
+          data: { telegramGroupId: input.chatId },
+        });
+      } else if (input.type === "CLIENT_GROUP" && !client.clientGroupId) {
+        await prisma.client.update({
+          where: { id: client.id },
+          data: { clientGroupId: input.chatId },
+        });
+      }
+
+      return recipient;
+    }),
+
+  /**
+   * Actualiza un destinatario de Telegram.
+   */
+  updateRecipient: protectedProcedure
+    .input(
+      z.object({
+        id: z.string(),
+        label: z.string().optional(),
+        active: z.boolean().optional(),
+        type: z.enum(["AGENCY_INTERNAL", "CLIENT_GROUP", "CLIENT_INDIVIDUAL"]).optional(),
+      })
+    )
+    .mutation(async ({ input, ctx }) => {
+      const { id, ...data } = input;
+
+      // Verificar que el recipient pertenece a un cliente de la organización
+      const recipient = await prisma.telegramRecipient.findFirst({
+        where: {
+          id,
+          client: { orgId: ctx.user.orgId },
+        },
+        include: { client: true },
+      });
+
+      if (!recipient) {
+        throw new TRPCError({ code: "NOT_FOUND", message: "Destinatario no encontrado" });
+      }
+
+      const updated = await prisma.telegramRecipient.update({
+        where: { id },
+        data,
+      });
+
+      // Si se desactiva, limpiar campos legacy si corresponden
+      if (data.active === false) {
+        if (recipient.type === "AGENCY_INTERNAL" && recipient.client.telegramGroupId === recipient.chatId) {
+          await prisma.client.update({
+            where: { id: recipient.clientId },
+            data: { telegramGroupId: null },
+          });
+        } else if (recipient.type === "CLIENT_GROUP" && recipient.client.clientGroupId === recipient.chatId) {
+          await prisma.client.update({
+            where: { id: recipient.clientId },
+            data: { clientGroupId: null },
+          });
+        }
+      }
+
+      return updated;
+    }),
+
+  /**
+   * Elimina un destinatario de Telegram (soft delete).
+   */
+  removeRecipient: protectedProcedure
+    .input(z.object({ id: z.string() }))
+    .mutation(async ({ input, ctx }) => {
+      // Verificar que el recipient pertenece a un cliente de la organización
+      const recipient = await prisma.telegramRecipient.findFirst({
+        where: {
+          id: input.id,
+          client: { orgId: ctx.user.orgId },
+        },
+        include: { client: true },
+      });
+
+      if (!recipient) {
+        throw new TRPCError({ code: "NOT_FOUND", message: "Destinatario no encontrado" });
+      }
+
+      // Soft delete
+      await prisma.telegramRecipient.update({
+        where: { id: input.id },
+        data: { active: false },
+      });
+
+      // Limpiar campos legacy si corresponden
+      if (recipient.type === "AGENCY_INTERNAL" && recipient.client.telegramGroupId === recipient.chatId) {
+        await prisma.client.update({
+          where: { id: recipient.clientId },
+          data: { telegramGroupId: null },
+        });
+      } else if (recipient.type === "CLIENT_GROUP" && recipient.client.clientGroupId === recipient.chatId) {
+        await prisma.client.update({
+          where: { id: recipient.clientId },
+          data: { clientGroupId: null },
+        });
+      }
+
+      return { success: true };
+    }),
+
   compareCompetitors: protectedProcedure
     .input(
       z.object({

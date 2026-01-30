@@ -4,20 +4,105 @@ import { prisma } from "@mediabot/shared";
 import { generateDigestSummary } from "../analysis/ai.js";
 import { bot } from "./bot-instance.js";
 
+/**
+ * Obtiene los destinatarios de Telegram para un cliente.
+ * Primero busca en TelegramRecipient, luego fallback a campos legacy.
+ */
+async function getRecipientsForClient(
+  clientId: string,
+  types: ("AGENCY_INTERNAL" | "CLIENT_GROUP" | "CLIENT_INDIVIDUAL")[],
+  legacyGroupId?: string | null,
+  legacyClientGroupId?: string | null
+): Promise<Array<{ chatId: string; label: string | null; type: string }>> {
+  // Buscar en la nueva tabla
+  const recipients = await prisma.telegramRecipient.findMany({
+    where: {
+      clientId,
+      active: true,
+      type: { in: types },
+    },
+    select: {
+      chatId: true,
+      label: true,
+      type: true,
+    },
+  });
+
+  // Si encontramos recipients, usarlos
+  if (recipients.length > 0) {
+    return recipients;
+  }
+
+  // Fallback a campos legacy
+  const fallbackRecipients: Array<{ chatId: string; label: string | null; type: string }> = [];
+
+  if (types.includes("AGENCY_INTERNAL") && legacyGroupId) {
+    fallbackRecipients.push({
+      chatId: legacyGroupId,
+      label: "Grupo Interno (legacy)",
+      type: "AGENCY_INTERNAL",
+    });
+  }
+
+  if (types.includes("CLIENT_GROUP") && legacyClientGroupId) {
+    fallbackRecipients.push({
+      chatId: legacyClientGroupId,
+      label: "Grupo Cliente (legacy)",
+      type: "CLIENT_GROUP",
+    });
+  }
+
+  return fallbackRecipients;
+}
+
+/**
+ * Envía un mensaje a múltiples destinatarios de Telegram.
+ */
+async function sendToMultipleRecipients(
+  recipients: Array<{ chatId: string; label: string | null; type: string }>,
+  message: string
+): Promise<{ sent: number; failed: number }> {
+  const results = await Promise.allSettled(
+    recipients.map((r) => bot.api.sendMessage(r.chatId, message))
+  );
+
+  let sent = 0;
+  let failed = 0;
+
+  for (const [i, result] of results.entries()) {
+    if (result.status === "fulfilled") {
+      sent++;
+    } else {
+      failed++;
+      console.error(
+        `Failed to send digest to ${recipients[i].label || recipients[i].chatId}: ${result.reason}`
+      );
+    }
+  }
+
+  return { sent, failed };
+}
+
 export function startDigestWorker() {
   const worker = new Worker(
     QUEUE_NAMES.DIGEST,
     async () => {
       console.log("📊 Running daily digest...");
 
+      // Obtener clientes activos que tienen destinatarios (legacy o nuevo sistema)
       const clients = await prisma.client.findMany({
-        where: { active: true, telegramGroupId: { not: null } },
+        where: {
+          active: true,
+          OR: [
+            { telegramGroupId: { not: null } },
+            { telegramRecipients: { some: { active: true } } },
+          ],
+        },
       });
 
       const since = new Date(Date.now() - 24 * 60 * 60 * 1000);
 
       for (const client of clients) {
-        if (!client.telegramGroupId) continue;
 
         const mentions = await prisma.mention.findMany({
           where: {
@@ -109,10 +194,29 @@ export function startDigestWorker() {
           }
         }
 
-        await bot.api.sendMessage(client.telegramGroupId, message);
+        // Obtener destinatarios internos de agencia
+        const internalRecipients = await getRecipientsForClient(
+          client.id,
+          ["AGENCY_INTERNAL"],
+          client.telegramGroupId,
+          null
+        );
 
-        // Send condensed digest to client group (if linked)
-        if (client.clientGroupId) {
+        if (internalRecipients.length > 0) {
+          const { sent, failed } = await sendToMultipleRecipients(internalRecipients, message);
+          console.log(`📊 Digest sent for ${client.name} (internal): ${sent} delivered, ${failed} failed`);
+        }
+
+        // Obtener destinatarios del cliente (grupos e individuales)
+        const clientRecipients = await getRecipientsForClient(
+          client.id,
+          ["CLIENT_GROUP", "CLIENT_INDIVIDUAL"],
+          null,
+          client.clientGroupId
+        );
+
+        if (clientRecipients.length > 0) {
+          // Mensaje condensado para clientes
           let clientMessage =
             `📊 Resumen diario de menciones\n` +
             `━━━━━━━━━━━━━━━━━━━━\n\n` +
@@ -140,11 +244,8 @@ export function startDigestWorker() {
             }
           }
 
-          try {
-            await bot.api.sendMessage(client.clientGroupId, clientMessage);
-          } catch (err) {
-            console.error(`Failed to send client digest to ${client.name}:`, err);
-          }
+          const { sent, failed } = await sendToMultipleRecipients(clientRecipients, clientMessage);
+          console.log(`📊 Digest sent for ${client.name} (client recipients): ${sent} delivered, ${failed} failed`);
         }
 
         // Log digest

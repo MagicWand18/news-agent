@@ -4,6 +4,89 @@ import { prisma, config } from "@mediabot/shared";
 import { InlineKeyboard } from "grammy";
 import { bot } from "./bot-instance.js";
 
+/**
+ * Obtiene los destinatarios de Telegram para un cliente.
+ * Primero busca en TelegramRecipient, luego fallback a campos legacy.
+ */
+async function getRecipientsForClient(
+  clientId: string,
+  types: ("AGENCY_INTERNAL" | "CLIENT_GROUP" | "CLIENT_INDIVIDUAL")[],
+  legacyGroupId?: string | null,
+  legacyClientGroupId?: string | null
+): Promise<Array<{ chatId: string; label: string | null; type: string }>> {
+  // Buscar en la nueva tabla
+  const recipients = await prisma.telegramRecipient.findMany({
+    where: {
+      clientId,
+      active: true,
+      type: { in: types },
+    },
+    select: {
+      chatId: true,
+      label: true,
+      type: true,
+    },
+  });
+
+  // Si encontramos recipients, usarlos
+  if (recipients.length > 0) {
+    return recipients;
+  }
+
+  // Fallback a campos legacy
+  const fallbackRecipients: Array<{ chatId: string; label: string | null; type: string }> = [];
+
+  if (types.includes("AGENCY_INTERNAL") && legacyGroupId) {
+    fallbackRecipients.push({
+      chatId: legacyGroupId,
+      label: "Grupo Interno (legacy)",
+      type: "AGENCY_INTERNAL",
+    });
+  }
+
+  if (types.includes("CLIENT_GROUP") && legacyClientGroupId) {
+    fallbackRecipients.push({
+      chatId: legacyClientGroupId,
+      label: "Grupo Cliente (legacy)",
+      type: "CLIENT_GROUP",
+    });
+  }
+
+  return fallbackRecipients;
+}
+
+/**
+ * Envía un mensaje a múltiples destinatarios de Telegram.
+ * Retorna el número de envíos exitosos.
+ */
+async function sendToMultipleRecipients(
+  recipients: Array<{ chatId: string; label: string | null; type: string }>,
+  message: string,
+  options?: { reply_markup?: InlineKeyboard; parse_mode?: "Markdown" | "HTML" }
+): Promise<{ sent: number; failed: number }> {
+  const results = await Promise.allSettled(
+    recipients.map((r) =>
+      bot.api.sendMessage(r.chatId, message, options)
+    )
+  );
+
+  let sent = 0;
+  let failed = 0;
+
+  for (const [i, result] of results.entries()) {
+    if (result.status === "fulfilled") {
+      sent++;
+    } else {
+      failed++;
+      console.error(
+        `Failed to send to ${recipients[i].label || recipients[i].chatId}: ${result.reason}`
+      );
+    }
+  }
+
+  return { sent, failed };
+}
+
 export function startNotificationWorker() {
   // Standard alert notification worker
   const alertWorker = new Worker(
@@ -21,9 +104,16 @@ export function startNotificationWorker() {
 
       if (!mention || mention.notified) return;
 
-      const groupId = mention.client.telegramGroupId;
-      if (!groupId) {
-        console.warn(`No Telegram group for client ${mention.client.name}`);
+      // Obtener destinatarios (internos de agencia)
+      const recipients = await getRecipientsForClient(
+        mention.clientId,
+        ["AGENCY_INTERNAL"],
+        mention.client.telegramGroupId,
+        mention.client.clientGroupId
+      );
+
+      if (recipients.length === 0) {
+        console.warn(`No Telegram recipients for client ${mention.client.name}`);
         return;
       }
 
@@ -61,9 +151,16 @@ export function startNotificationWorker() {
         .text("📢 Informar cliente", `notify_client:${mention.id}`)
         .text("🔇 Ignorar", `ignore_mention:${mention.id}`);
 
-      await bot.api.sendMessage(groupId, message, {
-        reply_markup: keyboard,
-      });
+      // Enviar a todos los destinatarios
+      const { sent, failed } = await sendToMultipleRecipients(
+        recipients,
+        message,
+        { reply_markup: keyboard }
+      );
+
+      console.log(
+        `📬 Alert sent for ${mention.client.name}: ${sent} delivered, ${failed} failed`
+      );
 
       // Mark as notified
       await prisma.mention.update({
@@ -93,9 +190,16 @@ export function startNotificationWorker() {
 
       if (!crisisAlert || crisisAlert.notified) return;
 
-      const groupId = crisisAlert.client.telegramGroupId;
-      if (!groupId) {
-        console.warn(`No Telegram group for client ${crisisAlert.client.name}`);
+      // Obtener destinatarios (internos de agencia para alertas de crisis)
+      const recipients = await getRecipientsForClient(
+        crisisAlert.clientId,
+        ["AGENCY_INTERNAL"],
+        crisisAlert.client.telegramGroupId,
+        crisisAlert.client.clientGroupId
+      );
+
+      if (recipients.length === 0) {
+        console.warn(`No Telegram recipients for client ${crisisAlert.client.name}`);
         return;
       }
 
@@ -151,9 +255,12 @@ export function startNotificationWorker() {
         .text("👁️ Monitorear", `monitor_crisis:${crisisAlert.id}`)
         .text("❌ Descartar", `dismiss_crisis:${crisisAlert.id}`);
 
-      await bot.api.sendMessage(groupId, message, {
-        reply_markup: keyboard,
-      });
+      // Enviar a todos los destinatarios
+      const { sent, failed } = await sendToMultipleRecipients(
+        recipients,
+        message,
+        { reply_markup: keyboard }
+      );
 
       // Mark crisis as notified
       await prisma.crisisAlert.update({
@@ -161,7 +268,7 @@ export function startNotificationWorker() {
         data: { notified: true, notifiedAt: new Date() },
       });
 
-      console.log(`🚨 Crisis alert sent: client=${crisisAlert.client.name} severity=${crisisAlert.severity}`);
+      console.log(`🚨 Crisis alert sent: client=${crisisAlert.client.name} severity=${crisisAlert.severity} (${sent} delivered, ${failed} failed)`);
     },
     { connection, concurrency: 2 }
   );
@@ -177,7 +284,7 @@ export function startNotificationWorker() {
       const {
         clientId,
         clientName,
-        telegramGroupId,
+        telegramGroupId, // Legacy, ahora usamos recipients
         topic,
         count,
         clientMentionCount,
@@ -189,6 +296,19 @@ export function startNotificationWorker() {
         count: number;
         clientMentionCount: number;
       };
+
+      // Obtener destinatarios (internos de agencia para temas emergentes)
+      const recipients = await getRecipientsForClient(
+        clientId,
+        ["AGENCY_INTERNAL"],
+        telegramGroupId, // Fallback legacy
+        null
+      );
+
+      if (recipients.length === 0) {
+        console.warn(`No Telegram recipients for client ${clientName} (emerging topic)`);
+        return;
+      }
 
       // Formatear mensaje de tema emergente (escapar Markdown)
       const safeTopic = escapeMarkdown(topic);
@@ -207,10 +327,12 @@ export function startNotificationWorker() {
         .text("📋 Ver menciones", `view_topic_mentions:${clientId}:${encodeURIComponent(topic)}`)
         .text("✅ Crear tarea", `create_topic_task:${clientId}:${encodeURIComponent(topic)}`);
 
-      await bot.api.sendMessage(telegramGroupId, message, {
-        parse_mode: "Markdown",
-        reply_markup: keyboard,
-      });
+      // Enviar a todos los destinatarios
+      const { sent, failed } = await sendToMultipleRecipients(
+        recipients,
+        message,
+        { parse_mode: "Markdown", reply_markup: keyboard }
+      );
 
       // Registrar que hemos notificado este tema
       await prisma.emergingTopicNotification.create({
@@ -221,7 +343,7 @@ export function startNotificationWorker() {
         },
       });
 
-      console.log(`📈 Emerging topic notification sent: client=${clientName} topic="${topic}"`);
+      console.log(`📈 Emerging topic notification sent: client=${clientName} topic="${topic}" (${sent} delivered, ${failed} failed)`);
     },
     { connection, concurrency: 2 }
   );
