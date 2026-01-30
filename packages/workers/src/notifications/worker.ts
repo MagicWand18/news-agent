@@ -3,6 +3,11 @@ import { connection, QUEUE_NAMES } from "../queues.js";
 import { prisma, config } from "@mediabot/shared";
 import { InlineKeyboard } from "grammy";
 import { bot } from "./bot-instance.js";
+import {
+  createMentionNotification,
+  createCrisisNotification,
+  createEmergingTopicNotification,
+} from "./inapp-creator.js";
 
 /**
  * Obtiene los destinatarios de Telegram para un cliente.
@@ -162,6 +167,22 @@ export function startNotificationWorker() {
         `📬 Alert sent for ${mention.client.name}: ${sent} delivered, ${failed} failed`
       );
 
+      // Crear notificación in-app para menciones críticas y altas
+      if (mention.urgency === "CRITICAL" || mention.urgency === "HIGH") {
+        try {
+          await createMentionNotification({
+            clientId: mention.clientId,
+            clientName: mention.client.name,
+            mentionId: mention.id,
+            articleTitle: mention.article.title,
+            urgency: mention.urgency as "CRITICAL" | "HIGH",
+            sentiment: mention.sentiment,
+          });
+        } catch (error) {
+          console.error(`Failed to create in-app notification for mention ${mentionId}:`, error);
+        }
+      }
+
       // Mark as notified
       await prisma.mention.update({
         where: { id: mentionId },
@@ -262,6 +283,20 @@ export function startNotificationWorker() {
         { reply_markup: keyboard }
       );
 
+      // Crear notificación in-app para alertas de crisis
+      try {
+        await createCrisisNotification({
+          clientId: crisisAlert.clientId,
+          clientName: crisisAlert.client.name,
+          crisisAlertId: crisisAlert.id,
+          severity: crisisAlert.severity,
+          mentionCount: crisisAlert.mentionCount,
+          triggerType: crisisAlert.triggerType,
+        });
+      } catch (error) {
+        console.error(`Failed to create in-app notification for crisis ${crisisAlertId}:`, error);
+      }
+
       // Mark crisis as notified
       await prisma.crisisAlert.update({
         where: { id: crisisAlertId },
@@ -333,6 +368,19 @@ export function startNotificationWorker() {
         message,
         { parse_mode: "Markdown", reply_markup: keyboard }
       );
+
+      // Crear notificación in-app para tema emergente
+      try {
+        await createEmergingTopicNotification({
+          clientId,
+          clientName,
+          topic,
+          count,
+          clientMentionCount,
+        });
+      } catch (error) {
+        console.error(`Failed to create in-app notification for emerging topic:`, error);
+      }
 
       // Registrar que hemos notificado este tema
       await prisma.emergingTopicNotification.create({

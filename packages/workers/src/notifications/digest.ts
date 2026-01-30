@@ -3,6 +3,7 @@ import { connection, QUEUE_NAMES } from "../queues.js";
 import { prisma } from "@mediabot/shared";
 import { generateDigestSummary } from "../analysis/ai.js";
 import { bot } from "./bot-instance.js";
+import { createWeeklyReportNotification } from "./inapp-creator.js";
 
 /**
  * Obtiene los destinatarios de Telegram para un cliente.
@@ -256,6 +257,18 @@ export function startDigestWorker() {
             articleCount: mentions.length,
           },
         });
+
+        // Crear notificación in-app para reporte diario
+        try {
+          await createWeeklyReportNotification({
+            clientId: client.id,
+            clientName: client.name,
+            weekStart: since,
+            mentionCount: mentions.length,
+          });
+        } catch (error) {
+          console.error(`Failed to create in-app notification for digest:`, error);
+        }
       }
 
       console.log("✅ Daily digest complete");

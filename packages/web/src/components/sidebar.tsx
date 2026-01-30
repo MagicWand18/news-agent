@@ -22,6 +22,7 @@ import {
 import { signOut, useSession } from "next-auth/react";
 import { useState } from "react";
 import { useTheme } from "./theme-provider";
+import { NotificationBell } from "./notifications";
 
 const navigation = [
   { name: "Dashboard", href: "/dashboard", icon: LayoutDashboard },
@@ -64,6 +65,7 @@ export function Sidebar() {
           <h1 className="text-xl font-bold tracking-tight">MediaBot</h1>
         </div>
         <div className="flex items-center gap-1">
+          <NotificationBell />
           <button
             onClick={toggleTheme}
             className="rounded-lg p-1.5 text-gray-300 hover:bg-white/10 transition-colors"

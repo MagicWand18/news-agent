@@ -16,16 +16,17 @@ model Organization {
 }
 
 model User {
-  id             String       @id @default(cuid())
+  id             String         @id @default(cuid())
   name           String
-  email          String?      @unique
+  email          String?        @unique
   passwordHash   String?
-  telegramUserId String?      @unique
-  role           Role         @default(ANALYST)
+  telegramUserId String?        @unique
+  role           Role           @default(ANALYST)
   orgId          String
-  org            Organization @relation(fields: [orgId], references: [id])
+  org            Organization   @relation(fields: [orgId], references: [id])
   assignedTasks  Task[]
-  createdAt      DateTime     @default(now())
+  notifications  Notification[]
+  createdAt      DateTime       @default(now())
 }
 
 enum Role {
@@ -388,4 +389,31 @@ enum RecipientType {
   AGENCY_INTERNAL   // Grupo interno del equipo de la agencia
   CLIENT_GROUP      // Grupo compartido con el cliente
   CLIENT_INDIVIDUAL // Usuario individual del lado del cliente
+}
+
+// Sprint 10: Notificaciones In-App
+
+model Notification {
+  id        String           @id @default(cuid())
+  userId    String
+  user      User             @relation(fields: [userId], references: [id], onDelete: Cascade)
+  type      NotificationType
+  title     String
+  message   String
+  data      Json?
+  read      Boolean          @default(false)
+  readAt    DateTime?
+  createdAt DateTime         @default(now())
+
+  @@index([userId, read])
+  @@index([userId, createdAt])
+}
+
+enum NotificationType {
+  MENTION_CRITICAL   // Mención crítica detectada
+  MENTION_HIGH       // Mención de alta prioridad
+  CRISIS_ALERT       // Alerta de crisis
+  WEEKLY_REPORT      // Reporte semanal disponible
+  EMERGING_TOPIC     // Tema emergente detectado
+  SYSTEM             // Notificación del sistema
 }
