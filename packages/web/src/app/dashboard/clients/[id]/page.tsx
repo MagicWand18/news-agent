@@ -608,7 +608,21 @@ type RecipientType = keyof typeof RECIPIENT_TYPES;
 
 function TelegramRecipientsSection({ clientId, clientName }: { clientId: string; clientName: string }) {
   const utils = trpc.useUtils();
+  const [showAddModal, setShowAddModal] = useState(false);
+  const [newRecipient, setNewRecipient] = useState({
+    chatId: "",
+    type: "AGENCY_INTERNAL" as RecipientType,
+    label: "",
+  });
+
   const recipients = trpc.clients.getRecipients.useQuery({ clientId });
+  const addRecipient = trpc.clients.addRecipient.useMutation({
+    onSuccess: () => {
+      utils.clients.getRecipients.invalidate({ clientId });
+      setShowAddModal(false);
+      setNewRecipient({ chatId: "", type: "AGENCY_INTERNAL", label: "" });
+    },
+  });
   const removeRecipient = trpc.clients.removeRecipient.useMutation({
     onSuccess: () => utils.clients.getRecipients.invalidate({ clientId }),
   });
@@ -654,10 +668,119 @@ function TelegramRecipientsSection({ clientId, clientName }: { clientId: string;
           <MessageCircle className="h-5 w-5 text-brand-600" />
           Destinatarios de Telegram
         </h3>
-        <span className="text-sm text-gray-500 dark:text-gray-400">
-          {activeRecipients.length} activo{activeRecipients.length !== 1 ? "s" : ""}
-        </span>
+        <div className="flex items-center gap-3">
+          <span className="text-sm text-gray-500 dark:text-gray-400">
+            {activeRecipients.length} activo{activeRecipients.length !== 1 ? "s" : ""}
+          </span>
+          <button
+            onClick={() => setShowAddModal(true)}
+            className="flex items-center gap-1 rounded-lg bg-brand-600 px-3 py-1.5 text-sm font-medium text-white hover:bg-brand-700"
+          >
+            <Plus className="h-4 w-4" />
+            Agregar
+          </button>
+        </div>
       </div>
+
+      {/* Modal para agregar destinatario */}
+      {showAddModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50">
+          <div className="w-full max-w-md rounded-xl bg-white dark:bg-gray-800 p-6 shadow-xl">
+            <div className="flex items-center justify-between mb-4">
+              <h3 className="text-lg font-semibold text-gray-900 dark:text-white">
+                Agregar destinatario de Telegram
+              </h3>
+              <button
+                onClick={() => setShowAddModal(false)}
+                className="text-gray-400 hover:text-gray-600 dark:hover:text-gray-300"
+              >
+                <X className="h-5 w-5" />
+              </button>
+            </div>
+
+            <form
+              onSubmit={(e) => {
+                e.preventDefault();
+                addRecipient.mutate({
+                  clientId,
+                  chatId: newRecipient.chatId,
+                  type: newRecipient.type,
+                  label: newRecipient.label || undefined,
+                });
+              }}
+              className="space-y-4"
+            >
+              <div>
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                  Chat ID de Telegram *
+                </label>
+                <input
+                  type="text"
+                  required
+                  placeholder="Ej: -1001234567890"
+                  value={newRecipient.chatId}
+                  onChange={(e) => setNewRecipient({ ...newRecipient, chatId: e.target.value })}
+                  className="w-full rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 px-3 py-2 text-gray-900 dark:text-white placeholder-gray-400"
+                />
+                <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">
+                  Agrega el bot @NewsAiBot_bot al grupo y escribe /start para obtener el Chat ID
+                </p>
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                  Tipo de destinatario *
+                </label>
+                <select
+                  value={newRecipient.type}
+                  onChange={(e) => setNewRecipient({ ...newRecipient, type: e.target.value as RecipientType })}
+                  className="w-full rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 px-3 py-2 text-gray-900 dark:text-white"
+                >
+                  <option value="AGENCY_INTERNAL">Interno (equipo de agencia)</option>
+                  <option value="CLIENT_GROUP">Grupo del cliente</option>
+                  <option value="CLIENT_INDIVIDUAL">Individual del cliente</option>
+                </select>
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                  Etiqueta (opcional)
+                </label>
+                <input
+                  type="text"
+                  placeholder="Ej: Grupo de PR, Juan CMO"
+                  value={newRecipient.label}
+                  onChange={(e) => setNewRecipient({ ...newRecipient, label: e.target.value })}
+                  className="w-full rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 px-3 py-2 text-gray-900 dark:text-white placeholder-gray-400"
+                />
+              </div>
+
+              {addRecipient.isError && (
+                <p className="text-sm text-red-500">
+                  {addRecipient.error.message || "Error al agregar destinatario"}
+                </p>
+              )}
+
+              <div className="flex justify-end gap-3 pt-2">
+                <button
+                  type="button"
+                  onClick={() => setShowAddModal(false)}
+                  className="rounded-lg bg-gray-100 dark:bg-gray-700 px-4 py-2 text-sm font-medium text-gray-700 dark:text-gray-200 hover:bg-gray-200 dark:hover:bg-gray-600"
+                >
+                  Cancelar
+                </button>
+                <button
+                  type="submit"
+                  disabled={addRecipient.isPending || !newRecipient.chatId}
+                  className="rounded-lg bg-brand-600 px-4 py-2 text-sm font-medium text-white hover:bg-brand-700 disabled:opacity-50"
+                >
+                  {addRecipient.isPending ? "Agregando..." : "Agregar"}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
 
       {!hasRecipients ? (
         <div className="rounded-lg bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800 p-4">
