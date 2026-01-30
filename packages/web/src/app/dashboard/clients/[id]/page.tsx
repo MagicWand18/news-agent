@@ -57,6 +57,10 @@ export default function ClientDetailPage() {
     type: (typeof KEYWORD_TYPES)[number];
   }>({ word: "", type: "NAME" });
 
+  // Pagination state for mentions
+  const [mentionPage, setMentionPage] = useState(1);
+  const [mentionPageSize, setMentionPageSize] = useState(10);
+
   if (client.isLoading) return <div className="text-gray-500 dark:text-gray-400">Cargando...</div>;
   if (!client.data) return <div className="text-gray-500 dark:text-gray-400">Cliente no encontrado</div>;
 
@@ -227,33 +231,87 @@ export default function ClientDetailPage() {
       <div className="rounded-xl bg-white dark:bg-gray-800 p-6 shadow-sm dark:shadow-gray-900/20">
         <div className="mb-4 flex items-center justify-between">
           <h3 className="font-semibold text-gray-900 dark:text-white">Menciones recientes</h3>
-          {c._count.mentions > 50 && (
-            <Link
-              href={`/dashboard/mentions?clientId=${id}`}
-              className="text-sm text-brand-600 hover:text-brand-700 dark:text-brand-400 dark:hover:text-brand-300"
-            >
-              Ver todas ({c._count.mentions})
-            </Link>
-          )}
+          <div className="flex items-center gap-4">
+            <div className="flex items-center gap-2">
+              <span className="text-sm text-gray-500 dark:text-gray-400">Mostrar:</span>
+              <select
+                value={mentionPageSize}
+                onChange={(e) => {
+                  setMentionPageSize(Number(e.target.value));
+                  setMentionPage(1);
+                }}
+                className="rounded-lg border border-gray-200 bg-white px-2 py-1 text-sm text-gray-700 dark:border-gray-600 dark:bg-gray-700 dark:text-gray-300"
+              >
+                <option value={10}>10</option>
+                <option value={20}>20</option>
+                <option value={50}>50</option>
+              </select>
+            </div>
+            {c._count.mentions > 50 && (
+              <Link
+                href={`/dashboard/mentions?clientId=${id}`}
+                className="text-sm text-brand-600 hover:text-brand-700 dark:text-brand-400 dark:hover:text-brand-300"
+              >
+                Ver todas ({c._count.mentions})
+              </Link>
+            )}
+          </div>
         </div>
-        {c.mentions.map((mention) => (
-          <MentionRow
-            key={mention.id}
-            id={mention.id}
-            title={mention.article.title}
-            source={mention.article.source}
-            clientName={c.name}
-            sentiment={mention.sentiment}
-            relevance={mention.relevance}
-            urgency={mention.urgency}
-            date={mention.createdAt}
-            url={mention.article.url}
-            summary={mention.aiSummary}
-          />
-        ))}
-        {c.mentions.length === 0 && (
-          <p className="text-gray-500 dark:text-gray-400">No hay menciones aún.</p>
-        )}
+        {(() => {
+          const startIndex = (mentionPage - 1) * mentionPageSize;
+          const endIndex = startIndex + mentionPageSize;
+          const paginatedMentions = c.mentions.slice(startIndex, endIndex);
+          const totalPages = Math.ceil(c.mentions.length / mentionPageSize);
+
+          return (
+            <>
+              {paginatedMentions.map((mention) => (
+                <MentionRow
+                  key={mention.id}
+                  id={mention.id}
+                  title={mention.article.title}
+                  source={mention.article.source}
+                  clientName={c.name}
+                  sentiment={mention.sentiment}
+                  relevance={mention.relevance}
+                  urgency={mention.urgency}
+                  date={mention.createdAt}
+                  url={mention.article.url}
+                  summary={mention.aiSummary}
+                />
+              ))}
+              {c.mentions.length === 0 && (
+                <p className="text-gray-500 dark:text-gray-400">No hay menciones aún.</p>
+              )}
+              {totalPages > 1 && (
+                <div className="mt-4 flex items-center justify-between border-t border-gray-200 pt-4 dark:border-gray-700">
+                  <span className="text-sm text-gray-500 dark:text-gray-400">
+                    Mostrando {startIndex + 1}-{Math.min(endIndex, c.mentions.length)} de {c.mentions.length}
+                  </span>
+                  <div className="flex items-center gap-2">
+                    <button
+                      onClick={() => setMentionPage((p) => Math.max(1, p - 1))}
+                      disabled={mentionPage === 1}
+                      className="rounded-lg border border-gray-200 px-3 py-1 text-sm text-gray-700 hover:bg-gray-50 disabled:cursor-not-allowed disabled:opacity-50 dark:border-gray-600 dark:text-gray-300 dark:hover:bg-gray-700"
+                    >
+                      Anterior
+                    </button>
+                    <span className="text-sm text-gray-700 dark:text-gray-300">
+                      {mentionPage} / {totalPages}
+                    </span>
+                    <button
+                      onClick={() => setMentionPage((p) => Math.min(totalPages, p + 1))}
+                      disabled={mentionPage === totalPages}
+                      className="rounded-lg border border-gray-200 px-3 py-1 text-sm text-gray-700 hover:bg-gray-50 disabled:cursor-not-allowed disabled:opacity-50 dark:border-gray-600 dark:text-gray-300 dark:hover:bg-gray-700"
+                    >
+                      Siguiente
+                    </button>
+                  </div>
+                </div>
+              )}
+            </>
+          );
+        })()}
       </div>
     </div>
   );

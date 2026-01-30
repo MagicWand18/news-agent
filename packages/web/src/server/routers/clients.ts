@@ -1,7 +1,7 @@
 import { z } from "zod";
 import { TRPCError } from "@trpc/server";
 import { router, protectedProcedure } from "../trpc";
-import { prisma, getOnboardingQueue } from "@mediabot/shared";
+import { prisma, getOnboardingQueue, getAnthropicClient, config } from "@mediabot/shared";
 
 /**
  * Resta días a una fecha.
@@ -184,7 +184,6 @@ export const clientsRouter = router({
       })
     )
     .mutation(async ({ input }) => {
-      const { config } = await import("@mediabot/shared");
       const { GoogleGenerativeAI } = await import("@google/generative-ai");
 
       const foundArticles: Array<{
@@ -397,13 +396,6 @@ REGLAS:
     )
     .mutation(async ({ input }) => {
       // Llamar a la API de Claude para generar keywords
-      const Anthropic = (await import("@anthropic-ai/sdk")).default;
-      const { config } = await import("@mediabot/shared");
-
-      const anthropic = new Anthropic({
-        apiKey: config.anthropic.apiKey,
-      });
-
       const articlesContext = input.articles
         .slice(0, 15)
         .map(
@@ -412,7 +404,7 @@ REGLAS:
         )
         .join("\n\n");
 
-      const message = await anthropic.messages.create({
+      const message = await getAnthropicClient().messages.create({
         model: config.anthropic.model,
         max_tokens: 1500,
         messages: [
@@ -530,6 +522,19 @@ Solo responde con el JSON.`,
           data: input.keywords.map((kw) => ({
             word: kw.word,
             type: kw.type,
+            clientId: client.id,
+            active: true,
+          })),
+          skipDuplicates: true,
+        });
+      }
+
+      // Crear keywords de competidores
+      if (input.competitors && input.competitors.length > 0) {
+        await prisma.keyword.createMany({
+          data: input.competitors.map((comp) => ({
+            word: comp,
+            type: "COMPETITOR",
             clientId: client.id,
             active: true,
           })),
