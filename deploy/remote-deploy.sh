@@ -178,6 +178,8 @@ echo ""
 
 # ── [6/7] Wait for DB and run migrations ────────────
 echo "── [6/7] Running database migrations..."
+
+# Wait for postgres to be ready
 MAX_WAIT=60
 WAITED=0
 until docker compose -f docker-compose.prod.yml exec -T postgres pg_isready -U mediabot 2>/dev/null; do
@@ -192,16 +194,55 @@ until docker compose -f docker-compose.prod.yml exec -T postgres pg_isready -U m
 done
 echo "  Database ready.                "
 
-# Push schema to DB
-docker compose -f docker-compose.prod.yml exec -T web npx prisma db push --schema=prisma/schema.prisma --accept-data-loss 2>&1 || {
-    echo "  Warning: prisma db push from web failed, trying from workers..."
-    docker compose -f docker-compose.prod.yml exec -T workers npx prisma db push --schema=prisma/schema.prisma --accept-data-loss 2>&1 || true
-}
+# Wait for web container to be fully started (not just running, but ready to execute commands)
+echo "  Waiting for web container to be ready..."
+MAX_WAIT=30
+WAITED=0
+until docker compose -f docker-compose.prod.yml exec -T web node -e "console.log('ready')" 2>/dev/null | grep -q "ready"; do
+    if [ $WAITED -ge $MAX_WAIT ]; then
+        echo "  Warning: Web container slow to start, proceeding anyway..."
+        break
+    fi
+    sleep 2
+    WAITED=$((WAITED + 2))
+done
+echo "  Web container ready."
 
-# Run seed (idempotent)
+# Push schema to DB - THIS IS CRITICAL, fail deploy if it fails
+echo "  Applying Prisma schema..."
+MIGRATION_OUTPUT=$(docker compose -f docker-compose.prod.yml exec -T web npx prisma db push --schema=prisma/schema.prisma --accept-data-loss 2>&1)
+MIGRATION_EXIT_CODE=$?
+
+if [ $MIGRATION_EXIT_CODE -ne 0 ]; then
+    echo "  Migration from web failed, trying from workers..."
+    MIGRATION_OUTPUT=$(docker compose -f docker-compose.prod.yml exec -T workers npx prisma db push --schema=prisma/schema.prisma --accept-data-loss 2>&1)
+    MIGRATION_EXIT_CODE=$?
+fi
+
+if [ $MIGRATION_EXIT_CODE -ne 0 ]; then
+    echo "ERROR: Database migration failed!"
+    echo "$MIGRATION_OUTPUT"
+    exit 1
+fi
+
+# Check if migration made changes
+if echo "$MIGRATION_OUTPUT" | grep -q "Your database is now in sync"; then
+    echo "  ✓ Database schema synchronized successfully"
+elif echo "$MIGRATION_OUTPUT" | grep -q "already in sync"; then
+    echo "  ✓ Database schema already up to date"
+else
+    echo "  ✓ Migration completed"
+fi
+
+# Restart web and workers to pick up any Prisma client changes
+echo "  Restarting services to apply schema changes..."
+docker compose -f docker-compose.prod.yml restart web workers >/dev/null 2>&1
+sleep 3
+
+# Run seed (idempotent) - this can fail silently as it's not critical
+echo "  Running database seed..."
 docker compose -f docker-compose.prod.yml exec -T web npx tsx prisma/seed.ts 2>&1 || {
-    echo "  Warning: seed from web failed, trying from workers..."
-    docker compose -f docker-compose.prod.yml exec -T workers npx tsx prisma/seed.ts 2>&1 || echo "  Seed skipped."
+    docker compose -f docker-compose.prod.yml exec -T workers npx tsx prisma/seed.ts 2>&1 || echo "  Seed skipped (not critical)."
 }
 echo ""
 
