@@ -497,9 +497,23 @@ Solo responde con el JSON.`,
         ),
         competitors: z.array(z.string()).optional(),
         selectedArticleIds: z.array(z.string()).optional(),
+        // Redes sociales
+        socialMonitoringEnabled: z.boolean().optional(),
+        socialHashtags: z.array(z.string()).optional(),
+        socialAccounts: z.array(
+          z.object({
+            platform: z.enum(["TWITTER", "INSTAGRAM", "TIKTOK"]),
+            handle: z.string(),
+            label: z.string().optional(),
+            isOwned: z.boolean().default(false),
+          })
+        ).optional(),
       })
     )
     .mutation(async ({ input, ctx }) => {
+      // Limpiar hashtags (quitar # si viene)
+      const cleanHashtags = (input.socialHashtags || []).map((h) => h.replace(/^#/, ""));
+
       // Crear cliente
       const client = await prisma.client.create({
         data: {
@@ -512,7 +526,11 @@ Solo responde con el JSON.`,
             method: "wizard",
             keywordsCount: input.keywords.length,
             competitorsCount: input.competitors?.length || 0,
+            socialEnabled: input.socialMonitoringEnabled || false,
           },
+          // Redes sociales
+          socialMonitoringEnabled: input.socialMonitoringEnabled || false,
+          socialHashtags: cleanHashtags,
         },
       });
 
@@ -561,10 +579,33 @@ Solo responde con el JSON.`,
         }
       }
 
+      // Crear cuentas de redes sociales
+      let socialAccountsCreated = 0;
+      if (input.socialAccounts && input.socialAccounts.length > 0) {
+        for (const account of input.socialAccounts) {
+          try {
+            await prisma.socialAccount.create({
+              data: {
+                clientId: client.id,
+                platform: account.platform,
+                handle: account.handle.replace(/^@/, ""),
+                label: account.label || null,
+                isOwned: account.isOwned,
+              },
+            });
+            socialAccountsCreated++;
+          } catch {
+            // Ignorar duplicados
+          }
+        }
+      }
+
       return {
         client,
         keywordsCreated: input.keywords.length,
         mentionsCreated: input.selectedArticleIds?.length || 0,
+        socialAccountsCreated,
+        socialHashtagsCount: cleanHashtags.length,
       };
     }),
 

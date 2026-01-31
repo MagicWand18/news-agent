@@ -8,6 +8,7 @@ import { settingsRouter } from "./settings";
 import { intelligenceRouter } from "./intelligence";
 import { sourcesRouter } from "./sources";
 import { notificationsRouter } from "./notifications";
+import { socialRouter } from "./social";
 
 export const appRouter = router({
   dashboard: dashboardRouter,
@@ -19,6 +20,7 @@ export const appRouter = router({
   intelligence: intelligenceRouter,
   sources: sourcesRouter,
   notifications: notificationsRouter,
+  social: socialRouter,
 });
 
 export type AppRouter = typeof appRouter;

@@ -22,9 +22,20 @@ import {
   Check,
   Plus,
   X,
+  Twitter,
+  Instagram,
+  Hash,
+  Loader2,
 } from "lucide-react";
 
-type WizardStep = "info" | "search" | "review" | "complete";
+// Icono de TikTok (no existe en lucide-react)
+const TikTokIcon = ({ className }: { className?: string }) => (
+  <svg className={className} viewBox="0 0 24 24" fill="currentColor">
+    <path d="M19.59 6.69a4.83 4.83 0 0 1-3.77-4.25V2h-3.45v13.67a2.89 2.89 0 0 1-5.2 1.74 2.89 2.89 0 0 1 2.31-4.64 2.93 2.93 0 0 1 .88.13V9.4a6.84 6.84 0 0 0-1-.05A6.33 6.33 0 0 0 5 20.1a6.34 6.34 0 0 0 10.86-4.43v-7a8.16 8.16 0 0 0 4.77 1.52v-3.4a4.85 4.85 0 0 1-1-.1z"/>
+  </svg>
+);
+
+type WizardStep = "info" | "search" | "review" | "socials" | "complete";
 
 interface SuggestedKeyword {
   word: string;
@@ -42,6 +53,15 @@ interface ArticleResult {
   snippet?: string;
   publishedAt?: Date;
   selected: boolean;
+}
+
+type SocialPlatform = "TWITTER" | "INSTAGRAM" | "TIKTOK";
+
+interface SocialAccountInput {
+  platform: SocialPlatform;
+  handle: string;
+  label: string;
+  isOwned: boolean;
 }
 
 const INDUSTRIES = [
@@ -90,13 +110,26 @@ export default function NewClientWizardPage() {
   // Search warning (when Google CSE is not available)
   const [searchWarning, setSearchWarning] = useState<string | null>(null);
 
+  // Social media state
+  const [socialEnabled, setSocialEnabled] = useState(false);
+  const [socialAccounts, setSocialAccounts] = useState<SocialAccountInput[]>([]);
+  const [socialHashtags, setSocialHashtags] = useState<string[]>([]);
+  const [newSocialAccount, setNewSocialAccount] = useState<SocialAccountInput>({
+    platform: "TWITTER",
+    handle: "",
+    label: "",
+    isOwned: false,
+  });
+  const [newHashtag, setNewHashtag] = useState("");
+  const [isLoadingHashtagSuggestions, setIsLoadingHashtagSuggestions] = useState(false);
+
   // Mutations
   const searchNewsMutation = trpc.clients.searchNews.useMutation();
   const generateConfigMutation = trpc.clients.generateOnboardingConfig.useMutation();
   const createClientMutation = trpc.clients.createWithOnboarding.useMutation();
 
-  const steps = ["Info", "Buscar", "Revisar", "Listo"];
-  const stepIndex = { info: 0, search: 1, review: 2, complete: 3 }[step];
+  const steps = ["Info", "Buscar", "Revisar", "Social", "Listo"];
+  const stepIndex = { info: 0, search: 1, review: 2, socials: 3, complete: 4 }[step];
 
   // Paso 1: Ir a búsqueda
   const handleStartSearch = async () => {
@@ -233,6 +266,61 @@ export default function NewClientWizardPage() {
     );
   };
 
+  // Ir al paso de redes sociales
+  const handleGoToSocials = () => {
+    setStep("socials");
+  };
+
+  // Agregar cuenta social
+  const handleAddSocialAccount = () => {
+    if (!newSocialAccount.handle.trim()) return;
+    const cleanHandle = newSocialAccount.handle.replace(/^@/, "").trim();
+    if (socialAccounts.some((a) => a.platform === newSocialAccount.platform && a.handle === cleanHandle)) {
+      return; // Ya existe
+    }
+    setSocialAccounts((prev) => [
+      ...prev,
+      { ...newSocialAccount, handle: cleanHandle },
+    ]);
+    setNewSocialAccount({
+      platform: newSocialAccount.platform,
+      handle: "",
+      label: "",
+      isOwned: false,
+    });
+  };
+
+  // Remover cuenta social
+  const removeSocialAccount = (index: number) => {
+    setSocialAccounts((prev) => prev.filter((_, i) => i !== index));
+  };
+
+  // Agregar hashtag
+  const handleAddHashtag = () => {
+    if (!newHashtag.trim()) return;
+    const cleanHashtag = newHashtag.replace(/^#/, "").trim();
+    if (socialHashtags.includes(cleanHashtag)) return;
+    setSocialHashtags((prev) => [...prev, cleanHashtag]);
+    setNewHashtag("");
+  };
+
+  // Remover hashtag
+  const removeHashtag = (hashtag: string) => {
+    setSocialHashtags((prev) => prev.filter((h) => h !== hashtag));
+  };
+
+  // Icono de plataforma
+  const getPlatformIcon = (platform: SocialPlatform) => {
+    switch (platform) {
+      case "TWITTER":
+        return <Twitter className="h-4 w-4" />;
+      case "INSTAGRAM":
+        return <Instagram className="h-4 w-4" />;
+      case "TIKTOK":
+        return <TikTokIcon className="h-4 w-4" />;
+    }
+  };
+
   // Crear cliente final
   const handleCreateClient = async () => {
     const selectedKeywords = keywords.filter((kw) => kw.selected);
@@ -249,6 +337,10 @@ export default function NewClientWizardPage() {
         })),
         competitors,
         selectedArticleIds,
+        // Redes sociales
+        socialMonitoringEnabled: socialEnabled,
+        socialHashtags: socialEnabled ? socialHashtags : [],
+        socialAccounts: socialEnabled ? socialAccounts : [],
       });
 
       setShowConfetti(true);
@@ -271,6 +363,7 @@ export default function NewClientWizardPage() {
           {step === "info" && "Ingresa la información básica del cliente"}
           {step === "search" && "Buscando noticias relevantes..."}
           {step === "review" && "Revisa y personaliza la configuración"}
+          {step === "socials" && "Configura el monitoreo de redes sociales"}
           {step === "complete" && "El monitoreo está activo"}
         </p>
       </div>
@@ -518,16 +611,220 @@ export default function NewClientWizardPage() {
                 Atrás
               </button>
               <button
+                onClick={handleGoToSocials}
+                disabled={keywords.filter((k) => k.selected).length === 0}
+                className="flex items-center gap-2 rounded-lg bg-brand-600 px-6 py-3 font-medium text-white transition hover:bg-brand-700 disabled:opacity-50"
+              >
+                Siguiente: Redes Sociales
+                <ArrowRight className="h-5 w-5" />
+              </button>
+            </div>
+          </div>
+        )}
+
+        {/* PASO 4: Redes Sociales */}
+        {step === "socials" && (
+          <div className="space-y-8">
+            {/* Toggle de habilitación */}
+            <div className="flex items-center justify-between rounded-lg border border-gray-200 dark:border-gray-600 bg-gray-50 dark:bg-gray-700/50 p-4">
+              <div className="flex items-center gap-3">
+                <div className="rounded-lg bg-gradient-to-br from-pink-500 to-purple-600 p-2">
+                  <Hash className="h-5 w-5 text-white" />
+                </div>
+                <div>
+                  <h3 className="font-semibold text-gray-900 dark:text-white">Monitoreo de Redes Sociales</h3>
+                  <p className="text-sm text-gray-500 dark:text-gray-400">
+                    Twitter/X, Instagram y TikTok
+                  </p>
+                </div>
+              </div>
+              <label className="relative inline-flex cursor-pointer items-center">
+                <input
+                  type="checkbox"
+                  checked={socialEnabled}
+                  onChange={(e) => setSocialEnabled(e.target.checked)}
+                  className="peer sr-only"
+                />
+                <div className="peer h-6 w-11 rounded-full bg-gray-300 after:absolute after:left-[2px] after:top-[2px] after:h-5 after:w-5 after:rounded-full after:bg-white after:transition-all after:content-[''] peer-checked:bg-brand-600 peer-checked:after:translate-x-full dark:bg-gray-600"></div>
+              </label>
+            </div>
+
+            {socialEnabled && (
+              <>
+                {/* Cuentas a monitorear */}
+                <div>
+                  <h3 className="flex items-center gap-2 text-lg font-semibold text-gray-900 dark:text-white">
+                    <Twitter className="h-5 w-5 text-brand-600" />
+                    Cuentas a Monitorear
+                  </h3>
+                  <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">
+                    Agrega cuentas propias del cliente o de competidores/influencers
+                  </p>
+
+                  {/* Lista de cuentas */}
+                  {socialAccounts.length > 0 && (
+                    <div className="mt-4 space-y-2">
+                      {socialAccounts.map((account, index) => (
+                        <div
+                          key={`${account.platform}-${account.handle}`}
+                          className="flex items-center justify-between rounded-lg border border-gray-200 dark:border-gray-600 bg-white dark:bg-gray-700 px-4 py-3"
+                        >
+                          <div className="flex items-center gap-3">
+                            <span className={`rounded-full p-1.5 ${
+                              account.platform === "TWITTER" ? "bg-sky-100 text-sky-600 dark:bg-sky-900/30 dark:text-sky-400" :
+                              account.platform === "INSTAGRAM" ? "bg-pink-100 text-pink-600 dark:bg-pink-900/30 dark:text-pink-400" :
+                              "bg-gray-100 text-gray-600 dark:bg-gray-600 dark:text-gray-300"
+                            }`}>
+                              {getPlatformIcon(account.platform)}
+                            </span>
+                            <div>
+                              <p className="font-medium text-gray-900 dark:text-white">
+                                @{account.handle}
+                                {account.isOwned && (
+                                  <span className="ml-2 text-xs text-green-600 dark:text-green-400">(Propia)</span>
+                                )}
+                              </p>
+                              {account.label && (
+                                <p className="text-xs text-gray-500 dark:text-gray-400">{account.label}</p>
+                              )}
+                            </div>
+                          </div>
+                          <button
+                            onClick={() => removeSocialAccount(index)}
+                            className="text-gray-400 hover:text-red-500"
+                          >
+                            <X className="h-4 w-4" />
+                          </button>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+
+                  {/* Agregar cuenta */}
+                  <div className="mt-4 flex flex-wrap gap-2">
+                    <select
+                      value={newSocialAccount.platform}
+                      onChange={(e) => setNewSocialAccount((prev) => ({ ...prev, platform: e.target.value as SocialPlatform }))}
+                      className="rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 px-3 py-2 text-sm text-gray-900 dark:text-white"
+                    >
+                      <option value="TWITTER">Twitter/X</option>
+                      <option value="INSTAGRAM">Instagram</option>
+                      <option value="TIKTOK">TikTok</option>
+                    </select>
+                    <input
+                      type="text"
+                      value={newSocialAccount.handle}
+                      onChange={(e) => setNewSocialAccount((prev) => ({ ...prev, handle: e.target.value }))}
+                      placeholder="@username"
+                      className="flex-1 min-w-[150px] rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 px-3 py-2 text-sm text-gray-900 dark:text-white placeholder-gray-400"
+                      onKeyPress={(e) => e.key === "Enter" && handleAddSocialAccount()}
+                    />
+                    <input
+                      type="text"
+                      value={newSocialAccount.label}
+                      onChange={(e) => setNewSocialAccount((prev) => ({ ...prev, label: e.target.value }))}
+                      placeholder="Etiqueta (opcional)"
+                      className="flex-1 min-w-[120px] rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 px-3 py-2 text-sm text-gray-900 dark:text-white placeholder-gray-400"
+                    />
+                    <label className="flex items-center gap-2 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 px-3 py-2 text-sm text-gray-700 dark:text-gray-200">
+                      <input
+                        type="checkbox"
+                        checked={newSocialAccount.isOwned}
+                        onChange={(e) => setNewSocialAccount((prev) => ({ ...prev, isOwned: e.target.checked }))}
+                        className="rounded"
+                      />
+                      Propia
+                    </label>
+                    <button
+                      onClick={handleAddSocialAccount}
+                      disabled={!newSocialAccount.handle.trim()}
+                      className="rounded-lg bg-brand-100 dark:bg-brand-900/30 px-3 py-2 text-brand-700 dark:text-brand-400 hover:bg-brand-200 dark:hover:bg-brand-900/50 disabled:opacity-50"
+                    >
+                      <Plus className="h-5 w-5" />
+                    </button>
+                  </div>
+                </div>
+
+                {/* Hashtags */}
+                <div>
+                  <h3 className="flex items-center gap-2 text-lg font-semibold text-gray-900 dark:text-white">
+                    <Hash className="h-5 w-5 text-brand-600" />
+                    Hashtags a Monitorear
+                  </h3>
+                  <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">
+                    Hashtags relevantes para el cliente (sin el #)
+                  </p>
+
+                  {/* Lista de hashtags */}
+                  {socialHashtags.length > 0 && (
+                    <div className="mt-4 flex flex-wrap gap-2">
+                      {socialHashtags.map((hashtag) => (
+                        <span
+                          key={hashtag}
+                          className="flex items-center gap-1 rounded-full bg-purple-100 dark:bg-purple-900/30 px-3 py-1 text-sm text-purple-700 dark:text-purple-400"
+                        >
+                          #{hashtag}
+                          <button
+                            onClick={() => removeHashtag(hashtag)}
+                            className="ml-1 hover:text-purple-900 dark:hover:text-purple-200"
+                          >
+                            <X className="h-3 w-3" />
+                          </button>
+                        </span>
+                      ))}
+                    </div>
+                  )}
+
+                  {/* Agregar hashtag */}
+                  <div className="mt-4 flex gap-2">
+                    <input
+                      type="text"
+                      value={newHashtag}
+                      onChange={(e) => setNewHashtag(e.target.value)}
+                      placeholder="Agregar hashtag..."
+                      className="flex-1 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 px-3 py-2 text-sm text-gray-900 dark:text-white placeholder-gray-400"
+                      onKeyPress={(e) => e.key === "Enter" && handleAddHashtag()}
+                    />
+                    <button
+                      onClick={handleAddHashtag}
+                      disabled={!newHashtag.trim()}
+                      className="rounded-lg bg-brand-100 dark:bg-brand-900/30 px-3 py-2 text-brand-700 dark:text-brand-400 hover:bg-brand-200 dark:hover:bg-brand-900/50 disabled:opacity-50"
+                    >
+                      <Plus className="h-5 w-5" />
+                    </button>
+                  </div>
+
+                  {/* Sugerencias automáticas */}
+                  <p className="mt-2 text-xs text-gray-500 dark:text-gray-400">
+                    Tip: Agrega el nombre del cliente, marcas, productos y hashtags de la industria
+                  </p>
+                </div>
+              </>
+            )}
+
+            {/* Botones de acción */}
+            <div className="flex justify-between pt-4">
+              <button
+                onClick={() => setStep("review")}
+                className="flex items-center gap-2 rounded-lg border border-gray-300 dark:border-gray-600 px-4 py-2 text-gray-700 dark:text-gray-200 bg-white dark:bg-gray-700 hover:bg-gray-50 dark:hover:bg-gray-600"
+              >
+                <ArrowLeft className="h-4 w-4" />
+                Atrás
+              </button>
+              <button
                 onClick={handleCreateClient}
-                disabled={createClientMutation.isPending || keywords.filter((k) => k.selected).length === 0}
+                disabled={createClientMutation.isPending}
                 className="flex items-center gap-2 rounded-lg bg-brand-600 px-6 py-3 font-medium text-white transition hover:bg-brand-700 disabled:opacity-50"
               >
                 {createClientMutation.isPending ? (
-                  "Creando..."
+                  <>
+                    <Loader2 className="h-5 w-5 animate-spin" />
+                    Creando...
+                  </>
                 ) : (
                   <>
                     Crear Cliente
-                    <ArrowRight className="h-5 w-5" />
+                    <Check className="h-5 w-5" />
                   </>
                 )}
               </button>
@@ -535,7 +832,7 @@ export default function NewClientWizardPage() {
           </div>
         )}
 
-        {/* PASO 4: Completado */}
+        {/* PASO 5: Completado */}
         {step === "complete" && (
           <div className="py-12 text-center">
             <PulseGlow>
@@ -578,10 +875,25 @@ export default function NewClientWizardPage() {
                   </div>
                 </div>
               )}
+
+              {socialEnabled && (
+                <div className="flex items-center gap-3 rounded-lg bg-gray-50 dark:bg-gray-700/50 p-4">
+                  <div className="rounded-lg bg-gradient-to-br from-pink-500 to-purple-600 p-2">
+                    <Hash className="h-5 w-5 text-white" />
+                  </div>
+                  <div>
+                    <p className="font-medium text-gray-900 dark:text-white">
+                      {socialAccounts.length} cuentas, {socialHashtags.length} hashtags
+                    </p>
+                    <p className="text-sm text-gray-500 dark:text-gray-400">monitoreo de redes sociales activo</p>
+                  </div>
+                </div>
+              )}
             </div>
 
             <p className="mt-6 text-gray-500 dark:text-gray-400">
-              Ahora recibirás alertas cuando tu cliente aparezca en los medios.
+              Ahora recibirás alertas cuando tu cliente aparezca en los medios
+              {socialEnabled && " y redes sociales"}.
             </p>
 
             <button

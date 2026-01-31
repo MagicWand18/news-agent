@@ -1,10 +1,5 @@
-import Anthropic from "@anthropic-ai/sdk";
-import { config } from "@mediabot/shared";
+import { config, getAnthropicClient } from "@mediabot/shared";
 import type { AIAnalysisResult, OnboardingResult, PreFilterResult, ResponseGenerationResult } from "@mediabot/shared";
-
-const anthropic = new Anthropic({
-  apiKey: config.anthropic.apiKey,
-});
 
 /**
  * Extracts JSON from Claude responses that may be wrapped in markdown code blocks.
@@ -27,7 +22,7 @@ export async function analyzeMention(params: {
   clientIndustry: string;
   keyword: string;
 }): Promise<AIAnalysisResult> {
-  const message = await anthropic.messages.create({
+  const message = await getAnthropicClient().messages.create({
     model: config.anthropic.model,
     max_tokens: 500,
     messages: [
@@ -100,7 +95,7 @@ export async function preFilterArticle(params: {
 }): Promise<PreFilterResult> {
   const contentPreview = params.articleContent?.slice(0, 800) || "";
 
-  const message = await anthropic.messages.create({
+  const message = await getAnthropicClient().messages.create({
     model: config.anthropic.model,
     max_tokens: 200,
     messages: [
@@ -164,7 +159,7 @@ export async function runOnboarding(params: {
     .map((a) => `- ${a.title} (${a.source})`)
     .join("\n");
 
-  const message = await anthropic.messages.create({
+  const message = await getAnthropicClient().messages.create({
     model: config.anthropic.model,
     max_tokens: 1000,
     messages: [
@@ -238,7 +233,7 @@ export async function generateResponse(params: {
     ? `El tono DEBE ser ${params.requestedTone}.`
     : `Selecciona el tono mas apropiado basado en el sentimiento del articulo.`;
 
-  const message = await anthropic.messages.create({
+  const message = await getAnthropicClient().messages.create({
     model: config.anthropic.model,
     max_tokens: 1200,
     messages: [
@@ -317,7 +312,7 @@ export async function generateDigestSummary(params: {
     .map((m) => `- ${m.title} (${m.source}, ${m.sentiment}, relevancia ${m.relevance}/10)`)
     .join("\n");
 
-  const message = await anthropic.messages.create({
+  const message = await getAnthropicClient().messages.create({
     model: config.anthropic.model,
     max_tokens: 400,
     messages: [
@@ -363,7 +358,7 @@ export async function extractTopic(params: {
 ${params.existingTopics.slice(0, 20).join(", ")}`
     : "";
 
-  const message = await anthropic.messages.create({
+  const message = await getAnthropicClient().messages.create({
     model: config.anthropic.model,
     max_tokens: 200,
     messages: [
@@ -474,7 +469,7 @@ export async function generateWeeklyInsights(params: {
         ? "disminuyeron"
         : "se mantuvieron";
 
-  const message = await anthropic.messages.create({
+  const message = await getAnthropicClient().messages.create({
     model: config.anthropic.model,
     max_tokens: 800,
     messages: [
@@ -542,6 +537,235 @@ Los insights deben ser especificos, con datos, y orientados a la accion.`,
   }
 }
 
+// ==================== SOCIAL MEDIA: SUGERENCIAS DE HASHTAGS ====================
+
+export interface SocialHashtagSuggestion {
+  hashtag: string;
+  platform: "TWITTER" | "INSTAGRAM" | "TIKTOK" | "ALL";
+  confidence: number;
+  reason: string;
+}
+
+export interface SuggestSocialHashtagsResult {
+  hashtags: SocialHashtagSuggestion[];
+  suggestedAccounts: Array<{
+    platform: "TWITTER" | "INSTAGRAM" | "TIKTOK";
+    handle: string;
+    reason: string;
+  }>;
+}
+
+/**
+ * Sugiere hashtags y cuentas de redes sociales a monitorear
+ * basado en el nombre del cliente, industria y descripción.
+ */
+export async function suggestSocialHashtags(params: {
+  clientName: string;
+  description?: string;
+  industry?: string;
+  existingKeywords?: string[];
+}): Promise<SuggestSocialHashtagsResult> {
+  const keywordsContext = params.existingKeywords?.length
+    ? `\n\nKeywords de monitoreo de noticias actuales:\n${params.existingKeywords.slice(0, 15).join(", ")}`
+    : "";
+
+  const message = await getAnthropicClient().messages.create({
+    model: config.anthropic.model,
+    max_tokens: 1000,
+    messages: [
+      {
+        role: "user",
+        content: `Eres un experto en marketing digital y monitoreo de redes sociales en Mexico y Latinoamerica.
+
+CLIENTE:
+Nombre: ${params.clientName}
+Descripcion: ${params.description || "No proporcionada"}
+Industria: ${params.industry || "No especificada"}${keywordsContext}
+
+Genera hashtags y cuentas de redes sociales relevantes para monitorear a este cliente.
+
+REGLAS:
+- Los hashtags deben ser populares y relevantes en Mexico/Latam
+- Incluir hashtags genericos de la industria y especificos del cliente
+- Sugerir cuentas de competidores, influencers del sector, medios relevantes
+- Considerar Twitter/X, Instagram y TikTok
+- No incluir el simbolo # en los hashtags
+
+Responde SOLO en JSON con este formato:
+{
+  "hashtags": [
+    {
+      "hashtag": "nombreSinHashtag",
+      "platform": "TWITTER|INSTAGRAM|TIKTOK|ALL",
+      "confidence": <0.5 a 1.0>,
+      "reason": "Por que es relevante"
+    }
+  ],
+  "suggestedAccounts": [
+    {
+      "platform": "TWITTER|INSTAGRAM|TIKTOK",
+      "handle": "username_sin_arroba",
+      "reason": "Por que monitorear esta cuenta"
+    }
+  ]
+}
+
+Genera:
+- 8-15 hashtags variados (mezcla de genericos e industria)
+- 3-6 cuentas sugeridas (competidores, influencers, medios)`,
+      },
+    ],
+  });
+
+  const content = message.content[0];
+  if (content.type !== "text") {
+    throw new Error("Unexpected response type from Claude");
+  }
+
+  const rawText = content.text;
+  console.log("[AI] suggestSocialHashtags response:", rawText.slice(0, 300));
+
+  try {
+    const cleaned = cleanJsonResponse(rawText);
+    const result = JSON.parse(cleaned) as SuggestSocialHashtagsResult;
+
+    // Validar plataformas
+    const validPlatforms = ["TWITTER", "INSTAGRAM", "TIKTOK", "ALL"] as const;
+    const validAccountPlatforms = ["TWITTER", "INSTAGRAM", "TIKTOK"] as const;
+
+    result.hashtags = (result.hashtags || []).map((h) => ({
+      ...h,
+      hashtag: h.hashtag.replace(/^#/, ""), // Quitar # si viene
+      platform: validPlatforms.includes(h.platform as typeof validPlatforms[number])
+        ? h.platform
+        : "ALL",
+      confidence: Math.max(0.5, Math.min(1, h.confidence || 0.7)),
+    }));
+
+    result.suggestedAccounts = (result.suggestedAccounts || []).map((a) => ({
+      ...a,
+      handle: a.handle.replace(/^@/, ""), // Quitar @ si viene
+      platform: validAccountPlatforms.includes(a.platform as typeof validAccountPlatforms[number])
+        ? a.platform
+        : "TWITTER",
+    }));
+
+    return result;
+  } catch {
+    console.error("[AI] Failed to parse suggestSocialHashtags response:", rawText);
+    return {
+      hashtags: [
+        {
+          hashtag: params.clientName.replace(/\s+/g, ""),
+          platform: "ALL",
+          confidence: 0.8,
+          reason: "Nombre del cliente",
+        },
+      ],
+      suggestedAccounts: [],
+    };
+  }
+}
+
+// ==================== SOCIAL MEDIA: ANALISIS DE MENCION ====================
+
+export interface SocialMentionAnalysisResult {
+  summary: string;
+  sentiment: "POSITIVE" | "NEGATIVE" | "NEUTRAL" | "MIXED";
+  relevance: number;
+  suggestedAction: string;
+  engagementLevel: "HIGH" | "MEDIUM" | "LOW";
+}
+
+/**
+ * Analiza una mencion de redes sociales.
+ * Adaptado para contenido corto (tweets, captions, etc).
+ */
+export async function analyzeSocialMention(params: {
+  platform: string;
+  content: string;
+  authorHandle: string;
+  authorFollowers?: number;
+  engagement: { likes: number; comments: number; shares: number; views?: number };
+  clientName: string;
+  clientDescription?: string;
+  sourceType: string;
+  sourceValue: string;
+}): Promise<SocialMentionAnalysisResult> {
+  const engagementText = `Likes: ${params.engagement.likes}, Comentarios: ${params.engagement.comments}, Compartidos: ${params.engagement.shares}${params.engagement.views ? `, Vistas: ${params.engagement.views}` : ""}`;
+  const followersText = params.authorFollowers ? `Seguidores del autor: ${params.authorFollowers}` : "";
+
+  const message = await getAnthropicClient().messages.create({
+    model: config.anthropic.model,
+    max_tokens: 400,
+    messages: [
+      {
+        role: "user",
+        content: `Analiza esta mencion en redes sociales para un cliente de PR.
+
+CLIENTE: ${params.clientName}
+Descripcion: ${params.clientDescription || "No disponible"}
+
+POST EN ${params.platform.toUpperCase()}:
+Autor: @${params.authorHandle}
+${followersText}
+Contenido: "${params.content || "(sin texto)"}"
+Engagement: ${engagementText}
+Detectado por: ${params.sourceType} "${params.sourceValue}"
+
+Responde en JSON:
+{
+  "summary": "Resumen ejecutivo de 1-2 lineas sobre la relevancia para el cliente",
+  "sentiment": "POSITIVE|NEGATIVE|NEUTRAL|MIXED",
+  "relevance": <1 a 10>,
+  "suggestedAction": "Accion concreta sugerida (ej: responder, monitorear, escalar)",
+  "engagementLevel": "HIGH|MEDIUM|LOW"
+}
+
+Criterios de engagement:
+- HIGH: Viral o de influencer con >10k seguidores
+- MEDIUM: Buen alcance o de cuenta verificada
+- LOW: Alcance limitado
+
+Solo responde con el JSON.`,
+      },
+    ],
+  });
+
+  const content = message.content[0];
+  if (content.type !== "text") {
+    throw new Error("Unexpected response type from Claude");
+  }
+
+  const rawText = content.text;
+  console.log("[AI] analyzeSocialMention response:", rawText.slice(0, 200));
+
+  try {
+    const cleaned = cleanJsonResponse(rawText);
+    const result = JSON.parse(cleaned) as SocialMentionAnalysisResult;
+
+    // Validar y normalizar
+    result.relevance = Math.max(1, Math.min(10, Math.round(result.relevance)));
+    if (!["POSITIVE", "NEGATIVE", "NEUTRAL", "MIXED"].includes(result.sentiment)) {
+      result.sentiment = "NEUTRAL";
+    }
+    if (!["HIGH", "MEDIUM", "LOW"].includes(result.engagementLevel)) {
+      result.engagementLevel = "MEDIUM";
+    }
+
+    return result;
+  } catch {
+    console.error("[AI] Failed to parse analyzeSocialMention response:", rawText);
+    return {
+      summary: "Mencion detectada en redes sociales - analisis no disponible",
+      sentiment: "NEUTRAL",
+      relevance: 5,
+      suggestedAction: "Revisar manualmente",
+      engagementLevel: "MEDIUM",
+    };
+  }
+}
+
 /**
  * Onboarding mejorado con analisis de noticias reales.
  * Genera keywords mas precisos basados en noticias recientes.
@@ -562,7 +786,7 @@ export async function runEnhancedOnboarding(params: {
     .map((a, i) => `${i + 1}. "${a.title}" - ${a.source}${a.snippet ? `\n   ${a.snippet.slice(0, 200)}` : ""}`)
     .join("\n\n");
 
-  const message = await anthropic.messages.create({
+  const message = await getAnthropicClient().messages.create({
     model: config.anthropic.model,
     max_tokens: 1500,
     messages: [

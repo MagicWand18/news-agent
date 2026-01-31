@@ -1,8 +1,7 @@
 import { z } from "zod";
 import { router, protectedProcedure } from "../trpc";
-import { prisma, config } from "@mediabot/shared";
+import { prisma, config, getAnthropicClient } from "@mediabot/shared";
 import type { ResponseGenerationResult } from "@mediabot/shared";
-import Anthropic from "@anthropic-ai/sdk";
 
 export const mentionsRouter = router({
   list: protectedProcedure
@@ -94,15 +93,11 @@ export const mentionsRouter = router({
         throw new Error("Mention not found");
       }
 
-      const anthropic = new Anthropic({
-        apiKey: config.anthropic.apiKey,
-      });
-
       const toneInstruction = input.tone
         ? `El tono DEBE ser ${input.tone}.`
         : `Selecciona el tono mas apropiado basado en el sentimiento del articulo.`;
 
-      const message = await anthropic.messages.create({
+      const message = await getAnthropicClient().messages.create({
         model: config.anthropic.model,
         max_tokens: 1200,
         messages: [

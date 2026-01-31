@@ -4,6 +4,7 @@ import { collectGdelt } from "./gdelt.js";
 import { collectNewsdata } from "./newsdata.js";
 import { collectRss } from "./rss.js";
 import { collectGoogle } from "./google.js";
+import { collectSocial } from "./social.js";
 import type { NormalizedArticle } from "@mediabot/shared";
 
 function withErrorLogging(worker: Worker, name: string) {
@@ -74,6 +75,16 @@ export function startCollectorWorkers(_queues: ReturnType<typeof import("../queu
     },
     { connection, concurrency: 1 }
   ), "GoogleCSE");
+
+  // Social Media Worker
+  withErrorLogging(new Worker(
+    QUEUE_NAMES.COLLECT_SOCIAL,
+    async () => {
+      const stats = await collectSocial();
+      console.log(`📱 Social: ${stats.postsNew} new posts from ${stats.clientsProcessed} clients`);
+    },
+    { connection, concurrency: 1 }
+  ), "Social");
 
   // Ingestion Worker - processes collected articles
   withErrorLogging(new Worker(

@@ -16,8 +16,8 @@ MediaBot es un sistema de monitoreo de medios que permite a agencias de comunica
 | Coleccion Google CSE | OK | Requiere API key |
 | Deduplicacion | OK | Por URL y hash de contenido |
 | Matching de keywords | OK | Case-insensitive, sin acentos |
-| Analisis AI | OK | Claude 3.5 Haiku |
-| Dashboard web | OK | Next.js + tRPC |
+| Analisis AI | OK | Claude 3.5 Haiku (singleton) |
+| Dashboard web | OK | Next.js 15 + tRPC |
 | Autenticacion | OK | NextAuth |
 | Bot Telegram | OK | Grammy |
 | Alertas Telegram | OK | Por urgencia |
@@ -52,12 +52,15 @@ MediaBot es un sistema de monitoreo de medios que permite a agencias de comunica
 | **Busqueda de Noticias** | OK | Importar menciones historicas (Sprint 8) |
 | **Grounding Avanzado** | OK | Búsqueda automática configurable por cliente (Sprint 9.2) |
 | **Grounding Semanal** | OK | Ejecución programada semanal por cliente (Sprint 9.2) |
+| **Singleton Anthropic** | OK | Cliente AI centralizado con validación (Sprint 9.3) |
+| **Cache con límite** | OK | Clustering cache limitado a 1000 entradas (Sprint 9.3) |
 
 ### Funciones de IA
 
 | Funcion | Tipo | Trigger | Archivo |
 |---------|------|---------|---------|
-| `analyzeMention` | Automatico | Nueva mencion | `analysis/ai.ts:21` |
+| `getAnthropicClient` | Singleton | Todas las funciones AI | `shared/ai-client.ts` |
+| `analyzeMention` | Automatico | Nueva mencion | `analysis/ai.ts` |
 | `preFilterArticle` | Automatico | Antes de crear mencion | `analysis/ai.ts:94` |
 | `runOnboarding` | Automatico | Nuevo cliente | `analysis/ai.ts:156` |
 | `generateResponse` | On-demand | Boton en UI | `analysis/ai.ts:156` / `mentions.ts` |
@@ -232,6 +235,17 @@ MediaBot es un sistema de monitoreo de medios que permite a agencias de comunica
 - **Worker de ejecución**: Procesa jobs de grounding con rate limiting (5/min, concurrencia 2)
 - **UI de configuración**: Sección en detalle de cliente para gestionar grounding
 - **Búsqueda manual**: Botón para ejecutar grounding on-demand
+
+### Sprint 9.3: Correcciones Post Dev-Check (Completado - 2026-01-29)
+- **Seguridad**: Actualización de Next.js 14.2.35 → 15.0.0 (vulnerabilidad DoS)
+- **Singleton Anthropic**: Cliente AI centralizado en `@mediabot/shared`
+  - Validación de API key antes de crear instancia
+  - Función `getAnthropicClient()` exportada
+  - `resetAnthropicClient()` marcada como @internal para tests
+- **Cache con límite**: Clustering cache limitado a 1000 entradas
+  - Función `addToCache()` con limpieza automática
+  - Elimina 20% de entradas más antiguas al exceder límite
+- **Limpieza de código**: Eliminado import dinámico redundante en `clients.ts`
 
 ## Metricas de Exito
 

@@ -11,8 +11,10 @@ export const QUEUE_NAMES = {
   COLLECT_NEWSDATA: "collect-newsdata",
   COLLECT_RSS: "collect-rss",
   COLLECT_GOOGLE: "collect-google",
+  COLLECT_SOCIAL: "collect-social",
   INGEST_ARTICLE: "ingest-article",
   ANALYZE_MENTION: "analyze-mention",
+  ANALYZE_SOCIAL: "analyze-social-mention",
   NOTIFY_ALERT: "notify-alert",
   NOTIFY_CRISIS: "notify-crisis",
   NOTIFY_EMERGING_TOPIC: "notify-emerging-topic",
@@ -35,8 +37,10 @@ export function setupQueues() {
     collectNewsdata: new Queue(QUEUE_NAMES.COLLECT_NEWSDATA, { connection }),
     collectRss: new Queue(QUEUE_NAMES.COLLECT_RSS, { connection }),
     collectGoogle: new Queue(QUEUE_NAMES.COLLECT_GOOGLE, { connection }),
+    collectSocial: new Queue(QUEUE_NAMES.COLLECT_SOCIAL, { connection }),
     ingestArticle: new Queue(QUEUE_NAMES.INGEST_ARTICLE, { connection }),
     analyzeMention: new Queue(QUEUE_NAMES.ANALYZE_MENTION, { connection }),
+    analyzeSocial: new Queue(QUEUE_NAMES.ANALYZE_SOCIAL, { connection }),
     notifyAlert: new Queue(QUEUE_NAMES.NOTIFY_ALERT, { connection }),
     notifyCrisis: new Queue(QUEUE_NAMES.NOTIFY_CRISIS, { connection }),
     notifyEmergingTopic: new Queue(QUEUE_NAMES.NOTIFY_EMERGING_TOPIC, { connection }),
@@ -87,6 +91,14 @@ export function setupQueues() {
     { name: "collect-google" }
   );
   console.log(`📅 Google CSE cron: ${config.crons.google}`);
+
+  // Social Media collector (default: every 4 hours)
+  queues.collectSocial.upsertJobScheduler(
+    "social-cron",
+    { pattern: config.crons.social },
+    { name: "collect-social" }
+  );
+  console.log(`📅 Social Media cron: ${config.crons.social}`);
 
   // Daily digest (default: 8:00 AM)
   queues.digest.upsertJobScheduler(

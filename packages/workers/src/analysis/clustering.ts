@@ -1,15 +1,32 @@
-import Anthropic from "@anthropic-ai/sdk";
-import { config, prisma } from "@mediabot/shared";
-
-const anthropic = new Anthropic({
-  apiKey: config.anthropic.apiKey,
-});
+import { config, prisma, getAnthropicClient } from "@mediabot/shared";
 
 // Simple in-memory cache for recent cluster comparisons
 // Key: `${clientId}:${normalizedTitle}`, Value: { parentId, expiresAt }
 const clusterCache = new Map<string, { parentId: string; expiresAt: number }>();
 
 const CACHE_TTL_MS = 30 * 60 * 1000; // 30 minutes
+const MAX_CACHE_SIZE = 1000; // Límite para evitar crecimiento sin control
+
+/**
+ * Agrega una entrada al cache, limpiando si excede el límite.
+ */
+function addToCache(key: string, value: { parentId: string; expiresAt: number }): void {
+  // Si excede el límite, limpiar entradas expiradas primero
+  if (clusterCache.size >= MAX_CACHE_SIZE) {
+    cleanupClusterCache();
+    // Si aún excede, eliminar las más antiguas
+    if (clusterCache.size >= MAX_CACHE_SIZE) {
+      const entriesToDelete = Math.floor(MAX_CACHE_SIZE * 0.2); // Eliminar 20%
+      let deleted = 0;
+      for (const k of clusterCache.keys()) {
+        if (deleted >= entriesToDelete) break;
+        clusterCache.delete(k);
+        deleted++;
+      }
+    }
+  }
+  clusterCache.set(key, value);
+}
 const SIMILARITY_THRESHOLD = 0.7;
 
 /**
@@ -57,7 +74,7 @@ async function aiCompareArticles(params: {
   title2: string;
   summary2: string;
 }): Promise<{ sameEvent: boolean; confidence: number }> {
-  const message = await anthropic.messages.create({
+  const message = await getAnthropicClient().messages.create({
     model: config.anthropic.model,
     max_tokens: 150,
     messages: [
@@ -174,7 +191,7 @@ export async function findClusterParent(params: {
       console.log(`[Clustering] High keyword match (${similarity.toFixed(2)}): ${articleTitle.slice(0, 50)} -> ${mention.article.title.slice(0, 50)}`);
 
       // Cache this match
-      clusterCache.set(cacheKey, {
+      addToCache(cacheKey, {
         parentId: mention.id,
         expiresAt: Date.now() + CACHE_TTL_MS,
       });
@@ -194,7 +211,7 @@ export async function findClusterParent(params: {
       console.log(`[Clustering] AI match (${aiResult.confidence.toFixed(2)}): ${articleTitle.slice(0, 50)} -> ${mention.article.title.slice(0, 50)}`);
 
       // Cache this match
-      clusterCache.set(cacheKey, {
+      addToCache(cacheKey, {
         parentId: mention.id,
         expiresAt: Date.now() + CACHE_TTL_MS,
       });

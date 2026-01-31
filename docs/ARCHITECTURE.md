@@ -389,6 +389,7 @@ packages/
 │   └── src/
 │       ├── config.ts    # Configuracion centralizada
 │       ├── prisma.ts    # Cliente Prisma singleton
+│       ├── ai-client.ts # Cliente Anthropic singleton
 │       ├── types.ts     # Tipos compartidos
 │       └── index.ts     # Exports
 │
@@ -400,7 +401,7 @@ packages/
 │       ├── analysis/    # AI analysis + onboarding
 │       └── notifications/
 │
-├── web/                 # Dashboard Next.js
+├── web/                 # Dashboard Next.js 15
 │   └── src/
 │       ├── app/         # App Router
 │       ├── server/      # tRPC routers

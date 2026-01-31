@@ -39,12 +39,17 @@ export const config = {
   newsdata: {
     apiKey: optionalEnv("NEWSDATA_API_KEY", ""),
   },
+  ensembledata: {
+    token: optionalEnv("ENSEMBLEDATA_TOKEN", ""),
+    baseUrl: "https://ensembledata.com/apis",
+  },
   // Cron patterns for collectors (use env vars for flexibility without code changes)
   crons: {
     gdelt: optionalEnv("COLLECTOR_GDELT_CRON", "*/15 * * * *"),
     newsdata: optionalEnv("COLLECTOR_NEWSDATA_CRON", "*/30 * * * *"),
     rss: optionalEnv("COLLECTOR_RSS_CRON", "*/10 * * * *"),
     google: optionalEnv("COLLECTOR_GOOGLE_CRON", "0 */2 * * *"),
+    social: optionalEnv("COLLECTOR_SOCIAL_CRON", "0 */4 * * *"), // Cada 4 horas
     digest: optionalEnv("DIGEST_CRON", "0 8 * * *"),
   },
   // Worker configuration

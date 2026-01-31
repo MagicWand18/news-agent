@@ -2,6 +2,7 @@ import "dotenv/config";
 import { setupQueues } from "./queues.js";
 import { startCollectorWorkers } from "./collectors/index.js";
 import { startAnalysisWorker } from "./analysis/worker.js";
+import { startSocialAnalysisWorker } from "./analysis/social-worker.js";
 import { startOnboardingWorker } from "./analysis/onboarding-worker.js";
 import { startNotificationWorker } from "./notifications/worker.js";
 import { startDigestWorker } from "./notifications/digest.js";
@@ -22,6 +23,7 @@ async function main() {
   // Start all workers
   startCollectorWorkers(queues);
   startAnalysisWorker();
+  startSocialAnalysisWorker();
   startOnboardingWorker();
   startNotificationWorker();
   startDigestWorker();

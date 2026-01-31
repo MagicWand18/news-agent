@@ -67,6 +67,12 @@ model Client {
   weeklyGroundingDay       Int       @default(0)      // Día de la semana (0=domingo, 6=sábado)
   lastGroundingAt          DateTime?                  // Última ejecución de grounding
   lastGroundingResult      Json?                      // Resultado de la última búsqueda
+
+  // Social Media Monitoring Config
+  socialMonitoringEnabled Boolean   @default(false)  // Habilitar monitoreo de redes sociales
+  socialHashtags          String[]  @default([])     // Hashtags a monitorear (sin #)
+  socialAccounts          SocialAccount[]
+  socialMentions          SocialMention[]
 }
 
 model Keyword {
@@ -416,4 +422,83 @@ enum NotificationType {
   WEEKLY_REPORT      // Reporte semanal disponible
   EMERGING_TOPIC     // Tema emergente detectado
   SYSTEM             // Notificación del sistema
+}
+
+// ==================== SOCIAL MEDIA MONITORING ====================
+
+enum SocialPlatform {
+  TWITTER
+  INSTAGRAM
+  TIKTOK
+}
+
+enum SocialSourceType {
+  HANDLE    // Cuenta específica monitoreada
+  HASHTAG   // Hashtag monitoreado
+  KEYWORD   // Búsqueda por keyword
+}
+
+// Cuenta de red social asociada a un cliente
+model SocialAccount {
+  id             String         @id @default(cuid())
+  clientId       String
+  client         Client         @relation(fields: [clientId], references: [id], onDelete: Cascade)
+  platform       SocialPlatform
+  handle         String         // @username sin el @
+  platformUserId String?        // ID numérico del usuario en la plataforma
+  label          String?        // Etiqueta descriptiva (ej: "Cuenta oficial", "CEO")
+  isOwned        Boolean        @default(false) // true = cuenta del cliente, false = competidor/influencer
+  active         Boolean        @default(true)
+  createdAt      DateTime       @default(now())
+  updatedAt      DateTime       @updatedAt
+
+  @@unique([clientId, platform, handle])
+  @@index([clientId, active])
+  @@index([platform])
+}
+
+// Mención detectada en redes sociales
+model SocialMention {
+  id             String         @id @default(cuid())
+  clientId       String
+  client         Client         @relation(fields: [clientId], references: [id], onDelete: Cascade)
+  platform       SocialPlatform
+  postId         String         // ID único del post en la plataforma
+  postUrl        String         // URL directa al post
+  content        String?        // Texto del post (caption, tweet, etc)
+  authorHandle   String         // @username del autor
+  authorName     String?        // Nombre display del autor
+  authorFollowers Int?          // Seguidores del autor al momento de captura
+
+  // Métricas de engagement
+  likes          Int            @default(0)
+  comments       Int            @default(0)
+  shares         Int            @default(0) // retweets, reposts
+  views          Int?           // Para TikTok/Instagram Reels
+
+  // Source tracking
+  sourceType     SocialSourceType
+  sourceValue    String         // El handle/hashtag/keyword que lo encontró
+
+  // AI Analysis
+  sentiment      Sentiment      @default(NEUTRAL)
+  relevance      Int            @default(5)
+  aiSummary      String?
+  analyzed       Boolean        @default(false)
+
+  // Notification status
+  notified       Boolean        @default(false)
+  notifiedAt     DateTime?
+
+  // Timestamps
+  postedAt       DateTime?      // Cuando se publicó el post
+  collectedAt    DateTime       @default(now())
+  createdAt      DateTime       @default(now())
+  updatedAt      DateTime       @updatedAt
+
+  @@unique([platform, postId])
+  @@index([clientId, createdAt])
+  @@index([clientId, platform, createdAt])
+  @@index([platform, postedAt])
+  @@index([sentiment, createdAt])
 }

@@ -4,7 +4,7 @@ Sistema de monitoreo de medios con inteligencia artificial para clientes corpora
 
 ## Stack Tecnologico
 
-- **Frontend**: Next.js 14, React, TailwindCSS, tRPC
+- **Frontend**: Next.js 15, React, TailwindCSS, tRPC
 - **Backend Workers**: BullMQ, Node.js
 - **Bot**: Grammy (Telegram)
 - **Database**: PostgreSQL + Prisma ORM
