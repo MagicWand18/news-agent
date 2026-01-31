@@ -1167,24 +1167,8 @@ function GroundingConfigSection({ clientId }: { clientId: string }) {
             </div>
           </div>
 
-          {/* Botón de búsqueda manual */}
-          <button
-            onClick={() => executeGrounding.mutate({ clientId, days: 30 })}
-            disabled={executeGrounding.isPending}
-            className="w-full flex items-center justify-center gap-2 rounded-lg bg-brand-600 px-4 py-2.5 text-sm font-medium text-white hover:bg-brand-700 disabled:opacity-50 transition-colors"
-          >
-            {executeGrounding.isPending ? (
-              <>
-                <Loader2 className="h-4 w-4 animate-spin" />
-                Buscando...
-              </>
-            ) : (
-              <>
-                <Search className="h-4 w-4" />
-                Ejecutar búsqueda ahora
-              </>
-            )}
-          </button>
+          {/* Búsqueda manual con selector de días */}
+          <ManualGroundingButton clientId={clientId} executeGrounding={executeGrounding} />
 
           {executeGrounding.isSuccess && (
             <p className="text-sm text-green-600 dark:text-green-400 text-center">
@@ -1198,6 +1182,53 @@ function GroundingConfigSection({ clientId }: { clientId: string }) {
           )}
         </div>
       </div>
+    </div>
+  );
+}
+
+/**
+ * Componente para búsqueda manual con selector de días.
+ */
+function ManualGroundingButton({
+  clientId,
+  executeGrounding,
+}: {
+  clientId: string;
+  executeGrounding: ReturnType<typeof trpc.clients.executeManualGrounding.useMutation>;
+}) {
+  const [manualGroundingDays, setManualGroundingDays] = useState(30);
+
+  return (
+    <div className="flex gap-2">
+      <select
+        value={manualGroundingDays}
+        onChange={(e) => setManualGroundingDays(Number(e.target.value))}
+        disabled={executeGrounding.isPending}
+        className="rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 px-3 py-2.5 text-sm text-gray-900 dark:text-white disabled:opacity-50"
+      >
+        <option value={7}>7 días</option>
+        <option value={14}>14 días</option>
+        <option value={30}>30 días</option>
+        <option value={45}>45 días</option>
+        <option value={60}>60 días</option>
+      </select>
+      <button
+        onClick={() => executeGrounding.mutate({ clientId, days: manualGroundingDays })}
+        disabled={executeGrounding.isPending}
+        className="flex-1 flex items-center justify-center gap-2 rounded-lg bg-brand-600 px-4 py-2.5 text-sm font-medium text-white hover:bg-brand-700 disabled:opacity-50 transition-colors"
+      >
+        {executeGrounding.isPending ? (
+          <>
+            <Loader2 className="h-4 w-4 animate-spin" />
+            Buscando...
+          </>
+        ) : (
+          <>
+            <Search className="h-4 w-4" />
+            Buscar noticias
+          </>
+        )}
+      </button>
     </div>
   );
 }

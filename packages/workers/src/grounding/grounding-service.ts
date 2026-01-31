@@ -23,6 +23,8 @@ export interface GroundingArticle {
   url: string;
   snippet?: string;
   publishedAt?: Date;
+  /** true si el artículo está fuera del período solicitado (contexto histórico) */
+  isHistorical?: boolean;
 }
 
 export interface GroundingResult {
@@ -72,6 +74,8 @@ export async function executeGroundingSearch(
   }
 
   const foundArticles: GroundingArticle[] = [];
+  // Fecha mínima aceptable para el período solicitado
+  const minAcceptableDate = subDays(new Date(), days);
 
   try {
     const genAI = new GoogleGenerativeAI(config.google.apiKey);
@@ -178,6 +182,9 @@ REGLAS:
         });
       }
 
+      // Marcar como histórico si la fecha está fuera del período solicitado
+      const isHistorical = publishedAt ? publishedAt < minAcceptableDate : false;
+
       foundArticles.push({
         id: article.id,
         title: item.title,
@@ -185,6 +192,7 @@ REGLAS:
         url: item.url,
         snippet: item.snippet,
         publishedAt,
+        isHistorical,
       });
     }
 
@@ -211,7 +219,7 @@ REGLAS:
       take: Math.max(0, articleCount - foundArticles.length),
     });
 
-    // Agregar artículos de DB
+    // Agregar artículos de DB (estos ya están filtrados por fecha, no son históricos)
     for (const a of dbArticles) {
       foundArticles.push({
         id: a.id,
@@ -220,7 +228,16 @@ REGLAS:
         url: a.url,
         snippet: a.content?.slice(0, 300) || undefined,
         publishedAt: a.publishedAt || undefined,
+        isHistorical: false,
       });
+    }
+
+    // Log informativo de artículos históricos
+    const historicalCount = foundArticles.filter((a) => a.isHistorical).length;
+    if (historicalCount > 0) {
+      console.log(
+        `[Grounding] ${historicalCount} of ${foundArticles.length} articles are historical (outside ${days}-day period)`
+      );
     }
 
     // Crear menciones para el cliente

@@ -268,6 +268,7 @@ export function NewsCardAnimated({
   index = 0,
   selected = false,
   onSelect,
+  isHistorical = false,
 }: {
   title: string;
   source: string;
@@ -275,22 +276,52 @@ export function NewsCardAnimated({
   index?: number;
   selected?: boolean;
   onSelect?: () => void;
+  /** Indica si el artículo está fuera del período solicitado (contexto histórico) */
+  isHistorical?: boolean;
 }) {
+  // Estilos diferenciados para artículos históricos
+  const getCardStyles = () => {
+    if (isHistorical) {
+      return selected
+        ? "border-amber-400 bg-amber-50/50 dark:bg-amber-900/10"
+        : "border-gray-300 dark:border-gray-600 bg-gray-50/50 dark:bg-gray-700/30 hover:border-amber-300 dark:hover:border-amber-500";
+    }
+    return selected
+      ? "border-brand-500 bg-brand-50 dark:bg-brand-900/20"
+      : "border-gray-200 dark:border-gray-600 hover:border-brand-300 dark:hover:border-brand-500";
+  };
+
+  const getCheckboxStyles = () => {
+    if (isHistorical && selected) {
+      return "border-amber-500 bg-amber-500";
+    }
+    return selected ? "border-brand-500 bg-brand-500" : "border-gray-300 dark:border-gray-500";
+  };
+
   return (
     <div
       className={`
         cursor-pointer rounded-lg border-2 p-4 transition-all duration-300
-        ${selected ? "border-brand-500 bg-brand-50 dark:bg-brand-900/20" : "border-gray-200 dark:border-gray-600 hover:border-brand-300 dark:hover:border-brand-500"}
-        animate-slide-up
+        ${getCardStyles()}
+        animate-slide-up relative
       `}
       style={{ animationDelay: `${index * 100}ms` }}
       onClick={onSelect}
     >
+      {/* Badge de contexto histórico */}
+      {isHistorical && (
+        <div className="absolute -top-2 right-3 flex items-center gap-1 rounded-full bg-amber-100 dark:bg-amber-900/50 px-2 py-0.5 text-xs font-medium text-amber-700 dark:text-amber-400">
+          <svg className="h-3 w-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+          </svg>
+          Histórico
+        </div>
+      )}
       <div className="flex items-start gap-3">
         <div
           className={`
             flex h-5 w-5 flex-shrink-0 items-center justify-center rounded border-2 transition-colors
-            ${selected ? "border-brand-500 bg-brand-500" : "border-gray-300 dark:border-gray-500"}
+            ${getCheckboxStyles()}
           `}
         >
           {selected && (
@@ -304,7 +335,7 @@ export function NewsCardAnimated({
           )}
         </div>
         <div className="min-w-0 flex-1">
-          <p className="font-medium text-gray-900 dark:text-white line-clamp-2">{title}</p>
+          <p className={`font-medium line-clamp-2 ${isHistorical ? "text-gray-700 dark:text-gray-300" : "text-gray-900 dark:text-white"}`}>{title}</p>
           <div className="mt-1 flex items-center gap-2 text-sm text-gray-500 dark:text-gray-400">
             <span>{source}</span>
             {date && (

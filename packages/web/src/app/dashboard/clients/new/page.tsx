@@ -53,6 +53,8 @@ interface ArticleResult {
   snippet?: string;
   publishedAt?: Date;
   selected: boolean;
+  /** Indica si el artículo está fuera del período solicitado (contexto histórico) */
+  isHistorical?: boolean;
 }
 
 type SocialPlatform = "TWITTER" | "INSTAGRAM" | "TIKTOK";
@@ -127,6 +129,7 @@ export default function NewClientWizardPage() {
   const searchNewsMutation = trpc.clients.searchNews.useMutation();
   const generateConfigMutation = trpc.clients.generateOnboardingConfig.useMutation();
   const createClientMutation = trpc.clients.createWithOnboarding.useMutation();
+  const suggestHashtagsMutation = trpc.social.suggestHashtags.useMutation();
 
   const steps = ["Info", "Buscar", "Revisar", "Social", "Listo"];
   const stepIndex = { info: 0, search: 1, review: 2, socials: 3, complete: 4 }[step];
@@ -165,7 +168,9 @@ export default function NewClientWizardPage() {
         result.articles.map((a) => ({
           ...a,
           publishedAt: a.publishedAt ? new Date(a.publishedAt) : undefined,
-          selected: true,
+          // Artículos históricos deseleccionados por defecto
+          selected: !a.isHistorical,
+          isHistorical: a.isHistorical || false,
         }))
       );
 
@@ -269,6 +274,52 @@ export default function NewClientWizardPage() {
   // Ir al paso de redes sociales
   const handleGoToSocials = () => {
     setStep("socials");
+  };
+
+  // Sugerir hashtags y cuentas con IA
+  const handleSuggestWithAI = async () => {
+    setIsLoadingHashtagSuggestions(true);
+    try {
+      const existingKeywords = keywords.filter((k) => k.selected).map((k) => k.word);
+      const result = await suggestHashtagsMutation.mutateAsync({
+        clientName: clientName.trim(),
+        description: description || undefined,
+        industry: industry || undefined,
+        existingKeywords,
+      });
+
+      // Pre-poblar hashtags evitando duplicados
+      if (result.hashtags && result.hashtags.length > 0) {
+        const newHashtags = result.hashtags
+          .map((h: { hashtag: string }) => h.hashtag.replace(/^#/, ""))
+          .filter((h: string) => !socialHashtags.includes(h));
+        setSocialHashtags((prev) => [...prev, ...newHashtags]);
+      }
+
+      // Pre-poblar cuentas evitando duplicados
+      if (result.suggestedAccounts && result.suggestedAccounts.length > 0) {
+        const newAccounts = result.suggestedAccounts
+          .filter(
+            (a: { platform: SocialPlatform; handle: string }) =>
+              !socialAccounts.some(
+                (existing) =>
+                  existing.platform === a.platform &&
+                  existing.handle === a.handle.replace(/^@/, "")
+              )
+          )
+          .map((a: { platform: SocialPlatform; handle: string; reason: string }) => ({
+            platform: a.platform,
+            handle: a.handle.replace(/^@/, ""),
+            label: a.reason || "",
+            isOwned: false,
+          }));
+        setSocialAccounts((prev) => [...prev, ...newAccounts]);
+      }
+    } catch (error) {
+      console.error("Error suggesting hashtags:", error);
+    } finally {
+      setIsLoadingHashtagSuggestions(false);
+    }
   };
 
   // Agregar cuenta social
@@ -503,27 +554,81 @@ export default function NewClientWizardPage() {
                 Selecciona las noticias relevantes para crear menciones iniciales
               </p>
 
-              <div className="mt-4 max-h-64 space-y-2 overflow-y-auto rounded-lg border border-gray-200 dark:border-gray-600 bg-gray-50 dark:bg-gray-700/50 p-4">
+              <div className="mt-4 max-h-80 space-y-2 overflow-y-auto rounded-lg border border-gray-200 dark:border-gray-600 bg-gray-50 dark:bg-gray-700/50 p-4">
                 {articles.length === 0 ? (
                   <p className="py-4 text-center text-gray-500 dark:text-gray-400">
                     No se encontraron noticias recientes
                   </p>
                 ) : (
-                  articles.map((article, index) => (
-                    <NewsCardAnimated
-                      key={article.id}
-                      title={article.title}
-                      source={article.source}
-                      date={
-                        article.publishedAt
-                          ? new Date(article.publishedAt).toLocaleDateString("es-MX")
-                          : undefined
-                      }
-                      index={index}
-                      selected={article.selected}
-                      onSelect={() => toggleArticle(index)}
-                    />
-                  ))
+                  <>
+                    {/* Noticias recientes (dentro del período) */}
+                    {articles.filter((a) => !a.isHistorical).length > 0 && (
+                      <>
+                        <div className="flex items-center gap-2 pb-2">
+                          <div className="h-px flex-1 bg-gray-200 dark:bg-gray-600" />
+                          <span className="text-xs font-medium text-gray-500 dark:text-gray-400">
+                            Últimos {searchDays} días
+                          </span>
+                          <div className="h-px flex-1 bg-gray-200 dark:bg-gray-600" />
+                        </div>
+                        {articles
+                          .filter((a) => !a.isHistorical)
+                          .map((article, index) => (
+                            <NewsCardAnimated
+                              key={article.id}
+                              title={article.title}
+                              source={article.source}
+                              date={
+                                article.publishedAt
+                                  ? new Date(article.publishedAt).toLocaleDateString("es-MX")
+                                  : undefined
+                              }
+                              index={index}
+                              selected={article.selected}
+                              onSelect={() => toggleArticle(articles.indexOf(article))}
+                              isHistorical={false}
+                            />
+                          ))}
+                      </>
+                    )}
+
+                    {/* Noticias históricas (fuera del período) */}
+                    {articles.filter((a) => a.isHistorical).length > 0 && (
+                      <>
+                        <div className="flex items-center gap-2 py-3">
+                          <div className="h-px flex-1 bg-amber-200 dark:bg-amber-800" />
+                          <span className="flex items-center gap-1 text-xs font-medium text-amber-600 dark:text-amber-400">
+                            <svg className="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+                            </svg>
+                            Contexto histórico
+                          </span>
+                          <div className="h-px flex-1 bg-amber-200 dark:bg-amber-800" />
+                        </div>
+                        <p className="text-xs text-amber-600 dark:text-amber-500 mb-2 text-center">
+                          Artículos anteriores al período solicitado. Útiles para contexto pero deseleccionados por defecto.
+                        </p>
+                        {articles
+                          .filter((a) => a.isHistorical)
+                          .map((article, index) => (
+                            <NewsCardAnimated
+                              key={article.id}
+                              title={article.title}
+                              source={article.source}
+                              date={
+                                article.publishedAt
+                                  ? new Date(article.publishedAt).toLocaleDateString("es-MX")
+                                  : undefined
+                              }
+                              index={index}
+                              selected={article.selected}
+                              onSelect={() => toggleArticle(articles.indexOf(article))}
+                              isHistorical={true}
+                            />
+                          ))}
+                      </>
+                    )}
+                  </>
                 )}
               </div>
             </div>
@@ -651,6 +756,40 @@ export default function NewClientWizardPage() {
 
             {socialEnabled && (
               <>
+                {/* Sección de sugerencias con IA */}
+                <div className="rounded-lg border border-purple-200 dark:border-purple-800 bg-gradient-to-r from-purple-50 to-pink-50 dark:from-purple-900/20 dark:to-pink-900/20 p-4">
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-3">
+                      <div className="rounded-lg bg-gradient-to-br from-purple-500 to-pink-500 p-2">
+                        <Sparkles className="h-5 w-5 text-white" />
+                      </div>
+                      <div>
+                        <h4 className="font-semibold text-gray-900 dark:text-white">Sugerencias con IA</h4>
+                        <p className="text-sm text-gray-500 dark:text-gray-400">
+                          Genera hashtags y cuentas relevantes automáticamente
+                        </p>
+                      </div>
+                    </div>
+                    <button
+                      onClick={handleSuggestWithAI}
+                      disabled={isLoadingHashtagSuggestions}
+                      className="flex items-center gap-2 rounded-lg bg-gradient-to-r from-purple-600 to-pink-600 px-4 py-2 text-sm font-medium text-white hover:from-purple-700 hover:to-pink-700 disabled:opacity-50 transition-all"
+                    >
+                      {isLoadingHashtagSuggestions ? (
+                        <>
+                          <Loader2 className="h-4 w-4 animate-spin" />
+                          Generando...
+                        </>
+                      ) : (
+                        <>
+                          <Sparkles className="h-4 w-4" />
+                          Sugerir con IA
+                        </>
+                      )}
+                    </button>
+                  </div>
+                </div>
+
                 {/* Cuentas a monitorear */}
                 <div>
                   <h3 className="flex items-center gap-2 text-lg font-semibold text-gray-900 dark:text-white">

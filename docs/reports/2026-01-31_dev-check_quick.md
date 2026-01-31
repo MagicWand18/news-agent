@@ -2,8 +2,8 @@
 
 **Fecha:** 2026-01-31
 **Modo:** --quick
-**Scope:** Implementación de Monitoreo de Redes Sociales
-**Veredicto:** ✅ READY TO DEPLOY
+**Scope:** Implementación de Sugerencias IA + Artículos Históricos + Selector de días
+**Veredicto:** ✅ READY TO COMMIT
 
 ---
 
@@ -11,85 +11,83 @@
 
 | Check | Estado | Issues |
 |-------|--------|--------|
-| Security | ✅ PASS | 0 critical, 0 high, 2 medium |
-| Dependencies | ⚠️ WARN | 10 moderate (existentes, no nuevas) |
+| Build | ✅ PASS | 0 errores |
+| TypeScript | ✅ PASS | 0 errores de tipos |
+| Security | ✅ PASS | 0 secrets expuestos |
+| Dependencies | ⚠️ WARN | 2 vulnerabilidades moderadas (esbuild, eslint) |
 
 ---
-
-## Security Scan
-
-### Hallazgos
-
-| Severidad | Cantidad | Detalles |
-|-----------|----------|----------|
-| CRITICAL | 0 | - |
-| HIGH | 0 | - |
-| MEDIUM | 2 | Rate limiting, validación de handles |
-| LOW | 4 | Logging, formato menor |
-
-### Aspectos Positivos
-- ✅ Secrets manejados via variables de entorno
-- ✅ Autorización correcta (verificación de `orgId` en todos los endpoints)
-- ✅ Prisma ORM previene SQL injection
-- ✅ Validación Zod en todos los inputs
-- ✅ Soft delete implementado
-- ✅ Delay entre llamadas a API externa (500ms)
-
-### Recomendaciones (No Bloqueantes)
-1. Agregar validación regex para handles de redes sociales
-2. Implementar rate limiting en endpoints costosos
-
----
-
-## Dependency Analysis
-
-### Vulnerabilidades
-- **10 moderate**: Todas relacionadas con `next` y `eslint` (pre-existentes)
-- **0 nuevas vulnerabilidades** introducidas por los cambios
-
-### Estado
-Las vulnerabilidades son conocidas y no afectan la seguridad de la aplicación:
-- `next`: PPR Resume Endpoint (feature no utilizado)
-- `eslint`: Solo herramienta de desarrollo
-
----
-
-## Archivos Nuevos Creados
-
-1. `packages/shared/src/ensembledata-client.ts` - Cliente EnsembleData API
-2. `packages/workers/src/collectors/social.ts` - Collector de redes sociales
-3. `packages/workers/src/analysis/social-worker.ts` - Worker de análisis
-4. `packages/web/src/server/routers/social.ts` - API endpoints
 
 ## Archivos Modificados
 
-- `prisma/schema.prisma` - Nuevos modelos SocialAccount, SocialMention
-- `packages/shared/src/config.ts` - Config de EnsembleData
-- `packages/workers/src/queues.ts` - Nuevas queues
-- `packages/web/src/app/dashboard/clients/new/page.tsx` - Paso social en wizard
+| Archivo | Cambios |
+|---------|---------|
+| `packages/workers/src/grounding/grounding-service.ts` | Agregado campo `isHistorical` a GroundingArticle |
+| `packages/web/src/server/routers/clients.ts` | Agregado `isHistorical` a searchNews endpoint |
+| `packages/web/src/components/client-wizard/magic-effects.tsx` | Prop `isHistorical` en NewsCardAnimated |
+| `packages/web/src/app/dashboard/clients/new/page.tsx` | UI artículos históricos + sugerencias IA |
+| `packages/web/src/app/dashboard/clients/[id]/page.tsx` | Selector de días en búsqueda manual |
+
+---
+
+## Detalles por Categoría
+
+### Build & TypeScript
+- Build completo exitoso
+- Todos los paquetes compilan sin errores
+- Next.js build optimizado correctamente
+
+### Security
+- Sin secrets hardcodeados en código fuente
+- Las coincidencias encontradas son solo en archivos de test (mocks)
+- Sin vulnerabilidades críticas en dependencias
+
+### Dependencies
+- **esbuild** (moderate): Afecta solo dev server, no producción
+- **eslint** (moderate): Solo afecta linting, no runtime
 
 ---
 
 ## Acciones Requeridas
 
-### 🟢 Ninguna Bloqueante
+### Bloqueantes
+Ninguna
 
-El código está listo para deploy.
+### Recomendadas
+1. Actualizar eslint a v9.26.0+ cuando sea compatible con plugins actuales
+2. Actualizar vitest para resolver vulnerabilidad de esbuild
 
-### 🟡 Recomendadas (Post-Deploy)
-1. Monitorear logs de EnsembleData API en producción
-2. Considerar rate limiting si hay abuso
-
----
-
-## Build Status
-
-```
-✓ Prisma generate: OK
-✓ TypeScript compile: OK
-✓ Next.js build: OK
-```
+### Nice to Have
+1. Considerar agregar tests unitarios para las nuevas funcionalidades
 
 ---
 
-*Generado por `/dev-check --quick` - 2026-01-31*
+## Funcionalidades Implementadas
+
+1. **Artículos Históricos (Backend)**
+   - Campo `isHistorical` en `GroundingArticle` interface
+   - Marcado automático de artículos fuera del período solicitado
+   - Log informativo de artículos históricos
+
+2. **Artículos Históricos (Frontend)**
+   - Prop `isHistorical` en componente `NewsCardAnimated`
+   - Badge visual "Histórico" con icono de reloj
+   - Estilos diferenciados (fondo ámbar/gris)
+   - Separador visual entre secciones
+   - Artículos históricos deseleccionados por defecto
+
+3. **Selector de Días en Dashboard**
+   - Componente `ManualGroundingButton`
+   - Opciones: 7, 14, 30, 45, 60 días
+   - Integrado con búsqueda manual de grounding
+
+4. **Sugerencias de Hashtags con IA**
+   - Integración con endpoint `social.suggestHashtags`
+   - Botón "Sugerir con IA" en paso de redes sociales
+   - Pre-poblado de hashtags evitando duplicados
+   - Pre-poblado de cuentas sociales evitando duplicados
+   - Estado de loading con spinner
+
+---
+
+*Generado por /dev-check --quick - 2026-01-31*

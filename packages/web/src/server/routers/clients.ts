@@ -193,10 +193,13 @@ export const clientsRouter = router({
         url: string;
         snippet?: string;
         publishedAt?: Date;
+        isHistorical?: boolean;
       }> = [];
 
       let searchedOnline = false;
       let googleError: string | null = null;
+      // Fecha mínima aceptable para el período solicitado
+      const minAcceptableDate = subDays(new Date(), input.days);
 
       // Usar Gemini con grounding para buscar noticias
       if (config.google.apiKey) {
@@ -293,6 +296,9 @@ REGLAS:
                 });
               }
 
+              // Marcar como histórico si la fecha está fuera del período solicitado
+              const isHistorical = publishedAt ? publishedAt < minAcceptableDate : false;
+
               foundArticles.push({
                 id: article.id,
                 title: item.title,
@@ -300,6 +306,7 @@ REGLAS:
                 url: item.url,
                 snippet: item.snippet,
                 publishedAt,
+                isHistorical,
               });
             }
           }
@@ -346,7 +353,7 @@ REGLAS:
         take: 20,
       });
 
-      // Combinar resultados
+      // Combinar resultados (artículos de DB ya están filtrados por fecha, no son históricos)
       const allArticles = [
         ...foundArticles,
         ...dbArticles.map((a) => ({
@@ -356,6 +363,7 @@ REGLAS:
           url: a.url,
           snippet: a.content?.slice(0, 300) || undefined,
           publishedAt: a.publishedAt || undefined,
+          isHistorical: false,
         })),
       ];
 
