@@ -309,8 +309,19 @@ Para cada noticia encontrada, incluye el título y un resumen breve.`;
           const text = response.text();
 
           // PRIMERO: Extraer URLs reales del groundingMetadata (fuente confiable)
-          const groundingChunks = extractGroundingUrls(result);
-          console.log(`[SearchNews] Found ${groundingChunks.length} URLs in groundingMetadata`);
+          const rawChunks = extractGroundingUrls(result);
+
+          // Deduplicar chunks por URL antes de procesar
+          const seenUrls = new Set<string>();
+          const groundingChunks = rawChunks.filter((chunk) => {
+            if (!chunk.web?.uri) return false;
+            const url = chunk.web.uri.split("?")[0]; // Normalizar quitando query params
+            if (seenUrls.has(url)) return false;
+            seenUrls.add(url);
+            return true;
+          });
+
+          console.log(`[SearchNews] Found ${rawChunks.length} URLs in groundingMetadata, ${groundingChunks.length} unique`);
 
           // Intentar extraer títulos/snippets del texto de respuesta
           const lines = text.split("\n").filter((l) => l.trim());
