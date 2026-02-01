@@ -555,7 +555,7 @@ function CompetitorComparison({ clientId }: { clientId: string }) {
       fill: "#3b82f6",
       isClient: true,
     },
-    ...data.competitors.map((c) => ({
+    ...data.competitors.map((c: { name: string; mentions: number }) => ({
       name: c.name,
       mentions: c.mentions,
       fill: "#9ca3af",
@@ -645,7 +645,7 @@ function CompetitorComparison({ clientId }: { clientId: string }) {
                 {calculateSentimentPercent(data.client.sentiment).negative}%
               </td>
             </tr>
-            {data.competitors.map((comp) => {
+            {data.competitors.map((comp: { name: string; mentions: number; sentiment: { positive: number; negative: number; neutral: number; mixed: number } }) => {
               const percent = calculateSentimentPercent(comp.sentiment);
               return (
                 <tr key={comp.name} className="border-b border-gray-200 dark:border-gray-700">
