@@ -274,38 +274,51 @@ REGLAS:
         // Mantener default
       }
 
-      // Obtener título real del HTML de la página
+      // Obtener título real de la página
       let title = chunk.web?.title || `Artículo de ${source}`;
       let snippet: string | undefined;
       try {
-        const controller = new AbortController();
-        const timeout = setTimeout(() => controller.abort(), 5000);
-        const pageRes = await fetch(finalUrl, {
-          signal: controller.signal,
-          headers: {
-            "User-Agent": "Mozilla/5.0 (compatible; MediaBot/1.0)",
-            "Accept": "text/html",
-          },
-        });
-        clearTimeout(timeout);
-        if (pageRes.ok) {
-          const html = await pageRes.text();
-          // Extraer <title> del HTML
-          const titleMatch = html.match(/<title[^>]*>([^<]+)<\/title>/i);
-          if (titleMatch?.[1]) {
-            title = titleMatch[1].trim()
-              .replace(/\s*[-|–—]\s*YouTube$/i, "")
-              .replace(/\s*[-|–—]\s*[^-|–—]+$/, "")
-              .trim();
+        // Para YouTube, usar oEmbed API (más confiable)
+        if (finalUrl.includes("youtube.com/watch") || finalUrl.includes("youtu.be/")) {
+          const oembedUrl = `https://www.youtube.com/oembed?url=${encodeURIComponent(finalUrl)}&format=json`;
+          const oembedRes = await fetch(oembedUrl, { signal: AbortSignal.timeout(8000) });
+          if (oembedRes.ok) {
+            const data = (await oembedRes.json()) as { title?: string };
+            if (data.title) {
+              title = data.title;
+            }
           }
-          // Extraer meta description como snippet
-          const descMatch = html.match(/<meta[^>]*name=["']description["'][^>]*content=["']([^"']+)["']/i);
-          if (descMatch?.[1]) {
-            snippet = descMatch[1].trim().slice(0, 300);
+        } else {
+          // Para otros sitios, extraer del HTML
+          const pageRes = await fetch(finalUrl, {
+            signal: AbortSignal.timeout(8000),
+            headers: {
+              "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36",
+              "Accept": "text/html,application/xhtml+xml",
+            },
+          });
+          if (pageRes.ok) {
+            const html = await pageRes.text();
+            const titleMatch = html.match(/<title[^>]*>([^<]+)<\/title>/i);
+            if (titleMatch?.[1]) {
+              title = titleMatch[1].trim()
+                .replace(/\s*[-|–—]\s*[^-|–—]{0,30}$/, "")
+                .trim();
+            }
+            // Extraer meta description como snippet
+            const descMatch = html.match(/<meta[^>]*name=["']description["'][^>]*content=["']([^"']+)["']/i);
+            if (descMatch?.[1]) {
+              snippet = descMatch[1].trim().slice(0, 300);
+            }
           }
         }
-      } catch {
-        // Usar título del chunk si falla el fetch
+      } catch (err) {
+        console.warn(`[Grounding] Failed to get title for ${finalUrl.slice(0, 50)}: ${err}`);
+      }
+
+      // Si el título sigue siendo genérico, usar el chunk title
+      if (title === `Artículo de ${source}` && chunk.web?.title) {
+        title = chunk.web.title;
       }
 
       // Buscar fecha en el JSON de Gemini si matchea por dominio

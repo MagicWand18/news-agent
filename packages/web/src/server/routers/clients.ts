@@ -350,33 +350,48 @@ Para cada noticia encontrada, incluye el título y un resumen breve.`;
               // Mantener default
             }
 
-            // Obtener título real del HTML de la página
+            // Obtener título real de la página
             let title = chunk.web?.title || `Artículo de ${source}`;
             try {
-              const controller = new AbortController();
-              const timeout = setTimeout(() => controller.abort(), 5000);
-              const pageRes = await fetch(finalUrl, {
-                signal: controller.signal,
-                headers: {
-                  "User-Agent": "Mozilla/5.0 (compatible; MediaBot/1.0)",
-                  "Accept": "text/html",
-                },
-              });
-              clearTimeout(timeout);
-              if (pageRes.ok) {
-                const html = await pageRes.text();
-                // Extraer <title> del HTML
-                const titleMatch = html.match(/<title[^>]*>([^<]+)<\/title>/i);
-                if (titleMatch?.[1]) {
-                  title = titleMatch[1].trim()
-                    .replace(/\s*[-|–—]\s*YouTube$/i, "") // Limpiar sufijo YouTube
-                    .replace(/\s*[-|–—]\s*[^-|–—]+$/, "") // Limpiar sufijo de sitio
-                    .trim();
+              // Para YouTube, usar oEmbed API (más confiable)
+              if (finalUrl.includes("youtube.com/watch") || finalUrl.includes("youtu.be/")) {
+                const oembedUrl = `https://www.youtube.com/oembed?url=${encodeURIComponent(finalUrl)}&format=json`;
+                const oembedRes = await fetch(oembedUrl, { signal: AbortSignal.timeout(8000) });
+                if (oembedRes.ok) {
+                  const data = (await oembedRes.json()) as { title?: string };
+                  if (data.title) {
+                    title = data.title;
+                  }
+                }
+              } else {
+                // Para otros sitios, extraer del HTML
+                const pageRes = await fetch(finalUrl, {
+                  signal: AbortSignal.timeout(8000),
+                  headers: {
+                    "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36",
+                    "Accept": "text/html,application/xhtml+xml",
+                  },
+                });
+                if (pageRes.ok) {
+                  const html = await pageRes.text();
+                  const titleMatch = html.match(/<title[^>]*>([^<]+)<\/title>/i);
+                  if (titleMatch?.[1]) {
+                    title = titleMatch[1].trim()
+                      .replace(/\s*[-|–—]\s*[^-|–—]{0,30}$/, "") // Limpiar sufijo de sitio
+                      .trim();
+                  }
                 }
               }
-            } catch {
-              // Usar título del chunk si falla el fetch
+            } catch (err) {
+              console.warn(`[SearchNews] Failed to get title for ${finalUrl.slice(0, 50)}: ${err}`);
             }
+
+            // Si el título sigue siendo genérico, usar el dominio + chunk title
+            if (title === `Artículo de ${source}` && chunk.web?.title) {
+              title = chunk.web.title;
+            }
+
+            console.log(`[SearchNews] Title for ${source}: ${title.slice(0, 60)}`);
 
             // Crear o actualizar el artículo en la base de datos
             let article = await prisma.article.findFirst({
