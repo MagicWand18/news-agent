@@ -47,6 +47,60 @@ function subDays(date: Date, days: number): Date {
 }
 
 /**
+ * Detecta si un URL es un redirect temporal de Google Vertex AI Search.
+ */
+function isVertexRedirectUrl(url: string): boolean {
+  return url.includes("vertexaisearch.cloud.google.com/grounding-api-redirect");
+}
+
+/**
+ * Resuelve un URL de redirect siguiendo la redirección.
+ * Retorna el URL final o null si no se puede resolver.
+ */
+async function resolveRedirectUrl(url: string): Promise<string | null> {
+  if (!isVertexRedirectUrl(url)) {
+    return url; // No es un redirect, retornar tal cual
+  }
+
+  try {
+    // Hacer una petición HEAD para seguir el redirect sin descargar el contenido
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), 10000); // 10s timeout
+
+    const response = await fetch(url, {
+      method: "HEAD",
+      redirect: "follow",
+      signal: controller.signal,
+      headers: {
+        "User-Agent": "Mozilla/5.0 (compatible; MediaBot/1.0)",
+      },
+    });
+
+    clearTimeout(timeout);
+
+    // Verificar que el URL final no sea también un redirect de Vertex
+    const finalUrl = response.url;
+    if (isVertexRedirectUrl(finalUrl)) {
+      console.warn(`[Grounding] Redirect still points to Vertex: ${finalUrl}`);
+      return null;
+    }
+
+    // Verificar que sea un URL válido (no error page)
+    if (!response.ok && response.status !== 301 && response.status !== 302) {
+      console.warn(`[Grounding] Redirect target returned ${response.status}: ${finalUrl}`);
+      return null;
+    }
+
+    console.log(`[Grounding] Resolved redirect: ${url.slice(0, 60)}... -> ${finalUrl}`);
+    return finalUrl;
+  } catch (error) {
+    const msg = error instanceof Error ? error.message : String(error);
+    console.warn(`[Grounding] Failed to resolve redirect: ${msg}`);
+    return null;
+  }
+}
+
+/**
  * Ejecuta una búsqueda de grounding con Gemini.
  * Busca noticias en internet y crea artículos/menciones en la base de datos.
  */
@@ -152,9 +206,23 @@ REGLAS:
     console.log(`[Grounding] Gemini found ${parsed.articles?.length || 0} articles`);
 
     // Procesar artículos encontrados
+    let skippedRedirects = 0;
     for (const item of parsed.articles || []) {
       if (!item.url || !item.title) continue;
-      if (foundArticles.some((a) => a.url === item.url)) continue;
+
+      // Resolver redirects de Vertex AI Search
+      let finalUrl = item.url;
+      if (isVertexRedirectUrl(item.url)) {
+        const resolved = await resolveRedirectUrl(item.url);
+        if (!resolved) {
+          skippedRedirects++;
+          continue; // No guardar si no se puede resolver el redirect
+        }
+        finalUrl = resolved;
+      }
+
+      // Verificar duplicados con el URL final
+      if (foundArticles.some((a) => a.url === finalUrl)) continue;
 
       // Parsear fecha si existe
       let publishedAt: Date | undefined;
@@ -167,13 +235,13 @@ REGLAS:
 
       // Crear o encontrar el artículo en la base de datos
       let article = await prisma.article.findFirst({
-        where: { url: item.url },
+        where: { url: finalUrl },
       });
 
       if (!article) {
         article = await prisma.article.create({
           data: {
-            url: item.url,
+            url: finalUrl,
             title: item.title,
             source: item.source || "Google",
             content: item.snippet || null,
@@ -189,11 +257,15 @@ REGLAS:
         id: article.id,
         title: item.title,
         source: item.source || "Google",
-        url: item.url,
+        url: finalUrl,
         snippet: item.snippet,
         publishedAt,
         isHistorical,
       });
+    }
+
+    if (skippedRedirects > 0) {
+      console.log(`[Grounding] Skipped ${skippedRedirects} articles with unresolvable redirect URLs`);
     }
 
     // Complementar con artículos existentes en la DB
