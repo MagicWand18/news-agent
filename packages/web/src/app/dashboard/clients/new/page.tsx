@@ -791,7 +791,7 @@ export default function NewClientWizardPage() {
                   </div>
                   <p className="mt-3 text-xs text-amber-600 dark:text-amber-400 flex items-center gap-1">
                     <span className="inline-block w-1 h-1 rounded-full bg-amber-500"></span>
-                    Las sugerencias son generadas por IA. Revisa y elimina cualquier cuenta que no sea relevante antes de continuar.
+                    Las sugerencias son generadas por un modelo experimental. Revisa y elimina cualquier cuenta que no sea relevante antes de continuar.
                   </p>
                 </div>
 
