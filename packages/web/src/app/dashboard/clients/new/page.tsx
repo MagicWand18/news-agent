@@ -286,6 +286,7 @@ export default function NewClientWizardPage() {
         description: description || undefined,
         industry: industry || undefined,
         existingKeywords,
+        competitors, // Pasar competidores ya identificados
       });
 
       // Pre-poblar hashtags evitando duplicados
@@ -773,7 +774,7 @@ export default function NewClientWizardPage() {
                     <button
                       onClick={handleSuggestWithAI}
                       disabled={isLoadingHashtagSuggestions}
-                      className="flex items-center gap-2 rounded-lg bg-gradient-to-r from-purple-600 to-pink-600 px-4 py-2 text-sm font-medium text-white hover:from-purple-700 hover:to-pink-700 disabled:opacity-50 transition-all"
+                      className="flex items-center justify-center gap-2 rounded-lg bg-gradient-to-r from-purple-600 to-pink-600 px-4 py-2 text-sm font-medium text-white hover:from-purple-700 hover:to-pink-700 disabled:opacity-50 transition-all min-w-[145px]"
                     >
                       {isLoadingHashtagSuggestions ? (
                         <>
@@ -788,6 +789,10 @@ export default function NewClientWizardPage() {
                       )}
                     </button>
                   </div>
+                  <p className="mt-3 text-xs text-amber-600 dark:text-amber-400 flex items-center gap-1">
+                    <span className="inline-block w-1 h-1 rounded-full bg-amber-500"></span>
+                    Las sugerencias son generadas por IA. Revisa y elimina cualquier cuenta que no sea relevante antes de continuar.
+                  </p>
                 </div>
 
                 {/* Cuentas a monitorear */}

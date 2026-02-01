@@ -30,6 +30,7 @@ export const socialRouter = router({
         description: z.string().optional(),
         industry: z.string().optional(),
         existingKeywords: z.array(z.string()).optional(),
+        competitors: z.array(z.string()).optional(),
       })
     )
     .mutation(async ({ input }) => {
@@ -37,7 +38,11 @@ export const socialRouter = router({
       const { getAnthropicClient, config } = await import("@mediabot/shared");
 
       const keywordsContext = input.existingKeywords?.length
-        ? `\n\nKeywords de monitoreo de noticias actuales:\n${input.existingKeywords.slice(0, 15).join(", ")}`
+        ? `\n\nKeywords de monitoreo actuales:\n${input.existingKeywords.slice(0, 15).join(", ")}`
+        : "";
+
+      const competitorsContext = input.competitors?.length
+        ? `\n\nCOMPETIDORES YA IDENTIFICADOS (USAR ESTOS, no inventar otros):\n${input.competitors.join(", ")}`
         : "";
 
       const message = await getAnthropicClient().messages.create({
@@ -51,14 +56,17 @@ export const socialRouter = router({
 CLIENTE:
 Nombre: ${input.clientName}
 Descripcion: ${input.description || "No proporcionada"}
-Industria: ${input.industry || "No especificada"}${keywordsContext}
+Industria: ${input.industry || "No especificada"}${keywordsContext}${competitorsContext}
 
 Genera hashtags y cuentas de redes sociales relevantes para monitorear a este cliente.
 
-REGLAS:
+REGLAS IMPORTANTES:
 - Los hashtags deben ser populares y relevantes en Mexico/Latam
 - Incluir hashtags genericos de la industria y especificos del cliente
-- Sugerir cuentas de competidores, influencers del sector, medios relevantes
+- Para cuentas sugeridas: PRIORIZA los competidores ya identificados arriba
+- Solo sugiere cuentas de personas/empresas VERIFICADAS y conocidas
+- NO inventes handles de Twitter - deben ser cuentas reales y relevantes
+- Incluir medios de comunicacion locales y nacionales relevantes
 - Considerar Twitter/X, Instagram y TikTok
 - No incluir el simbolo # en los hashtags
 
@@ -83,7 +91,7 @@ Responde SOLO en JSON con este formato:
 
 Genera:
 - 8-15 hashtags variados (mezcla de genericos e industria)
-- 3-6 cuentas sugeridas (competidores, influencers, medios)`,
+- 3-6 cuentas sugeridas (basadas en competidores identificados y medios relevantes)`,
           },
         ],
       });
