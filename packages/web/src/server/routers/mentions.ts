@@ -74,18 +74,17 @@ export const mentionsRouter = router({
     .input(z.object({ id: z.string() }))
     .query(async ({ input, ctx }) => {
       // Super Admin puede ver cualquier mención
-      const whereClause = ctx.user.isSuperAdmin
-        ? { id: input.id }
-        : { id: input.id, client: { orgId: ctx.user.orgId } };
+      const mention = ctx.user.isSuperAdmin
+        ? await prisma.mention.findFirst({
+            where: { id: input.id },
+            include: { article: true, client: true, tasks: true },
+          })
+        : await prisma.mention.findFirst({
+            where: { id: input.id, client: { orgId: ctx.user.orgId! } },
+            include: { article: true, client: true, tasks: true },
+          });
 
-      return prisma.mention.findFirst({
-        where: whereClause,
-        include: {
-          article: true,
-          client: true,
-          tasks: true,
-        },
-      });
+      return mention;
     }),
 
   generateResponse: protectedProcedure
