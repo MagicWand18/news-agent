@@ -216,6 +216,20 @@ class EnsembleDataClient {
   }
 
   /**
+   * Obtiene tweets recientes de un usuario por ID numérico.
+   * Endpoint: /twitter/user/tweets
+   * Usar cuando se tiene el platformUserId cacheado.
+   */
+  async getTwitterUserTweetsById(userId: string, maxResults: number = 20): Promise<SocialPost[]> {
+    const response = await this.request<{ tweets: TwitterSearchResult[] }>("/twitter/user/tweets", {
+      id: userId,
+      max_results: maxResults,
+    });
+
+    return (response.data.tweets || []).map((tweet) => this.normalizeTwitterPost(tweet));
+  }
+
+  /**
    * Obtiene información de un usuario de Twitter.
    * Endpoint: /twitter/user/details
    */
@@ -256,6 +270,20 @@ class EnsembleDataClient {
   async getInstagramUserPosts(username: string, maxResults: number = 12): Promise<SocialPost[]> {
     const response = await this.request<{ posts: InstagramPost[] }>("/instagram/user/posts", {
       username,
+      depth: Math.min(maxResults, 24),
+    });
+
+    return (response.data.posts || []).map((post) => this.normalizeInstagramPost(post));
+  }
+
+  /**
+   * Obtiene posts de un usuario de Instagram por ID numérico.
+   * Endpoint: /instagram/user/posts
+   * Usar cuando se tiene el platformUserId cacheado.
+   */
+  async getInstagramUserPostsById(userId: string, maxResults: number = 12): Promise<SocialPost[]> {
+    const response = await this.request<{ posts: InstagramPost[] }>("/instagram/user/posts", {
+      user_id: userId,
       depth: Math.min(maxResults, 24),
     });
 

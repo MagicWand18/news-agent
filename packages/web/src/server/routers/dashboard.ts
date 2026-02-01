@@ -194,4 +194,124 @@ export const dashboardRouter = router({
         })),
       };
     }),
+
+  /**
+   * Estadísticas de redes sociales para el dashboard principal.
+   */
+  getSocialDashboardStats: protectedProcedure.query(async ({ ctx }) => {
+    const orgId = ctx.user.orgId;
+    const last7d = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000);
+
+    const [total7d, byPlatform] = await Promise.all([
+      prisma.socialMention.count({
+        where: {
+          client: { orgId },
+          createdAt: { gte: last7d },
+        },
+      }),
+      prisma.socialMention.groupBy({
+        by: ["platform"],
+        where: {
+          client: { orgId },
+          createdAt: { gte: last7d },
+        },
+        _count: { id: true },
+      }),
+    ]);
+
+    return {
+      total7d,
+      byPlatform: {
+        TWITTER: byPlatform.find((p) => p.platform === "TWITTER")?._count.id ?? 0,
+        INSTAGRAM: byPlatform.find((p) => p.platform === "INSTAGRAM")?._count.id ?? 0,
+        TIKTOK: byPlatform.find((p) => p.platform === "TIKTOK")?._count.id ?? 0,
+      },
+    };
+  }),
+
+  /**
+   * Analytics de redes sociales para la página de analytics.
+   */
+  getSocialAnalytics: protectedProcedure
+    .input(
+      z.object({
+        clientId: z.string().optional(),
+        days: z.number().min(7).max(90).default(30),
+      })
+    )
+    .query(async ({ input, ctx }) => {
+      const orgId = ctx.user.orgId;
+      const since = new Date(Date.now() - input.days * 24 * 60 * 60 * 1000);
+
+      const clientFilter = input.clientId
+        ? Prisma.sql`AND sm."clientId" = ${input.clientId}`
+        : Prisma.empty;
+
+      const clientWhereClause = input.clientId
+        ? { clientId: input.clientId, client: { orgId } }
+        : { client: { orgId } };
+
+      const [mentionsByDay, byPlatform, bySentiment, topAuthors] = await Promise.all([
+        // Menciones por día
+        prisma.$queryRaw<{ date: string; count: bigint }[]>`
+          SELECT DATE(sm."createdAt") as date, COUNT(*) as count
+          FROM "SocialMention" sm
+          JOIN "Client" c ON sm."clientId" = c.id
+          WHERE c."orgId" = ${orgId}
+          AND sm."createdAt" >= ${since}
+          ${clientFilter}
+          GROUP BY DATE(sm."createdAt")
+          ORDER BY date ASC
+        `,
+        // Por plataforma
+        prisma.socialMention.groupBy({
+          by: ["platform"],
+          where: {
+            ...clientWhereClause,
+            createdAt: { gte: since },
+          },
+          _count: { id: true },
+        }),
+        // Por sentimiento
+        prisma.socialMention.groupBy({
+          by: ["sentiment"],
+          where: {
+            ...clientWhereClause,
+            createdAt: { gte: since },
+          },
+          _count: { id: true },
+        }),
+        // Top autores por engagement
+        prisma.$queryRaw<{ handle: string; platform: string; count: bigint; totalEngagement: bigint }[]>`
+          SELECT sm."authorHandle" as handle, sm.platform, COUNT(*) as count,
+                 SUM(COALESCE(sm.likes, 0) + COALESCE(sm.comments, 0) + COALESCE(sm.shares, 0)) as "totalEngagement"
+          FROM "SocialMention" sm
+          JOIN "Client" c ON sm."clientId" = c.id
+          WHERE c."orgId" = ${orgId}
+          AND sm."createdAt" >= ${since}
+          AND sm."authorHandle" IS NOT NULL
+          ${clientFilter}
+          GROUP BY sm."authorHandle", sm.platform
+          ORDER BY "totalEngagement" DESC, count DESC
+          LIMIT 10
+        `,
+      ]);
+
+      return {
+        mentionsByDay: mentionsByDay.map((d) => ({
+          date: d.date,
+          count: Number(d.count),
+        })),
+        byPlatform: Object.fromEntries(byPlatform.map((p) => [p.platform, p._count.id])),
+        bySentiment: Object.fromEntries(
+          bySentiment.map((s) => [s.sentiment || "UNKNOWN", s._count.id])
+        ),
+        topAuthors: topAuthors.map((a) => ({
+          handle: a.handle,
+          platform: a.platform,
+          count: Number(a.count),
+          totalEngagement: Number(a.totalEngagement),
+        })),
+      };
+    }),
 });

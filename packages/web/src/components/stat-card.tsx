@@ -8,11 +8,12 @@ interface StatCardProps {
   value: string | number;
   icon: React.ReactNode;
   trend?: { value: number; label: string };
+  subtitle?: React.ReactNode;
   className?: string;
   animate?: boolean;
 }
 
-export function StatCard({ title, value, icon, trend, className, animate = false }: StatCardProps) {
+export function StatCard({ title, value, icon, trend, subtitle, className, animate = false }: StatCardProps) {
   const numericValue = typeof value === "number" ? value : parseInt(value, 10);
   const isNumeric = !isNaN(numericValue);
   const animatedValue = useCountUp(isNumeric && animate ? numericValue : 0, 1200);
@@ -47,6 +48,7 @@ export function StatCard({ title, value, icon, trend, className, animate = false
               <span className="text-xs text-gray-400 dark:text-gray-500">{trend.label}</span>
             </div>
           )}
+          {subtitle}
         </div>
         <div className="rounded-xl bg-brand-50 p-3 text-brand-600 transition-transform group-hover:scale-110 dark:bg-brand-900/30 dark:text-brand-400">
           {icon}

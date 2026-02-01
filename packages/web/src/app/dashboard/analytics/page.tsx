@@ -18,7 +18,7 @@ import {
   Line,
   Legend,
 } from "recharts";
-import { BarChart3, Users, Calendar, Tag, Zap } from "lucide-react";
+import { BarChart3, Users, Calendar, Tag, Zap, Share2 } from "lucide-react";
 import { FilterBar, FilterSelect } from "@/components/filters";
 
 const SENTIMENT_COLORS = {
@@ -40,6 +40,18 @@ const URGENCY_LABELS: Record<string, string> = {
   HIGH: "Alto",
   MEDIUM: "Medio",
   LOW: "Bajo",
+};
+
+const PLATFORM_COLORS: Record<string, string> = {
+  TWITTER: "#000000",
+  INSTAGRAM: "#E4405F",
+  TIKTOK: "#25F4EE",
+};
+
+const PLATFORM_LABELS: Record<string, string> = {
+  TWITTER: "Twitter/X",
+  INSTAGRAM: "Instagram",
+  TIKTOK: "TikTok",
 };
 
 const PERIOD_OPTIONS = [
@@ -85,6 +97,10 @@ export default function AnalyticsPage() {
     { refetchOnWindowFocus: false }
   );
   const topics = trpc.intelligence.getTopics.useQuery(
+    { clientId: clientId || undefined, days: Number(days) },
+    { refetchOnWindowFocus: false }
+  );
+  const socialAnalytics = trpc.dashboard.getSocialAnalytics.useQuery(
     { clientId: clientId || undefined, days: Number(days) },
     { refetchOnWindowFocus: false }
   );
@@ -554,6 +570,174 @@ export default function AnalyticsPage() {
           )}
         </div>
       </div>
+
+      {/* Row 5: Social Media Analytics */}
+      <div className="rounded-xl border border-gray-100 dark:border-gray-700 bg-white dark:bg-gray-800 p-6 shadow-sm dark:shadow-gray-900/20">
+        <div className="mb-4 flex items-center gap-2">
+          <Share2 className="h-5 w-5 text-purple-500" />
+          <h3 className="font-semibold text-gray-900 dark:text-white">Redes Sociales</h3>
+        </div>
+        <p className="mb-6 text-sm text-gray-500 dark:text-gray-400">
+          Menciones en Twitter/X, Instagram y TikTok
+        </p>
+
+        {socialAnalytics.isLoading ? (
+          <LoadingSpinner />
+        ) : (
+          <div className="grid grid-cols-1 gap-6 lg:grid-cols-3">
+            {/* Social Mentions by Day */}
+            <div>
+              <p className="mb-2 text-sm font-medium text-gray-700 dark:text-gray-300">
+                Menciones por día
+              </p>
+              {(socialAnalytics.data?.mentionsByDay?.length ?? 0) > 0 ? (
+                <ResponsiveContainer width="100%" height={200}>
+                  <AreaChart data={socialAnalytics.data?.mentionsByDay ?? []}>
+                    <defs>
+                      <linearGradient id="socialGradient" x1="0" y1="0" x2="0" y2="1">
+                        <stop offset="5%" stopColor="#8b5cf6" stopOpacity={0.2} />
+                        <stop offset="95%" stopColor="#8b5cf6" stopOpacity={0} />
+                      </linearGradient>
+                    </defs>
+                    <XAxis
+                      dataKey="date"
+                      tickFormatter={(v) =>
+                        new Date(v).toLocaleDateString("es-ES", {
+                          day: "2-digit",
+                          month: "short",
+                        })
+                      }
+                      axisLine={false}
+                      tickLine={false}
+                      tick={{ fontSize: 10, fill: "#9ca3af" }}
+                    />
+                    <YAxis
+                      axisLine={false}
+                      tickLine={false}
+                      tick={{ fontSize: 10, fill: "#9ca3af" }}
+                      width={30}
+                    />
+                    <Tooltip
+                      contentStyle={{
+                        borderRadius: "8px",
+                        border: "1px solid #e5e7eb",
+                      }}
+                    />
+                    <Area
+                      type="monotone"
+                      dataKey="count"
+                      name="Menciones"
+                      stroke="#8b5cf6"
+                      strokeWidth={2}
+                      fill="url(#socialGradient)"
+                      dot={{ fill: "#8b5cf6", r: 2 }}
+                    />
+                  </AreaChart>
+                </ResponsiveContainer>
+              ) : (
+                <EmptyStateMini message="Sin datos" />
+              )}
+            </div>
+
+            {/* Platform Distribution */}
+            <div>
+              <p className="mb-2 text-sm font-medium text-gray-700 dark:text-gray-300">
+                Por plataforma
+              </p>
+              {Object.keys(socialAnalytics.data?.byPlatform ?? {}).length > 0 &&
+              Object.values(socialAnalytics.data?.byPlatform ?? {}).some((v) => v > 0) ? (
+                <>
+                  <ResponsiveContainer width="100%" height={140}>
+                    <PieChart>
+                      <Pie
+                        data={Object.entries(socialAnalytics.data?.byPlatform ?? {})
+                          .filter(([, count]) => count > 0)
+                          .map(([platform, count]) => ({
+                            name: PLATFORM_LABELS[platform] || platform,
+                            value: count,
+                            fill: PLATFORM_COLORS[platform] || "#6b7280",
+                          }))}
+                        dataKey="value"
+                        nameKey="name"
+                        cx="50%"
+                        cy="50%"
+                        innerRadius={35}
+                        outerRadius={55}
+                        paddingAngle={2}
+                      >
+                        {Object.entries(socialAnalytics.data?.byPlatform ?? {})
+                          .filter(([, count]) => count > 0)
+                          .map(([platform]) => (
+                            <Cell
+                              key={platform}
+                              fill={PLATFORM_COLORS[platform] || "#6b7280"}
+                            />
+                          ))}
+                      </Pie>
+                      <Tooltip />
+                    </PieChart>
+                  </ResponsiveContainer>
+                  <div className="mt-2 flex justify-center gap-4">
+                    {Object.entries(socialAnalytics.data?.byPlatform ?? {})
+                      .filter(([, count]) => count > 0)
+                      .map(([platform, count]) => (
+                        <div key={platform} className="flex items-center gap-1.5 text-xs">
+                          <div
+                            className="h-2 w-2 rounded-full"
+                            style={{ backgroundColor: PLATFORM_COLORS[platform] || "#6b7280" }}
+                          />
+                          <span className="text-gray-600 dark:text-gray-300">
+                            {PLATFORM_LABELS[platform] || platform}
+                          </span>
+                          <span className="font-semibold text-gray-900 dark:text-white">
+                            {count}
+                          </span>
+                        </div>
+                      ))}
+                  </div>
+                </>
+              ) : (
+                <EmptyStateMini message="Sin datos" />
+              )}
+            </div>
+
+            {/* Top Authors */}
+            <div>
+              <p className="mb-2 text-sm font-medium text-gray-700 dark:text-gray-300">
+                Top autores
+              </p>
+              {(socialAnalytics.data?.topAuthors?.length ?? 0) > 0 ? (
+                <div className="space-y-2">
+                  {socialAnalytics.data?.topAuthors?.slice(0, 5).map((author, index) => (
+                    <div
+                      key={`${author.platform}-${author.handle}`}
+                      className="flex items-center gap-2 text-sm"
+                    >
+                      <span className="flex h-5 w-5 items-center justify-center rounded-full bg-gray-100 text-xs font-medium text-gray-600 dark:bg-gray-700 dark:text-gray-300">
+                        {index + 1}
+                      </span>
+                      <span
+                        className="h-2 w-2 rounded-full"
+                        style={{
+                          backgroundColor: PLATFORM_COLORS[author.platform] || "#6b7280",
+                        }}
+                      />
+                      <span className="flex-1 truncate text-gray-700 dark:text-gray-300">
+                        @{author.handle}
+                      </span>
+                      <span className="text-xs text-gray-500 dark:text-gray-400">
+                        {author.count} post{author.count !== 1 ? "s" : ""}
+                      </span>
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <EmptyStateMini message="Sin datos" />
+              )}
+            </div>
+          </div>
+        )}
+      </div>
     </div>
   );
 }
@@ -576,6 +760,14 @@ function EmptyState({ message }: { message: string }) {
       <p className="mt-1 text-xs text-gray-400">
         Los datos apareceran cuando haya menciones en el periodo seleccionado
       </p>
+    </div>
+  );
+}
+
+function EmptyStateMini({ message }: { message: string }) {
+  return (
+    <div className="flex h-[200px] items-center justify-center text-sm text-gray-400 dark:text-gray-500">
+      {message}
     </div>
   );
 }

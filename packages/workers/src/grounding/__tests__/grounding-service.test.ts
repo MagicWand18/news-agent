@@ -73,10 +73,9 @@ describe("grounding-service", () => {
     vi.mocked(validateAndEnrichUrl).mockImplementation(async (url: string, title?: string) => ({
       valid: true,
       finalUrl: url,
-      url: url,
       title: title || "Test Title",
       source: new URL(url).hostname.replace("www.", ""),
-      status: 200,
+      isGenericTitle: false,
     }));
   });
 

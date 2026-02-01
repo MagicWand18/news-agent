@@ -3,7 +3,7 @@
 import { trpc } from "@/lib/trpc";
 import { StatCard, StatCardSkeleton } from "@/components/stat-card";
 import { MentionTimeline, MentionTimelineSkeleton } from "@/components/mention-timeline";
-import { LayoutDashboard, Newspaper, Users, CheckSquare } from "lucide-react";
+import { LayoutDashboard, Newspaper, Users, CheckSquare, Share2 } from "lucide-react";
 import {
   AreaChart,
   Area,
@@ -30,9 +30,24 @@ const SENTIMENT_LABELS: Record<string, string> = {
   MIXED: "Mixto",
 };
 
+const PLATFORM_COLORS: Record<string, string> = {
+  TWITTER: "#000000",
+  INSTAGRAM: "#E4405F",
+  TIKTOK: "#25F4EE",
+};
+
+const PLATFORM_LABELS: Record<string, string> = {
+  TWITTER: "X",
+  INSTAGRAM: "IG",
+  TIKTOK: "TT",
+};
+
 export default function DashboardPage() {
   const stats = trpc.dashboard.stats.useQuery();
   const recent = trpc.dashboard.recentMentions.useQuery();
+  const socialStats = trpc.dashboard.getSocialDashboardStats.useQuery(undefined, {
+    refetchOnWindowFocus: false,
+  });
 
   return (
     <div className="space-y-8">
@@ -44,9 +59,10 @@ export default function DashboardPage() {
       </div>
 
       {/* KPI Cards */}
-      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
+      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-5">
         {stats.isLoading ? (
           <>
+            <StatCardSkeleton />
             <StatCardSkeleton />
             <StatCardSkeleton />
             <StatCardSkeleton />
@@ -71,6 +87,27 @@ export default function DashboardPage() {
               value={stats.data?.mentions7d ?? 0}
               icon={<LayoutDashboard className="h-6 w-6" />}
               animate
+            />
+            <StatCard
+              title="Social (7d)"
+              value={socialStats.data?.total7d ?? 0}
+              icon={<Share2 className="h-6 w-6" />}
+              animate
+              subtitle={
+                socialStats.data ? (
+                  <div className="mt-1 flex gap-2 text-xs">
+                    <span className="text-gray-500 dark:text-gray-400">
+                      X:{socialStats.data.byPlatform.TWITTER}
+                    </span>
+                    <span className="text-pink-500">
+                      IG:{socialStats.data.byPlatform.INSTAGRAM}
+                    </span>
+                    <span className="text-gray-500 dark:text-gray-400">
+                      TT:{socialStats.data.byPlatform.TIKTOK}
+                    </span>
+                  </div>
+                ) : undefined
+              }
             />
             <StatCard
               title="Tareas pendientes"

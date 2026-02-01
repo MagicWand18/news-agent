@@ -156,6 +156,130 @@ Genera:
     }),
 
   /**
+   * Lista todas las menciones sociales con filtros.
+   * Para el dashboard global de redes sociales.
+   */
+  listAllSocialMentions: protectedProcedure
+    .input(
+      z.object({
+        clientId: z.string().optional(),
+        platform: SocialPlatformEnum.optional(),
+        sentiment: z.enum(["POSITIVE", "NEGATIVE", "NEUTRAL", "MIXED"]).optional(),
+        sourceType: z.enum(["HANDLE", "HASHTAG", "KEYWORD"]).optional(),
+        dateFrom: z.date().optional(),
+        dateTo: z.date().optional(),
+        cursor: z.string().optional(),
+        limit: z.number().min(1).max(50).default(30),
+      })
+    )
+    .query(async ({ input, ctx }) => {
+      const mentions = await prisma.socialMention.findMany({
+        where: {
+          client: { orgId: ctx.user.orgId },
+          ...(input.clientId && { clientId: input.clientId }),
+          ...(input.platform && { platform: input.platform }),
+          ...(input.sentiment && { sentiment: input.sentiment }),
+          ...(input.sourceType && { sourceType: input.sourceType }),
+          ...(input.dateFrom && { createdAt: { gte: input.dateFrom } }),
+          ...(input.dateTo && { createdAt: { lte: input.dateTo } }),
+          ...(input.cursor && { id: { lt: input.cursor } }),
+        },
+        include: {
+          client: { select: { id: true, name: true } },
+        },
+        orderBy: { createdAt: "desc" },
+        take: input.limit + 1,
+      });
+
+      const hasMore = mentions.length > input.limit;
+      const items = hasMore ? mentions.slice(0, -1) : mentions;
+      const nextCursor = hasMore ? items[items.length - 1]?.id : undefined;
+
+      return {
+        mentions: items,
+        nextCursor,
+        hasMore,
+      };
+    }),
+
+  /**
+   * Obtiene estadísticas globales de menciones sociales.
+   */
+  getGlobalSocialStats: protectedProcedure
+    .input(
+      z.object({
+        clientId: z.string().optional(),
+        days: z.number().min(1).max(90).default(7),
+      })
+    )
+    .query(async ({ input, ctx }) => {
+      const since = new Date(Date.now() - input.days * 24 * 60 * 60 * 1000);
+
+      const [total, byPlatform, bySentiment, bySourceType] = await Promise.all([
+        prisma.socialMention.count({
+          where: {
+            client: { orgId: ctx.user.orgId },
+            ...(input.clientId && { clientId: input.clientId }),
+            createdAt: { gte: since },
+          },
+        }),
+        prisma.socialMention.groupBy({
+          by: ["platform"],
+          where: {
+            client: { orgId: ctx.user.orgId },
+            ...(input.clientId && { clientId: input.clientId }),
+            createdAt: { gte: since },
+          },
+          _count: { id: true },
+        }),
+        prisma.socialMention.groupBy({
+          by: ["sentiment"],
+          where: {
+            client: { orgId: ctx.user.orgId },
+            ...(input.clientId && { clientId: input.clientId }),
+            createdAt: { gte: since },
+          },
+          _count: { id: true },
+        }),
+        prisma.socialMention.groupBy({
+          by: ["sourceType"],
+          where: {
+            client: { orgId: ctx.user.orgId },
+            ...(input.clientId && { clientId: input.clientId }),
+            createdAt: { gte: since },
+          },
+          _count: { id: true },
+        }),
+      ]);
+
+      return {
+        total,
+        byPlatform: Object.fromEntries(byPlatform.map((p) => [p.platform, p._count.id])),
+        bySentiment: Object.fromEntries(bySentiment.map((s) => [s.sentiment || "UNKNOWN", s._count.id])),
+        bySourceType: Object.fromEntries(bySourceType.map((s) => [s.sourceType, s._count.id])),
+      };
+    }),
+
+  /**
+   * Obtiene una mención social por ID.
+   */
+  getSocialMentionById: protectedProcedure
+    .input(z.object({ id: z.string() }))
+    .query(async ({ input, ctx }) => {
+      const mention = await prisma.socialMention.findFirst({
+        where: {
+          id: input.id,
+          client: { orgId: ctx.user.orgId },
+        },
+        include: {
+          client: { select: { id: true, name: true } },
+        },
+      });
+
+      return mention;
+    }),
+
+  /**
    * Obtiene las menciones sociales de un cliente.
    */
   getSocialMentions: protectedProcedure
@@ -202,6 +326,44 @@ Genera:
         items,
         nextCursor,
         hasMore,
+      };
+    }),
+
+  /**
+   * Obtiene tendencia de menciones sociales por día.
+   * Útil para gráficas de área/línea.
+   */
+  getSocialTrend: protectedProcedure
+    .input(
+      z.object({
+        clientId: z.string().optional(),
+        days: z.number().min(1).max(90).default(7),
+      })
+    )
+    .query(async ({ input, ctx }) => {
+      const since = new Date(Date.now() - input.days * 24 * 60 * 60 * 1000);
+
+      const clientFilter = input.clientId
+        ? { clientId: input.clientId }
+        : { client: { orgId: ctx.user.orgId } };
+
+      // Agrupar por fecha
+      const trend = await prisma.$queryRaw<{ date: string; count: bigint }[]>`
+        SELECT DATE(sm."createdAt") as date, COUNT(*) as count
+        FROM "SocialMention" sm
+        JOIN "Client" c ON sm."clientId" = c.id
+        WHERE c."orgId" = ${ctx.user.orgId}
+        ${input.clientId ? prisma.$queryRaw`AND sm."clientId" = ${input.clientId}` : prisma.$queryRaw``}
+        AND sm."createdAt" >= ${since}
+        GROUP BY DATE(sm."createdAt")
+        ORDER BY date ASC
+      `;
+
+      return {
+        trend: trend.map((t) => ({
+          date: t.date,
+          count: Number(t.count),
+        })),
       };
     }),
 

@@ -18,6 +18,7 @@ import {
   Sun,
   Moon,
   Rss,
+  Share2,
 } from "lucide-react";
 import { signOut, useSession } from "next-auth/react";
 import { useState } from "react";
@@ -28,6 +29,7 @@ const navigation = [
   { name: "Dashboard", href: "/dashboard", icon: LayoutDashboard },
   { name: "Clientes", href: "/dashboard/clients", icon: Users },
   { name: "Menciones", href: "/dashboard/mentions", icon: Newspaper },
+  { name: "Redes Sociales", href: "/dashboard/social-mentions", icon: Share2 },
   { name: "Analiticas", href: "/dashboard/analytics", icon: BarChart3 },
   { name: "Intelligence", href: "/dashboard/intelligence", icon: Brain },
   { name: "Fuentes", href: "/dashboard/sources", icon: Rss },

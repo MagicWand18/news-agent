@@ -106,7 +106,14 @@ export async function collectSocial(): Promise<CollectionStats> {
         await delay(API_DELAY_MS);
 
         try {
-          const posts = await collectFromHandle(client, account.platform, account.handle);
+          // Usar platformUserId si existe, si no resolverlo y cachearlo
+          let userId = account.platformUserId;
+          if (!userId && (account.platform === "TWITTER" || account.platform === "INSTAGRAM")) {
+            userId = await resolveAndSaveUserId(client, account.id, account.platform, account.handle);
+            await delay(API_DELAY_MS); // Delay extra después de resolver
+          }
+
+          const posts = await collectFromHandle(client, account.platform, account.handle, userId);
           const newPosts = await savePosts(
             posts,
             clientData.id,
@@ -174,19 +181,58 @@ export async function collectSocial(): Promise<CollectionStats> {
 }
 
 /**
+ * Resuelve y guarda el platformUserId si no existe.
+ * Retorna el ID o null si no se pudo resolver.
+ */
+async function resolveAndSaveUserId(
+  client: ReturnType<typeof getEnsembleDataClient>,
+  accountId: string,
+  platform: PrismaSocialPlatform,
+  handle: string
+): Promise<string | null> {
+  try {
+    const result = await client.validateHandle(platform, handle);
+    if (result.valid && result.platformUserId) {
+      // Cachear el ID en la base de datos
+      await prisma.socialAccount.update({
+        where: { id: accountId },
+        data: { platformUserId: result.platformUserId },
+      });
+      console.log(`  [Social] Cached platformUserId for @${handle}: ${result.platformUserId}`);
+      return result.platformUserId;
+    }
+    return null;
+  } catch (error) {
+    console.error(`  [Social] Failed to resolve userId for @${handle}:`, error instanceof Error ? error.message : error);
+    return null;
+  }
+}
+
+/**
  * Recolecta posts de un handle específico.
+ * Usa platformUserId si está disponible (más confiable), si no usa username.
  */
 async function collectFromHandle(
   client: ReturnType<typeof getEnsembleDataClient>,
   platform: PrismaSocialPlatform,
-  handle: string
+  handle: string,
+  platformUserId: string | null
 ): Promise<SocialPost[]> {
   switch (platform) {
     case "TWITTER":
+      // Usar ID si está disponible
+      if (platformUserId) {
+        return client.getTwitterUserTweetsById(platformUserId, MAX_POSTS_PER_SOURCE);
+      }
       return client.getTwitterUserTweets(handle, MAX_POSTS_PER_SOURCE);
     case "INSTAGRAM":
+      // Usar ID si está disponible
+      if (platformUserId) {
+        return client.getInstagramUserPostsById(platformUserId, MAX_POSTS_PER_SOURCE);
+      }
       return client.getInstagramUserPosts(handle, MAX_POSTS_PER_SOURCE);
     case "TIKTOK":
+      // TikTok usa username directamente
       return client.getTikTokUserPosts(handle, MAX_POSTS_PER_SOURCE);
     default:
       return [];
@@ -366,7 +412,14 @@ export async function collectSocialForClient(clientId: string): Promise<{
   for (const account of clientData.socialAccounts) {
     await delay(API_DELAY_MS);
     try {
-      const posts = await collectFromHandle(apiClient, account.platform, account.handle);
+      // Usar platformUserId si existe, si no resolverlo y cachearlo
+      let userId = account.platformUserId;
+      if (!userId && (account.platform === "TWITTER" || account.platform === "INSTAGRAM")) {
+        userId = await resolveAndSaveUserId(apiClient, account.id, account.platform, account.handle);
+        await delay(API_DELAY_MS);
+      }
+
+      const posts = await collectFromHandle(apiClient, account.platform, account.handle, userId);
       const newPosts = await savePosts(posts, clientId, "HANDLE", account.handle);
       postsCollected += posts.length;
       postsNew += newPosts;

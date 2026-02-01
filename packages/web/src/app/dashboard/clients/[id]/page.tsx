@@ -2,6 +2,7 @@
 
 import { trpc } from "@/lib/trpc";
 import { MentionRow } from "@/components/mention-row";
+import { SocialMentionRow, SocialMentionRowSkeleton } from "@/components/social-mention-row";
 import { useParams, useRouter } from "next/navigation";
 import { useState } from "react";
 import { ArrowLeft, Plus, X, BarChart3, Target, TrendingUp, TrendingDown, Minus, Trash2, Settings, Search, Calendar, Loader2, MessageCircle, Building2, Users, User } from "lucide-react";
@@ -226,6 +227,12 @@ export default function ClientDetailPage() {
 
       {/* Telegram Recipients */}
       <TelegramRecipientsSection clientId={id} clientName={c.name} />
+
+      {/* Social Stats Section */}
+      <SocialStatsSection clientId={id} />
+
+      {/* Social Mentions Section */}
+      <SocialMentionsSection clientId={id} clientName={c.name} />
 
       {/* Recent Mentions */}
       <div className="rounded-xl bg-white dark:bg-gray-800 p-6 shadow-sm dark:shadow-gray-900/20">
@@ -1229,6 +1236,323 @@ function ManualGroundingButton({
           </>
         )}
       </button>
+    </div>
+  );
+}
+
+// Colores de plataformas sociales para gráficas
+const SOCIAL_PLATFORM_COLORS: Record<string, string> = {
+  TWITTER: "#000000",
+  INSTAGRAM: "#E4405F",
+  TIKTOK: "#000000",
+};
+
+/**
+ * Sección de estadísticas de redes sociales con gráficas.
+ */
+function SocialStatsSection({ clientId }: { clientId: string }) {
+  const [days, setDays] = useState(7);
+
+  const stats = trpc.social.getSocialStats.useQuery(
+    { clientId, days },
+    { refetchOnWindowFocus: false }
+  );
+
+  const trend = trpc.social.getSocialTrend.useQuery(
+    { clientId, days },
+    { refetchOnWindowFocus: false }
+  );
+
+  if (stats.isLoading || trend.isLoading) {
+    return (
+      <div className="rounded-xl bg-white dark:bg-gray-800 p-6 shadow-sm dark:shadow-gray-900/20">
+        <h3 className="mb-4 font-semibold text-gray-900 dark:text-white flex items-center gap-2">
+          <BarChart3 className="h-5 w-5 text-brand-600" />
+          Redes Sociales
+        </h3>
+        <div className="flex h-[200px] items-center justify-center">
+          <div className="h-8 w-8 animate-spin rounded-full border-2 border-gray-200 dark:border-gray-600 border-t-brand-600" />
+        </div>
+      </div>
+    );
+  }
+
+  if (!stats.data) {
+    return null;
+  }
+
+  const { total, byPlatform, bySentiment } = stats.data;
+  const trendData = trend.data?.trend || [];
+
+  // Datos para el pie chart de plataformas
+  const pieData = Object.entries(byPlatform)
+    .filter(([, count]) => count > 0)
+    .map(([platform, count]) => ({
+      name: platform,
+      value: count,
+      fill: SOCIAL_PLATFORM_COLORS[platform] || "#6b7280",
+    }));
+
+  // Datos para el chart de tendencia
+  const chartTrendData = trendData.map((t) => ({
+    date: new Date(t.date).toLocaleDateString("es-ES", { day: "2-digit", month: "short" }),
+    count: t.count,
+  }));
+
+  const platformLabels: Record<string, string> = {
+    TWITTER: "Twitter/X",
+    INSTAGRAM: "Instagram",
+    TIKTOK: "TikTok",
+  };
+
+  return (
+    <div className="rounded-xl bg-white dark:bg-gray-800 p-6 shadow-sm dark:shadow-gray-900/20">
+      <div className="mb-4 flex items-center justify-between">
+        <div>
+          <h3 className="font-semibold text-gray-900 dark:text-white flex items-center gap-2">
+            <BarChart3 className="h-5 w-5 text-brand-600" />
+            Redes Sociales
+          </h3>
+          <p className="text-sm text-gray-500 dark:text-gray-400">Últimos {days} días</p>
+        </div>
+        <select
+          value={days}
+          onChange={(e) => setDays(Number(e.target.value))}
+          className="rounded-lg border border-gray-200 dark:border-gray-600 bg-white dark:bg-gray-700 px-3 py-1.5 text-sm text-gray-900 dark:text-white"
+        >
+          <option value={7}>7 días</option>
+          <option value={30}>30 días</option>
+          <option value={60}>60 días</option>
+        </select>
+      </div>
+
+      {/* Stats Cards */}
+      <div className="mb-6 grid grid-cols-2 gap-4 sm:grid-cols-4">
+        <div className="rounded-lg bg-gray-50 dark:bg-gray-700/50 p-4 text-center">
+          <p className="text-sm text-gray-500 dark:text-gray-400">Total</p>
+          <p className="text-2xl font-bold text-gray-900 dark:text-white">{total}</p>
+        </div>
+        {(["TWITTER", "INSTAGRAM", "TIKTOK"] as const).map((platform) => (
+          <div key={platform} className="rounded-lg bg-gray-50 dark:bg-gray-700/50 p-4 text-center">
+            <p className="text-sm text-gray-500 dark:text-gray-400">{platformLabels[platform]}</p>
+            <p className="text-2xl font-bold text-gray-900 dark:text-white">
+              {byPlatform[platform] || 0}
+            </p>
+          </div>
+        ))}
+      </div>
+
+      {total === 0 ? (
+        <div className="flex flex-col items-center justify-center py-8 text-center">
+          <div className="mb-3 flex h-12 w-12 items-center justify-center rounded-full bg-gray-100 dark:bg-gray-700">
+            <BarChart3 className="h-6 w-6 text-gray-400" />
+          </div>
+          <p className="text-sm text-gray-500 dark:text-gray-400">Sin menciones sociales en este período</p>
+          <p className="mt-1 text-xs text-gray-400 dark:text-gray-500">
+            Configura cuentas y hashtags para monitorear
+          </p>
+        </div>
+      ) : (
+        <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
+          {/* Donut Chart - Distribución por plataforma */}
+          <div>
+            <p className="mb-2 text-sm font-medium text-gray-700 dark:text-gray-300">Por plataforma</p>
+            {pieData.length > 0 ? (
+              <>
+                <ResponsiveContainer width="100%" height={180}>
+                  <PieChart>
+                    <Pie
+                      data={pieData}
+                      dataKey="value"
+                      nameKey="name"
+                      cx="50%"
+                      cy="50%"
+                      innerRadius={50}
+                      outerRadius={75}
+                      paddingAngle={2}
+                    >
+                      {pieData.map((entry, index) => (
+                        <Cell key={index} fill={entry.fill} />
+                      ))}
+                    </Pie>
+                    <Tooltip formatter={(value: number) => value} />
+                  </PieChart>
+                </ResponsiveContainer>
+                <div className="mt-2 grid grid-cols-3 gap-2">
+                  {pieData.map((entry) => (
+                    <div key={entry.name} className="flex items-center gap-2 text-xs">
+                      <div
+                        className="h-2.5 w-2.5 rounded-full"
+                        style={{ backgroundColor: entry.fill }}
+                      />
+                      <span className="truncate text-gray-600 dark:text-gray-300">
+                        {platformLabels[entry.name] || entry.name}
+                      </span>
+                      <span className="ml-auto font-semibold text-gray-900 dark:text-white">
+                        {entry.value}
+                      </span>
+                    </div>
+                  ))}
+                </div>
+              </>
+            ) : (
+              <div className="flex h-[180px] items-center justify-center text-gray-400 dark:text-gray-500">
+                Sin datos
+              </div>
+            )}
+          </div>
+
+          {/* Area Chart - Tendencia */}
+          <div>
+            <p className="mb-2 text-sm font-medium text-gray-700 dark:text-gray-300">Tendencia</p>
+            {chartTrendData.length > 0 ? (
+              <ResponsiveContainer width="100%" height={200}>
+                <AreaChart data={chartTrendData}>
+                  <defs>
+                    <linearGradient id="socialTrendGradient" x1="0" y1="0" x2="0" y2="1">
+                      <stop offset="5%" stopColor="#8b5cf6" stopOpacity={0.2} />
+                      <stop offset="95%" stopColor="#8b5cf6" stopOpacity={0} />
+                    </linearGradient>
+                  </defs>
+                  <XAxis
+                    dataKey="date"
+                    axisLine={false}
+                    tickLine={false}
+                    tick={{ fontSize: 11, fill: "#9ca3af" }}
+                  />
+                  <YAxis
+                    axisLine={false}
+                    tickLine={false}
+                    tick={{ fontSize: 11, fill: "#9ca3af" }}
+                    allowDecimals={false}
+                  />
+                  <Tooltip
+                    contentStyle={{ borderRadius: "8px", border: "1px solid #e5e7eb" }}
+                    formatter={(value: number) => [value, "Menciones"]}
+                  />
+                  <Area
+                    type="monotone"
+                    dataKey="count"
+                    stroke="#8b5cf6"
+                    strokeWidth={2}
+                    fill="url(#socialTrendGradient)"
+                    dot={{ fill: "#8b5cf6", r: 3 }}
+                  />
+                </AreaChart>
+              </ResponsiveContainer>
+            ) : (
+              <div className="flex h-[200px] items-center justify-center text-gray-400 dark:text-gray-500">
+                Sin datos de tendencia
+              </div>
+            )}
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+/**
+ * Sección de menciones sociales recientes con paginación.
+ */
+function SocialMentionsSection({ clientId, clientName }: { clientId: string; clientName: string }) {
+  const [pageSize, setPageSize] = useState(10);
+
+  const mentions = trpc.social.getSocialMentions.useQuery(
+    { clientId, days: 30, limit: pageSize },
+    { refetchOnWindowFocus: false }
+  );
+
+  if (mentions.isLoading) {
+    return (
+      <div className="rounded-xl bg-white dark:bg-gray-800 p-6 shadow-sm dark:shadow-gray-900/20">
+        <h3 className="mb-4 font-semibold text-gray-900 dark:text-white">Menciones Sociales Recientes</h3>
+        <div className="space-y-2">
+          {[1, 2, 3].map((i) => (
+            <SocialMentionRowSkeleton key={i} />
+          ))}
+        </div>
+      </div>
+    );
+  }
+
+  const data = mentions.data;
+  const items = data?.items || [];
+  const hasMore = data?.hasMore || false;
+
+  return (
+    <div className="rounded-xl bg-white dark:bg-gray-800 p-6 shadow-sm dark:shadow-gray-900/20">
+      <div className="mb-4 flex items-center justify-between">
+        <h3 className="font-semibold text-gray-900 dark:text-white">Menciones Sociales Recientes</h3>
+        <div className="flex items-center gap-4">
+          <div className="flex items-center gap-2">
+            <span className="text-sm text-gray-500 dark:text-gray-400">Mostrar:</span>
+            <select
+              value={pageSize}
+              onChange={(e) => setPageSize(Number(e.target.value))}
+              className="rounded-lg border border-gray-200 bg-white px-2 py-1 text-sm text-gray-700 dark:border-gray-600 dark:bg-gray-700 dark:text-gray-300"
+            >
+              <option value={10}>10</option>
+              <option value={20}>20</option>
+              <option value={50}>50</option>
+            </select>
+          </div>
+          <Link
+            href={`/dashboard/social-mentions?clientId=${clientId}`}
+            className="text-sm text-brand-600 hover:text-brand-700 dark:text-brand-400 dark:hover:text-brand-300"
+          >
+            Ver todas →
+          </Link>
+        </div>
+      </div>
+
+      {items.length === 0 ? (
+        <div className="flex flex-col items-center justify-center py-8 text-center">
+          <div className="mb-3 flex h-12 w-12 items-center justify-center rounded-full bg-gray-100 dark:bg-gray-700">
+            <BarChart3 className="h-6 w-6 text-gray-400" />
+          </div>
+          <p className="text-sm text-gray-500 dark:text-gray-400">No hay menciones sociales</p>
+          <p className="mt-1 text-xs text-gray-400 dark:text-gray-500">
+            Configura cuentas y hashtags para comenzar a monitorear
+          </p>
+        </div>
+      ) : (
+        <>
+          {items.map((mention) => (
+            <SocialMentionRow
+              key={mention.id}
+              id={mention.id}
+              platform={mention.platform}
+              postUrl={mention.postUrl}
+              content={mention.content}
+              authorHandle={mention.authorHandle}
+              authorName={mention.authorName}
+              authorFollowers={mention.authorFollowers}
+              likes={mention.likes}
+              comments={mention.comments}
+              shares={mention.shares}
+              views={mention.views}
+              sentiment={mention.sentiment}
+              relevance={mention.relevance}
+              sourceType={mention.sourceType}
+              sourceValue={mention.sourceValue}
+              clientName={clientName}
+              postedAt={mention.postedAt}
+              createdAt={mention.createdAt}
+            />
+          ))}
+          {hasMore && (
+            <div className="mt-4 text-center">
+              <Link
+                href={`/dashboard/social-mentions?clientId=${clientId}`}
+                className="inline-flex items-center gap-1 text-sm text-brand-600 hover:text-brand-700 dark:text-brand-400 dark:hover:text-brand-300"
+              >
+                Ver más menciones →
+              </Link>
+            </div>
+          )}
+        </>
+      )}
     </div>
   );
 }
