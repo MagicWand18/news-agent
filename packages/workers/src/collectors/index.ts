@@ -81,10 +81,28 @@ export function startCollectorWorkers(_queues: ReturnType<typeof import("../queu
     QUEUE_NAMES.COLLECT_SOCIAL,
     async (job) => {
       // Si viene un clientId, recolectar solo para ese cliente
-      const { clientId, manual } = job.data as { clientId?: string; manual?: boolean } || {};
+      const {
+        clientId,
+        manual,
+        platforms,
+        collectHandles,
+        collectHashtags,
+      } = job.data as {
+        clientId?: string;
+        manual?: boolean;
+        platforms?: ("TWITTER" | "INSTAGRAM" | "TIKTOK")[];
+        collectHandles?: boolean;
+        collectHashtags?: boolean;
+      } || {};
+
       if (clientId) {
-        console.log(`📱 Social: Manual collection for client ${clientId}`);
-        const stats = await collectSocialForClient(clientId);
+        const platformsMsg = platforms ? platforms.join(", ") : "todas";
+        console.log(`📱 Social: Manual collection for client ${clientId} (${platformsMsg})`);
+        const stats = await collectSocialForClient(clientId, {
+          platforms,
+          collectHandles,
+          collectHashtags,
+        });
         console.log(`📱 Social: ${stats.postsNew} new posts, ${stats.errors} errors`);
       } else {
         // Recolección programada para todos los clientes

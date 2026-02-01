@@ -1247,11 +1247,24 @@ const SOCIAL_PLATFORM_COLORS: Record<string, string> = {
   TIKTOK: "#000000",
 };
 
+// Tipos de plataformas sociales
+type SocialPlatform = "TWITTER" | "INSTAGRAM" | "TIKTOK";
+
+const PLATFORMS: { value: SocialPlatform; label: string; icon: string }[] = [
+  { value: "TWITTER", label: "Twitter/X", icon: "𝕏" },
+  { value: "INSTAGRAM", label: "Instagram", icon: "📷" },
+  { value: "TIKTOK", label: "TikTok", icon: "🎵" },
+];
+
 /**
  * Sección de estadísticas de redes sociales con gráficas.
  */
 function SocialStatsSection({ clientId }: { clientId: string }) {
   const [days, setDays] = useState(7);
+  const [showOptions, setShowOptions] = useState(false);
+  const [selectedPlatforms, setSelectedPlatforms] = useState<SocialPlatform[]>(["TWITTER", "INSTAGRAM", "TIKTOK"]);
+  const [collectHandles, setCollectHandles] = useState(true);
+  const [collectHashtags, setCollectHashtags] = useState(true);
   const utils = trpc.useUtils();
 
   const stats = trpc.social.getSocialStats.useQuery(
@@ -1266,6 +1279,7 @@ function SocialStatsSection({ clientId }: { clientId: string }) {
 
   const triggerCollection = trpc.social.triggerCollection.useMutation({
     onSuccess: () => {
+      setShowOptions(false);
       // Refrescar datos después de unos segundos
       setTimeout(() => {
         utils.social.getSocialStats.invalidate({ clientId });
@@ -1274,6 +1288,24 @@ function SocialStatsSection({ clientId }: { clientId: string }) {
       }, 5000);
     },
   });
+
+  const togglePlatform = (platform: SocialPlatform) => {
+    setSelectedPlatforms((prev) =>
+      prev.includes(platform)
+        ? prev.filter((p) => p !== platform)
+        : [...prev, platform]
+    );
+  };
+
+  const handleCollect = () => {
+    const platforms = selectedPlatforms.length === 3 ? undefined : selectedPlatforms;
+    triggerCollection.mutate({
+      clientId,
+      platforms,
+      collectHandles,
+      collectHashtags,
+    });
+  };
 
   if (stats.isLoading || trend.isLoading) {
     return (
@@ -1328,23 +1360,93 @@ function SocialStatsSection({ clientId }: { clientId: string }) {
           <p className="text-sm text-gray-500 dark:text-gray-400">Últimos {days} días</p>
         </div>
         <div className="flex items-center gap-2">
-          <button
-            onClick={() => triggerCollection.mutate({ clientId })}
-            disabled={triggerCollection.isPending}
-            className="flex items-center gap-1.5 rounded-lg bg-purple-600 px-3 py-1.5 text-sm font-medium text-white hover:bg-purple-700 disabled:opacity-50 transition-colors"
-          >
-            {triggerCollection.isPending ? (
-              <>
-                <Loader2 className="h-4 w-4 animate-spin" />
-                Recolectando...
-              </>
-            ) : (
-              <>
-                <RefreshCw className="h-4 w-4" />
-                Recolectar
-              </>
+          <div className="relative">
+            <button
+              onClick={() => setShowOptions(!showOptions)}
+              disabled={triggerCollection.isPending}
+              className="flex items-center gap-1.5 rounded-lg bg-purple-600 px-3 py-1.5 text-sm font-medium text-white hover:bg-purple-700 disabled:opacity-50 transition-colors"
+            >
+              {triggerCollection.isPending ? (
+                <>
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                  Recolectando...
+                </>
+              ) : (
+                <>
+                  <RefreshCw className="h-4 w-4" />
+                  Recolectar
+                  <svg className="h-4 w-4 ml-1" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                  </svg>
+                </>
+              )}
+            </button>
+
+            {/* Dropdown con opciones */}
+            {showOptions && !triggerCollection.isPending && (
+              <div className="absolute right-0 mt-2 w-64 rounded-lg bg-white dark:bg-gray-800 shadow-lg ring-1 ring-gray-200 dark:ring-gray-700 z-10">
+                <div className="p-3 space-y-3">
+                  {/* Plataformas */}
+                  <div>
+                    <p className="text-xs font-medium text-gray-500 dark:text-gray-400 mb-2">Plataformas</p>
+                    <div className="space-y-1">
+                      {PLATFORMS.map((p) => (
+                        <label key={p.value} className="flex items-center gap-2 cursor-pointer">
+                          <input
+                            type="checkbox"
+                            checked={selectedPlatforms.includes(p.value)}
+                            onChange={() => togglePlatform(p.value)}
+                            className="rounded border-gray-300 dark:border-gray-600 text-purple-600 focus:ring-purple-500"
+                          />
+                          <span className="text-sm text-gray-700 dark:text-gray-300">
+                            {p.icon} {p.label}
+                          </span>
+                        </label>
+                      ))}
+                    </div>
+                  </div>
+
+                  {/* Tipos de fuente */}
+                  <div className="border-t border-gray-200 dark:border-gray-700 pt-3">
+                    <p className="text-xs font-medium text-gray-500 dark:text-gray-400 mb-2">Fuentes</p>
+                    <div className="space-y-1">
+                      <label className="flex items-center gap-2 cursor-pointer">
+                        <input
+                          type="checkbox"
+                          checked={collectHandles}
+                          onChange={(e) => setCollectHandles(e.target.checked)}
+                          className="rounded border-gray-300 dark:border-gray-600 text-purple-600 focus:ring-purple-500"
+                        />
+                        <span className="text-sm text-gray-700 dark:text-gray-300">
+                          👤 Cuentas monitoreadas
+                        </span>
+                      </label>
+                      <label className="flex items-center gap-2 cursor-pointer">
+                        <input
+                          type="checkbox"
+                          checked={collectHashtags}
+                          onChange={(e) => setCollectHashtags(e.target.checked)}
+                          className="rounded border-gray-300 dark:border-gray-600 text-purple-600 focus:ring-purple-500"
+                        />
+                        <span className="text-sm text-gray-700 dark:text-gray-300">
+                          #️⃣ Hashtags
+                        </span>
+                      </label>
+                    </div>
+                  </div>
+
+                  {/* Botón de ejecutar */}
+                  <button
+                    onClick={handleCollect}
+                    disabled={selectedPlatforms.length === 0 || (!collectHandles && !collectHashtags)}
+                    className="w-full mt-2 rounded-lg bg-purple-600 px-3 py-2 text-sm font-medium text-white hover:bg-purple-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                  >
+                    Iniciar recolección
+                  </button>
+                </div>
+              </div>
             )}
-          </button>
+          </div>
           <select
             value={days}
             onChange={(e) => setDays(Number(e.target.value))}

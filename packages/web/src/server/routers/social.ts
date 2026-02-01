@@ -626,9 +626,17 @@ Genera:
   /**
    * Ejecuta recolección manual de redes sociales para un cliente.
    * Encola un job para la recolección en lugar de ejecutar directamente.
+   * Permite seleccionar plataformas específicas.
    */
   triggerCollection: protectedProcedure
-    .input(z.object({ clientId: z.string() }))
+    .input(
+      z.object({
+        clientId: z.string(),
+        platforms: z.array(SocialPlatformEnum).optional(), // Si no se especifica, recolecta todas
+        collectHashtags: z.boolean().default(true),
+        collectHandles: z.boolean().default(true),
+      })
+    )
     .mutation(async ({ input, ctx }) => {
       const client = await prisma.client.findFirst({
         where: { id: input.clientId, orgId: ctx.user.orgId },
@@ -652,16 +660,26 @@ Genera:
         const collectQueue = getQueue("collect-social");
         await collectQueue.add(
           "manual-collection",
-          { clientId: input.clientId, manual: true },
+          {
+            clientId: input.clientId,
+            manual: true,
+            platforms: input.platforms, // undefined = todas
+            collectHashtags: input.collectHashtags,
+            collectHandles: input.collectHandles,
+          },
           {
             attempts: 2,
             backoff: { type: "exponential", delay: 5000 },
           }
         );
 
+        const platformsMsg = input.platforms
+          ? input.platforms.join(", ")
+          : "todas las plataformas";
+
         return {
           success: true,
-          message: `Recolección iniciada para ${client.name}. Los resultados aparecerán en unos momentos.`,
+          message: `Recolección iniciada para ${client.name} (${platformsMsg}). Los resultados aparecerán en unos momentos.`,
           queued: true,
         };
       } catch (error) {

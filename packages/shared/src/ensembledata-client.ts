@@ -202,39 +202,49 @@ class EnsembleDataClient {
   }
 
   /**
-   * Obtiene tweets recientes de un usuario.
-   * Endpoint: /twitter/user/tweets
+   * Obtiene tweets recientes de un usuario por username.
+   * Primero obtiene el ID del usuario, luego sus tweets.
+   * Endpoint: /twitter/user/tweets requiere id numérico
    */
   async getTwitterUserTweets(username: string, maxResults: number = 20): Promise<SocialPost[]> {
-    const response = await this.request<{ data: TwitterSearchResult[] }>("/twitter/user/tweets", {
-      username,
-      depth: maxResults,
-    });
-
-    return (response.data?.data || []).map((tweet) => this.normalizeTwitterPost(tweet));
+    // Primero obtener el ID del usuario
+    const userInfo = await this.getTwitterUser(username);
+    if (!userInfo?.id) {
+      console.log(`[EnsembleData] Could not get Twitter user ID for: ${username}`);
+      return [];
+    }
+    return this.getTwitterUserTweetsById(userInfo.id, maxResults);
   }
 
   /**
    * Obtiene tweets recientes de un usuario por ID numérico.
-   * Endpoint: /twitter/user-tweets
-   * Usar cuando se tiene el platformUserId cacheado.
+   * Endpoint: /twitter/user/tweets con parámetro id=
    */
   async getTwitterUserTweetsById(userId: string, maxResults: number = 20): Promise<SocialPost[]> {
-    // La API usa username, no ID
-    console.log(`[EnsembleData] Twitter by ID not supported, need username`);
-    return [];
+    try {
+      const response = await this.request<{ data: TwitterSearchResult[] }>("/twitter/user/tweets", {
+        id: userId,
+      });
+
+      // La respuesta viene como array de objetos con estructura especial de Twitter
+      const tweets = response.data?.data || [];
+      return tweets.slice(0, maxResults).map((tweet) => this.normalizeTwitterPost(tweet));
+    } catch (error) {
+      console.error(`[EnsembleData] Error getting tweets for user ${userId}:`, error);
+      return [];
+    }
   }
 
   /**
    * Obtiene información de un usuario de Twitter.
-   * Endpoint: /twitter/user/info
+   * Endpoint: /twitter/user/info con parámetro name=
    */
   async getTwitterUser(username: string): Promise<TwitterUserInfo | null> {
     try {
-      const response = await this.request<{ data: TwitterUserInfo }>("/twitter/user/info", {
-        username,
+      const response = await this.request<TwitterUserInfo>("/twitter/user/info", {
+        name: username, // La API usa 'name' no 'username'
       });
-      return response.data?.data || null;
+      return response.data || null;
     } catch {
       return null;
     }
@@ -260,42 +270,51 @@ class EnsembleDataClient {
   // ==================== INSTAGRAM ====================
 
   /**
-   * Obtiene posts de un usuario de Instagram.
-   * Endpoint: /ig/user/posts
+   * Obtiene posts de un usuario de Instagram por username.
+   * Primero obtiene el ID del usuario, luego sus posts.
+   * Endpoint: /instagram/user/posts requiere user_id=
    */
   async getInstagramUserPosts(username: string, maxResults: number = 12): Promise<SocialPost[]> {
-    const response = await this.request<{ data: InstagramPost[] }>("/ig/user/posts", {
-      username,
-      depth: Math.min(maxResults, 24),
-    });
-
-    return (response.data?.data || []).map((post) => this.normalizeInstagramPost(post));
+    // Primero obtener el ID del usuario
+    const userInfo = await this.getInstagramUser(username);
+    if (!userInfo?.id) {
+      console.log(`[EnsembleData] Could not get Instagram user ID for: ${username}`);
+      return [];
+    }
+    return this.getInstagramUserPostsById(userInfo.id, maxResults);
   }
 
   /**
    * Obtiene posts de un usuario de Instagram por ID numérico.
-   * Endpoint: /ig/user/posts
-   * Usar cuando se tiene el platformUserId cacheado.
+   * Endpoint: /instagram/user/posts con parámetro user_id=
    */
   async getInstagramUserPostsById(userId: string, maxResults: number = 12): Promise<SocialPost[]> {
-    // La API usa username, no ID directo
-    console.log(`[EnsembleData] Instagram by ID not supported, need username`);
-    return [];
+    try {
+      const response = await this.request<{ data: InstagramPost[] }>("/instagram/user/posts", {
+        user_id: userId,
+      });
+
+      const posts = response.data?.data || [];
+      return posts.slice(0, maxResults).map((post) => this.normalizeInstagramPost(post));
+    } catch (error) {
+      console.error(`[EnsembleData] Error getting posts for user ${userId}:`, error);
+      return [];
+    }
   }
 
   /**
    * Busca posts por hashtag en Instagram.
-   * Nota: EnsembleData tiene /ig/search para búsqueda general.
+   * Endpoint: /instagram/hashtag/posts con parámetro name=
    */
   async searchInstagramHashtag(hashtag: string, maxResults: number = 20): Promise<SocialPost[]> {
     const cleanHashtag = hashtag.replace(/^#/, "");
 
     try {
-      const response = await this.request<{ data: InstagramPost[] }>("/ig/search", {
-        text: `#${cleanHashtag}`,
-        depth: Math.min(maxResults, 24),
+      const response = await this.request<{ data: InstagramPost[] }>("/instagram/hashtag/posts", {
+        name: cleanHashtag,
       });
-      return (response.data?.data || []).map((post) => this.normalizeInstagramPost(post));
+      const posts = response.data?.data || [];
+      return posts.slice(0, maxResults).map((post) => this.normalizeInstagramPost(post));
     } catch {
       console.log(`[EnsembleData] Instagram hashtag search not available: ${cleanHashtag}`);
       return [];
@@ -304,14 +323,26 @@ class EnsembleDataClient {
 
   /**
    * Obtiene información de un usuario de Instagram.
-   * Endpoint: /ig/user/info
+   * Endpoint: /instagram/user/info con parámetro username=
    */
   async getInstagramUser(username: string): Promise<InstagramUserInfo | null> {
     try {
-      const response = await this.request<{ data: InstagramUserInfo }>("/ig/user/info", {
+      // La respuesta viene en data.pk como ID
+      const response = await this.request<{ pk: string; username: string; full_name: string; is_private: boolean; follower_count?: number; following_count?: number; media_count?: number }>("/instagram/user/info", {
         username,
       });
-      return response.data?.data || null;
+      const userData = response.data;
+      if (!userData?.pk) return null;
+
+      return {
+        id: userData.pk,
+        username: userData.username,
+        full_name: userData.full_name,
+        follower_count: userData.follower_count || 0,
+        following_count: userData.following_count || 0,
+        media_count: userData.media_count || 0,
+        is_verified: false, // No viene en la respuesta básica
+      };
     } catch {
       return null;
     }
@@ -338,55 +369,73 @@ class EnsembleDataClient {
 
   /**
    * Obtiene posts de un usuario de TikTok.
-   * Endpoint: /tt/user/posts/username
+   * Endpoint: /tt/user/posts con parámetro username=
    */
   async getTikTokUserPosts(username: string, maxResults: number = 20): Promise<SocialPost[]> {
-    const response = await this.request<{ data: TikTokPost[] }>("/tt/user/posts/username", {
-      username,
-      depth: Math.min(maxResults, 35),
-    });
+    try {
+      const response = await this.request<{ data: TikTokPost[] }>("/tt/user/posts", {
+        username,
+        depth: "1",
+      });
 
-    return (response.data?.data || []).map((post) => this.normalizeTikTokPost(post));
+      const posts = response.data?.data || [];
+      return posts.slice(0, maxResults).map((post) => this.normalizeTikTokPost(post));
+    } catch (error) {
+      console.error(`[EnsembleData] Error getting TikTok posts for ${username}:`, error);
+      return [];
+    }
   }
 
   /**
    * Busca posts por hashtag en TikTok.
-   * Endpoint: /tt/hashtag/posts
+   * Endpoint: /tt/hashtag/posts con parámetro name=
    */
   async searchTikTokHashtag(hashtag: string, maxResults: number = 20): Promise<SocialPost[]> {
     const cleanHashtag = hashtag.replace(/^#/, "");
 
-    const response = await this.request<{ data: TikTokPost[] }>("/tt/hashtag/posts", {
-      name: cleanHashtag,
-      depth: Math.min(maxResults, 35),
-    });
+    try {
+      const response = await this.request<{ data: TikTokPost[] }>("/tt/hashtag/posts", {
+        name: cleanHashtag,
+        depth: "1",
+      });
 
-    return (response.data?.data || []).map((post) => this.normalizeTikTokPost(post));
+      const posts = response.data?.data || [];
+      return posts.slice(0, maxResults).map((post) => this.normalizeTikTokPost(post));
+    } catch (error) {
+      console.error(`[EnsembleData] Error searching TikTok hashtag ${cleanHashtag}:`, error);
+      return [];
+    }
   }
 
   /**
    * Busca posts por keyword en TikTok.
-   * Endpoint: /tt/keyword/search
+   * Endpoint: /tt/keyword/search con parámetros name= y period=
    */
   async searchTikTok(query: string, maxResults: number = 20): Promise<SocialPost[]> {
-    const response = await this.request<{ data: TikTokPost[] }>("/tt/keyword/search", {
-      keyword: query,
-      depth: Math.min(maxResults, 35),
-    });
+    try {
+      const response = await this.request<{ data: TikTokPost[] }>("/tt/keyword/search", {
+        name: query,
+        period: "7", // Últimos 7 días
+      });
 
-    return (response.data?.data || []).map((post) => this.normalizeTikTokPost(post));
+      const posts = response.data?.data || [];
+      return posts.slice(0, maxResults).map((post) => this.normalizeTikTokPost(post));
+    } catch (error) {
+      console.error(`[EnsembleData] Error searching TikTok keyword ${query}:`, error);
+      return [];
+    }
   }
 
   /**
    * Obtiene información de un usuario de TikTok.
-   * Endpoint: /tt/user/info/username
+   * Endpoint: /tt/user/info con parámetro username=
    */
   async getTikTokUser(username: string): Promise<TikTokUserInfo | null> {
     try {
-      const response = await this.request<{ data: TikTokUserInfo }>("/tt/user/info/username", {
+      const response = await this.request<TikTokUserInfo>("/tt/user/info", {
         username,
       });
-      return response.data?.data || null;
+      return response.data || null;
     } catch {
       return null;
     }

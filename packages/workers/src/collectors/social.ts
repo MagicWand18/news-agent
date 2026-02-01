@@ -106,14 +106,7 @@ export async function collectSocial(): Promise<CollectionStats> {
         await delay(API_DELAY_MS);
 
         try {
-          // Usar platformUserId si existe, si no resolverlo y cachearlo
-          let userId = account.platformUserId;
-          if (!userId && (account.platform === "TWITTER" || account.platform === "INSTAGRAM")) {
-            userId = await resolveAndSaveUserId(client, account.id, account.platform, account.handle);
-            await delay(API_DELAY_MS); // Delay extra después de resolver
-          }
-
-          const posts = await collectFromHandle(client, account.platform, account.handle, userId);
+          const posts = await collectFromHandle(client, account.platform, account.handle, null);
           const newPosts = await savePosts(
             posts,
             clientData.id,
@@ -181,58 +174,21 @@ export async function collectSocial(): Promise<CollectionStats> {
 }
 
 /**
- * Resuelve y guarda el platformUserId si no existe.
- * Retorna el ID o null si no se pudo resolver.
- */
-async function resolveAndSaveUserId(
-  client: ReturnType<typeof getEnsembleDataClient>,
-  accountId: string,
-  platform: PrismaSocialPlatform,
-  handle: string
-): Promise<string | null> {
-  try {
-    const result = await client.validateHandle(platform, handle);
-    if (result.valid && result.platformUserId) {
-      // Cachear el ID en la base de datos
-      await prisma.socialAccount.update({
-        where: { id: accountId },
-        data: { platformUserId: result.platformUserId },
-      });
-      console.log(`  [Social] Cached platformUserId for @${handle}: ${result.platformUserId}`);
-      return result.platformUserId;
-    }
-    return null;
-  } catch (error) {
-    console.error(`  [Social] Failed to resolve userId for @${handle}:`, error instanceof Error ? error.message : error);
-    return null;
-  }
-}
-
-/**
  * Recolecta posts de un handle específico.
- * Usa platformUserId si está disponible (más confiable), si no usa username.
+ * Nota: EnsembleData siempre requiere username, no soporta búsqueda por ID.
  */
 async function collectFromHandle(
   client: ReturnType<typeof getEnsembleDataClient>,
   platform: PrismaSocialPlatform,
   handle: string,
-  platformUserId: string | null
+  _platformUserId: string | null // No usado por EnsembleData, mantenido para compatibilidad
 ): Promise<SocialPost[]> {
   switch (platform) {
     case "TWITTER":
-      // Usar ID si está disponible
-      if (platformUserId) {
-        return client.getTwitterUserTweetsById(platformUserId, MAX_POSTS_PER_SOURCE);
-      }
       return client.getTwitterUserTweets(handle, MAX_POSTS_PER_SOURCE);
     case "INSTAGRAM":
-      // Usar ID si está disponible
-      if (platformUserId) {
-        return client.getInstagramUserPostsById(platformUserId, MAX_POSTS_PER_SOURCE);
-      }
       return client.getInstagramUserPosts(handle, MAX_POSTS_PER_SOURCE);
     case "TIKTOK":
-      // TikTok usa username directamente
       return client.getTikTokUserPosts(handle, MAX_POSTS_PER_SOURCE);
     default:
       return [];
@@ -240,30 +196,35 @@ async function collectFromHandle(
 }
 
 /**
- * Recolecta posts por hashtag en todas las plataformas.
+ * Recolecta posts por hashtag en las plataformas especificadas.
  */
 async function collectFromHashtag(
   client: ReturnType<typeof getEnsembleDataClient>,
-  hashtag: string
+  hashtag: string,
+  platforms?: PrismaSocialPlatform[]
 ): Promise<SocialPost[]> {
   const posts: SocialPost[] = [];
+  const shouldCollect = (p: PrismaSocialPlatform) => !platforms || platforms.includes(p);
 
   // Instagram
-  try {
-    const igPosts = await client.searchInstagramHashtag(hashtag, MAX_POSTS_PER_SOURCE);
-    posts.push(...igPosts);
-  } catch (error) {
-    console.error(`  [Instagram hashtag error]:`, error instanceof Error ? error.message : error);
+  if (shouldCollect("INSTAGRAM")) {
+    try {
+      const igPosts = await client.searchInstagramHashtag(hashtag, MAX_POSTS_PER_SOURCE);
+      posts.push(...igPosts);
+    } catch (error) {
+      console.error(`  [Instagram hashtag error]:`, error instanceof Error ? error.message : error);
+    }
+    await delay(API_DELAY_MS);
   }
 
-  await delay(API_DELAY_MS);
-
   // TikTok
-  try {
-    const ttPosts = await client.searchTikTokHashtag(hashtag, MAX_POSTS_PER_SOURCE);
-    posts.push(...ttPosts);
-  } catch (error) {
-    console.error(`  [TikTok hashtag error]:`, error instanceof Error ? error.message : error);
+  if (shouldCollect("TIKTOK")) {
+    try {
+      const ttPosts = await client.searchTikTokHashtag(hashtag, MAX_POSTS_PER_SOURCE);
+      posts.push(...ttPosts);
+    } catch (error) {
+      console.error(`  [TikTok hashtag error]:`, error instanceof Error ? error.message : error);
+    }
   }
 
   return posts;
@@ -378,14 +339,32 @@ function delay(ms: number): Promise<void> {
 }
 
 /**
+ * Opciones para recolección de menciones sociales.
+ */
+export interface CollectSocialOptions {
+  platforms?: PrismaSocialPlatform[]; // Si no se especifica, recolecta todas
+  collectHandles?: boolean; // Default: true
+  collectHashtags?: boolean; // Default: true
+}
+
+/**
  * Recolecta menciones sociales para un cliente específico.
  * Útil para ejecución manual o on-demand.
  */
-export async function collectSocialForClient(clientId: string): Promise<{
+export async function collectSocialForClient(
+  clientId: string,
+  options: CollectSocialOptions = {}
+): Promise<{
   postsCollected: number;
   postsNew: number;
   errors: number;
 }> {
+  const {
+    platforms,
+    collectHandles = true,
+    collectHashtags = true,
+  } = options;
+
   const apiClient = getEnsembleDataClient();
 
   if (!apiClient.isConfigured()) {
@@ -408,36 +387,41 @@ export async function collectSocialForClient(clientId: string): Promise<{
   let postsNew = 0;
   let errors = 0;
 
-  // Handles
-  for (const account of clientData.socialAccounts) {
-    await delay(API_DELAY_MS);
-    try {
-      // Usar platformUserId si existe, si no resolverlo y cachearlo
-      let userId = account.platformUserId;
-      if (!userId && (account.platform === "TWITTER" || account.platform === "INSTAGRAM")) {
-        userId = await resolveAndSaveUserId(apiClient, account.id, account.platform, account.handle);
-        await delay(API_DELAY_MS);
-      }
+  // Handles (filtrar por plataformas si se especifica)
+  if (collectHandles) {
+    const accountsToProcess = platforms
+      ? clientData.socialAccounts.filter((a) => platforms.includes(a.platform))
+      : clientData.socialAccounts;
 
-      const posts = await collectFromHandle(apiClient, account.platform, account.handle, userId);
-      const newPosts = await savePosts(posts, clientId, "HANDLE", account.handle);
-      postsCollected += posts.length;
-      postsNew += newPosts;
-    } catch {
-      errors++;
+    for (const account of accountsToProcess) {
+      await delay(API_DELAY_MS);
+      try {
+        const posts = await collectFromHandle(apiClient, account.platform, account.handle, null);
+        const newPosts = await savePosts(posts, clientId, "HANDLE", account.handle);
+        postsCollected += posts.length;
+        postsNew += newPosts;
+        console.log(`  Handle @${account.handle} (${account.platform}): ${posts.length} posts, ${newPosts} new`);
+      } catch (error) {
+        errors++;
+        console.error(`  Error collecting @${account.handle}:`, error instanceof Error ? error.message : error);
+      }
     }
   }
 
-  // Hashtags
-  for (const hashtag of clientData.socialHashtags || []) {
-    await delay(API_DELAY_MS);
-    try {
-      const posts = await collectFromHashtag(apiClient, hashtag);
-      const newPosts = await savePosts(posts, clientId, "HASHTAG", hashtag);
-      postsCollected += posts.length;
-      postsNew += newPosts;
-    } catch {
-      errors++;
+  // Hashtags (buscar en las plataformas especificadas o todas)
+  if (collectHashtags) {
+    for (const hashtag of clientData.socialHashtags || []) {
+      await delay(API_DELAY_MS);
+      try {
+        const posts = await collectFromHashtag(apiClient, hashtag, platforms);
+        const newPosts = await savePosts(posts, clientId, "HASHTAG", hashtag);
+        postsCollected += posts.length;
+        postsNew += newPosts;
+        console.log(`  Hashtag #${hashtag}: ${posts.length} posts, ${newPosts} new`);
+      } catch (error) {
+        errors++;
+        console.error(`  Error collecting #${hashtag}:`, error instanceof Error ? error.message : error);
+      }
     }
   }
 
