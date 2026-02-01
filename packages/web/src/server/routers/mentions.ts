@@ -96,17 +96,15 @@ export const mentionsRouter = router({
     )
     .mutation(async ({ input, ctx }) => {
       // Super Admin puede generar respuesta para cualquier mención
-      const whereClause = ctx.user.isSuperAdmin
-        ? { id: input.mentionId }
-        : { id: input.mentionId, client: { orgId: ctx.user.orgId } };
-
-      const mention = await prisma.mention.findFirst({
-        where: whereClause,
-        include: {
-          article: true,
-          client: true,
-        },
-      });
+      const mention = ctx.user.isSuperAdmin
+        ? await prisma.mention.findFirst({
+            where: { id: input.mentionId },
+            include: { article: true, client: true },
+          })
+        : await prisma.mention.findFirst({
+            where: { id: input.mentionId, client: { orgId: ctx.user.orgId! } },
+            include: { article: true, client: true },
+          });
 
       if (!mention) {
         throw new TRPCError({ code: "NOT_FOUND", message: "Mention not found" });

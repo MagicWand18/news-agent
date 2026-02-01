@@ -20,13 +20,15 @@ export const intelligenceRouter = router({
       const { clientId, days, includeCompetitors } = input;
 
       // Super Admin puede ver cualquier cliente
-      const whereClause = ctx.user.isSuperAdmin
-        ? { id: clientId }
-        : { id: clientId, orgId: ctx.user.orgId };
-      const client = await prisma.client.findFirst({
-        where: whereClause,
-        include: { keywords: true },
-      });
+      const client = ctx.user.isSuperAdmin
+        ? await prisma.client.findFirst({
+            where: { id: clientId },
+            include: { keywords: true },
+          })
+        : await prisma.client.findFirst({
+            where: { id: clientId, orgId: ctx.user.orgId! },
+            include: { keywords: true },
+          });
 
       if (!client) {
         throw new TRPCError({ code: "NOT_FOUND", message: "Cliente no encontrado" });
@@ -193,20 +195,28 @@ export const intelligenceRouter = router({
       })
     )
     .query(async ({ input, ctx }) => {
+      // Para Super Admin sin orgId, devolver vacío o todos según contexto
       const orgId = ctx.user.orgId;
 
-      const whereClause = input.clientId
-        ? { clientId: input.clientId, client: { orgId } }
-        : { client: { orgId } };
-
-      const insights = await prisma.weeklyInsight.findMany({
-        where: whereClause,
-        include: {
-          client: { select: { id: true, name: true } },
-        },
-        orderBy: { weekStart: "desc" },
-        take: input.limit,
-      });
+      const insights = input.clientId
+        ? await prisma.weeklyInsight.findMany({
+            where: { clientId: input.clientId, client: { orgId: orgId ?? undefined } },
+            include: { client: { select: { id: true, name: true } } },
+            orderBy: { weekStart: "desc" },
+            take: input.limit,
+          })
+        : orgId
+          ? await prisma.weeklyInsight.findMany({
+              where: { client: { orgId } },
+              include: { client: { select: { id: true, name: true } } },
+              orderBy: { weekStart: "desc" },
+              take: input.limit,
+            })
+          : await prisma.weeklyInsight.findMany({
+              include: { client: { select: { id: true, name: true } } },
+              orderBy: { weekStart: "desc" },
+              take: input.limit,
+            });
 
       return {
         insights: insights.map((i) => ({

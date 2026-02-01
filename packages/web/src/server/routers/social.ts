@@ -301,16 +301,15 @@ Genera:
     .input(z.object({ id: z.string() }))
     .query(async ({ input, ctx }) => {
       // Super Admin puede ver cualquier mención social
-      const whereClause = ctx.user.isSuperAdmin
-        ? { id: input.id }
-        : { id: input.id, client: { orgId: ctx.user.orgId } };
-
-      const mention = await prisma.socialMention.findFirst({
-        where: whereClause,
-        include: {
-          client: { select: { id: true, name: true } },
-        },
-      });
+      const mention = ctx.user.isSuperAdmin
+        ? await prisma.socialMention.findFirst({
+            where: { id: input.id },
+            include: { client: { select: { id: true, name: true } } },
+          })
+        : await prisma.socialMention.findFirst({
+            where: { id: input.id, client: { orgId: ctx.user.orgId! } },
+            include: { client: { select: { id: true, name: true } } },
+          });
 
       return mention;
     }),
