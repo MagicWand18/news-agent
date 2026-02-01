@@ -378,7 +378,7 @@ Para cada noticia encontrada, incluye el título y un resumen breve.`;
               // Usar título del chunk si falla el fetch
             }
 
-            // Crear o encontrar el artículo en la base de datos
+            // Crear o actualizar el artículo en la base de datos
             let article = await prisma.article.findFirst({
               where: { url: finalUrl },
             });
@@ -393,12 +393,18 @@ Para cada noticia encontrada, incluye el título y un resumen breve.`;
                   publishedAt: null,
                 },
               });
+            } else if (title.length > 20 && !title.startsWith("Artículo de")) {
+              // Actualizar título si tenemos uno mejor
+              article = await prisma.article.update({
+                where: { id: article.id },
+                data: { title, source },
+              });
             }
 
             foundArticles.push({
               id: article.id,
-              title: article.title,
-              source: article.source,
+              title, // Usar título extraído, no el de DB
+              source,
               url: finalUrl,
               snippet: article.content?.slice(0, 300) || undefined,
               publishedAt: article.publishedAt || undefined,

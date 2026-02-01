@@ -328,7 +328,7 @@ REGLAS:
         }
       }
 
-      // Crear o encontrar el artículo en la base de datos
+      // Crear o actualizar el artículo en la base de datos
       let article = await prisma.article.findFirst({
         where: { url: finalUrl },
       });
@@ -342,6 +342,12 @@ REGLAS:
             content: snippet || null,
             publishedAt: publishedAt || null,
           },
+        });
+      } else if (title.length > 20 && !title.startsWith("Artículo de")) {
+        // Actualizar título si tenemos uno mejor
+        article = await prisma.article.update({
+          where: { id: article.id },
+          data: { title, source, content: snippet || article.content },
         });
       }
 
