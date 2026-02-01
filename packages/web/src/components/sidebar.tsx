@@ -19,6 +19,8 @@ import {
   Moon,
   Rss,
   Share2,
+  Building2,
+  Shield,
 } from "lucide-react";
 import { signOut, useSession } from "next-auth/react";
 import { useState } from "react";
@@ -27,6 +29,7 @@ import { NotificationBell } from "./notifications";
 
 const navigation = [
   { name: "Dashboard", href: "/dashboard", icon: LayoutDashboard },
+  { name: "Agencias", href: "/dashboard/agencies", icon: Building2, superAdminOnly: true },
   { name: "Clientes", href: "/dashboard/clients", icon: Users },
   { name: "Menciones", href: "/dashboard/mentions", icon: Newspaper },
   { name: "Redes Sociales", href: "/dashboard/social-mentions", icon: Share2 },
@@ -90,7 +93,17 @@ export function Sidebar() {
 
       <nav className="flex-1 space-y-0.5 px-3 py-4">
         {navigation
-          .filter((item) => !("adminOnly" in item && item.adminOnly) || (session?.user as { role?: string })?.role === "ADMIN")
+          .filter((item) => {
+            // Super Admin only items
+            if ("superAdminOnly" in item && item.superAdminOnly) {
+              return (session?.user as { isSuperAdmin?: boolean })?.isSuperAdmin === true;
+            }
+            // Admin only items
+            if ("adminOnly" in item && item.adminOnly) {
+              return (session?.user as { role?: string })?.role === "ADMIN";
+            }
+            return true;
+          })
           .map((item) => {
             const isActive =
               pathname === item.href ||
@@ -124,9 +137,16 @@ export function Sidebar() {
               {userInitials}
             </div>
             <div className="min-w-0 flex-1">
-              <p className="truncate text-sm font-medium text-white">
-                {session.user.name}
-              </p>
+              <div className="flex items-center gap-1.5">
+                <p className="truncate text-sm font-medium text-white">
+                  {session.user.name}
+                </p>
+                {(session.user as { isSuperAdmin?: boolean }).isSuperAdmin && (
+                  <span title="Super Admin">
+                    <Shield className="h-3.5 w-3.5 text-purple-400" />
+                  </span>
+                )}
+              </div>
               <p className="truncate text-xs text-gray-400">
                 {session.user.email}
               </p>

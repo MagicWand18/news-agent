@@ -4,6 +4,7 @@ Planes generados con `/dev-plan` para documentar decisiones y estrategias de imp
 
 | Fecha | Modo | Descripción | Estado | Archivo |
 |-------|------|-------------|--------|---------|
+| 2026-02-01 | feature | Multi-Tenant Agencias + Onboarding | 🟡 Pendiente | [link](./2026-02-01_feature_multi-tenant-agencias-onboarding.md) |
 | 2026-01-29 | feature | Sprint 10 - Notificaciones In-App | 🟡 Pendiente | [link](./2026-01-29_feature_sprint10-notificaciones-inapp.md) |
 
 ## Leyenda de Estados

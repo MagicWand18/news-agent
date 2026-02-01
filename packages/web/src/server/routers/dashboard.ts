@@ -1,14 +1,20 @@
 import { z } from "zod";
-import { router, protectedProcedure } from "../trpc";
+import { router, protectedProcedure, getEffectiveOrgId } from "../trpc";
 import { prisma } from "@mediabot/shared";
 import { Prisma } from "@prisma/client";
 
 export const dashboardRouter = router({
-  stats: protectedProcedure.query(async ({ ctx }) => {
-    const orgId = ctx.user.orgId;
+  stats: protectedProcedure
+    .input(z.object({ orgId: z.string().optional() }).optional())
+    .query(async ({ ctx, input }) => {
+      const orgId = getEffectiveOrgId(ctx.user, input?.orgId);
     const now = new Date();
     const last24h = new Date(now.getTime() - 24 * 60 * 60 * 1000);
     const last7d = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
+
+    // Construir filtro de organización (null = todas las orgs para Super Admin)
+    const orgFilter = orgId ? { orgId } : {};
+    const clientOrgFilter = orgId ? { client: { orgId } } : {};
 
     const [
       clientCount,
@@ -18,30 +24,39 @@ export const dashboardRouter = router({
       mentionsByDay,
       sentimentBreakdown,
     ] = await Promise.all([
-      prisma.client.count({ where: { orgId, active: true } }),
+      prisma.client.count({ where: { ...orgFilter, active: true } }),
       prisma.mention.count({
-        where: { client: { orgId }, createdAt: { gte: last24h } },
+        where: { ...clientOrgFilter, createdAt: { gte: last24h } },
       }),
       prisma.mention.count({
-        where: { client: { orgId }, createdAt: { gte: last7d } },
+        where: { ...clientOrgFilter, createdAt: { gte: last7d } },
       }),
       prisma.task.count({
         where: {
-          client: { orgId },
+          ...clientOrgFilter,
           status: { in: ["PENDING", "IN_PROGRESS"] },
         },
       }),
-      prisma.$queryRaw<{ date: string; count: bigint }[]>`
-        SELECT DATE("createdAt") as date, COUNT(*) as count
-        FROM "Mention"
-        WHERE "clientId" IN (SELECT id FROM "Client" WHERE "orgId" = ${orgId})
-        AND "createdAt" >= ${last7d}
-        GROUP BY DATE("createdAt")
-        ORDER BY date ASC
-      `,
+      // Query raw necesita manejar el caso de todas las orgs
+      orgId
+        ? prisma.$queryRaw<{ date: string; count: bigint }[]>`
+            SELECT DATE("createdAt") as date, COUNT(*) as count
+            FROM "Mention"
+            WHERE "clientId" IN (SELECT id FROM "Client" WHERE "orgId" = ${orgId})
+            AND "createdAt" >= ${last7d}
+            GROUP BY DATE("createdAt")
+            ORDER BY date ASC
+          `
+        : prisma.$queryRaw<{ date: string; count: bigint }[]>`
+            SELECT DATE("createdAt") as date, COUNT(*) as count
+            FROM "Mention"
+            WHERE "createdAt" >= ${last7d}
+            GROUP BY DATE("createdAt")
+            ORDER BY date ASC
+          `,
       prisma.mention.groupBy({
         by: ["sentiment"],
-        where: { client: { orgId }, createdAt: { gte: last7d } },
+        where: { ...clientOrgFilter, createdAt: { gte: last7d } },
         _count: true,
       }),
     ]);
@@ -62,27 +77,33 @@ export const dashboardRouter = router({
     };
   }),
 
-  recentMentions: protectedProcedure.query(async ({ ctx }) => {
-    return prisma.mention.findMany({
-      where: { client: { orgId: ctx.user.orgId } },
-      include: {
-        article: { select: { title: true, source: true, url: true } },
-        client: { select: { name: true } },
-      },
-      orderBy: { createdAt: "desc" },
-      take: 10,
-    });
-  }),
+  recentMentions: protectedProcedure
+    .input(z.object({ orgId: z.string().optional() }).optional())
+    .query(async ({ ctx, input }) => {
+      const orgId = getEffectiveOrgId(ctx.user, input?.orgId);
+      const clientOrgFilter = orgId ? { client: { orgId } } : {};
+
+      return prisma.mention.findMany({
+        where: clientOrgFilter,
+        include: {
+          article: { select: { title: true, source: true, url: true } },
+          client: { select: { name: true, org: ctx.user.isSuperAdmin ? { select: { name: true } } : false } },
+        },
+        orderBy: { createdAt: "desc" },
+        take: 10,
+      });
+    }),
 
   analytics: protectedProcedure
     .input(
       z.object({
         clientId: z.string().optional(),
         days: z.number().min(7).max(90).default(30),
+        orgId: z.string().optional(), // Super Admin puede especificar org
       })
     )
     .query(async ({ input, ctx }) => {
-      const orgId = ctx.user.orgId;
+      const orgId = getEffectiveOrgId(ctx.user, input.orgId);
       const since = new Date(Date.now() - input.days * 24 * 60 * 60 * 1000);
 
       // Build client filter
@@ -90,9 +111,19 @@ export const dashboardRouter = router({
         ? Prisma.sql`AND m."clientId" = ${input.clientId}`
         : Prisma.empty;
 
+      // Build where clause depending on whether we have orgId filter
       const clientWhereClause = input.clientId
-        ? { clientId: input.clientId, client: { orgId } }
-        : { client: { orgId } };
+        ? orgId
+          ? { clientId: input.clientId, client: { orgId } }
+          : { clientId: input.clientId }
+        : orgId
+          ? { client: { orgId } }
+          : {};
+
+      // Filtro de organización para raw queries (vacío si Super Admin ve todo)
+      const orgFilterSql = orgId
+        ? Prisma.sql`AND c."orgId" = ${orgId}`
+        : Prisma.empty;
 
       const [mentionsByDay, sentimentByWeek, topSources, topKeywords, urgencyBreakdown] =
         await Promise.all([
@@ -101,8 +132,8 @@ export const dashboardRouter = router({
             SELECT DATE(m."createdAt") as date, COUNT(*) as count
             FROM "Mention" m
             JOIN "Client" c ON m."clientId" = c.id
-            WHERE c."orgId" = ${orgId}
-            AND m."createdAt" >= ${since}
+            WHERE m."createdAt" >= ${since}
+            ${orgFilterSql}
             ${clientFilter}
             GROUP BY DATE(m."createdAt")
             ORDER BY date ASC
@@ -113,8 +144,8 @@ export const dashboardRouter = router({
             SELECT DATE_TRUNC('week', m."createdAt") as week, m.sentiment, COUNT(*) as count
             FROM "Mention" m
             JOIN "Client" c ON m."clientId" = c.id
-            WHERE c."orgId" = ${orgId}
-            AND m."createdAt" >= ${since}
+            WHERE m."createdAt" >= ${since}
+            ${orgFilterSql}
             ${clientFilter}
             GROUP BY DATE_TRUNC('week', m."createdAt"), m.sentiment
             ORDER BY week ASC
@@ -126,8 +157,8 @@ export const dashboardRouter = router({
             FROM "Mention" m
             JOIN "Article" a ON m."articleId" = a.id
             JOIN "Client" c ON m."clientId" = c.id
-            WHERE c."orgId" = ${orgId}
-            AND m."createdAt" >= ${since}
+            WHERE m."createdAt" >= ${since}
+            ${orgFilterSql}
             ${clientFilter}
             GROUP BY a.source
             ORDER BY count DESC
@@ -198,26 +229,29 @@ export const dashboardRouter = router({
   /**
    * Estadísticas de redes sociales para el dashboard principal.
    */
-  getSocialDashboardStats: protectedProcedure.query(async ({ ctx }) => {
-    const orgId = ctx.user.orgId;
-    const last7d = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000);
+  getSocialDashboardStats: protectedProcedure
+    .input(z.object({ orgId: z.string().optional() }).optional())
+    .query(async ({ ctx, input }) => {
+      const orgId = getEffectiveOrgId(ctx.user, input?.orgId);
+      const last7d = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000);
+      const clientOrgFilter = orgId ? { client: { orgId } } : {};
 
-    const [total7d, byPlatform] = await Promise.all([
-      prisma.socialMention.count({
-        where: {
-          client: { orgId },
-          createdAt: { gte: last7d },
-        },
-      }),
-      prisma.socialMention.groupBy({
-        by: ["platform"],
-        where: {
-          client: { orgId },
-          createdAt: { gte: last7d },
-        },
-        _count: { id: true },
-      }),
-    ]);
+      const [total7d, byPlatform] = await Promise.all([
+        prisma.socialMention.count({
+          where: {
+            ...clientOrgFilter,
+            createdAt: { gte: last7d },
+          },
+        }),
+        prisma.socialMention.groupBy({
+          by: ["platform"],
+          where: {
+            ...clientOrgFilter,
+            createdAt: { gte: last7d },
+          },
+          _count: { id: true },
+        }),
+      ]);
 
     return {
       total7d,
@@ -237,19 +271,29 @@ export const dashboardRouter = router({
       z.object({
         clientId: z.string().optional(),
         days: z.number().min(7).max(90).default(30),
+        orgId: z.string().optional(), // Super Admin puede especificar org
       })
     )
     .query(async ({ input, ctx }) => {
-      const orgId = ctx.user.orgId;
+      const orgId = getEffectiveOrgId(ctx.user, input.orgId);
       const since = new Date(Date.now() - input.days * 24 * 60 * 60 * 1000);
 
       const clientFilter = input.clientId
         ? Prisma.sql`AND sm."clientId" = ${input.clientId}`
         : Prisma.empty;
 
+      // Filtro de organización para raw queries
+      const orgFilterSql = orgId
+        ? Prisma.sql`AND c."orgId" = ${orgId}`
+        : Prisma.empty;
+
       const clientWhereClause = input.clientId
-        ? { clientId: input.clientId, client: { orgId } }
-        : { client: { orgId } };
+        ? orgId
+          ? { clientId: input.clientId, client: { orgId } }
+          : { clientId: input.clientId }
+        : orgId
+          ? { client: { orgId } }
+          : {};
 
       const [mentionsByDay, byPlatform, bySentiment, topAuthors] = await Promise.all([
         // Menciones por día
@@ -257,8 +301,8 @@ export const dashboardRouter = router({
           SELECT DATE(sm."createdAt") as date, COUNT(*) as count
           FROM "SocialMention" sm
           JOIN "Client" c ON sm."clientId" = c.id
-          WHERE c."orgId" = ${orgId}
-          AND sm."createdAt" >= ${since}
+          WHERE sm."createdAt" >= ${since}
+          ${orgFilterSql}
           ${clientFilter}
           GROUP BY DATE(sm."createdAt")
           ORDER BY date ASC
@@ -287,9 +331,9 @@ export const dashboardRouter = router({
                  SUM(COALESCE(sm.likes, 0) + COALESCE(sm.comments, 0) + COALESCE(sm.shares, 0)) as "totalEngagement"
           FROM "SocialMention" sm
           JOIN "Client" c ON sm."clientId" = c.id
-          WHERE c."orgId" = ${orgId}
-          AND sm."createdAt" >= ${since}
+          WHERE sm."createdAt" >= ${since}
           AND sm."authorHandle" IS NOT NULL
+          ${orgFilterSql}
           ${clientFilter}
           GROUP BY sm."authorHandle", sm.platform
           ORDER BY "totalEngagement" DESC, count DESC

@@ -22,17 +22,29 @@ model User {
   passwordHash   String?
   telegramUserId String?        @unique
   role           Role           @default(ANALYST)
-  orgId          String
-  org            Organization   @relation(fields: [orgId], references: [id])
+  orgId          String?
+  org            Organization?  @relation(fields: [orgId], references: [id])
   assignedTasks  Task[]
   notifications  Notification[]
   createdAt      DateTime       @default(now())
+
+  // Super Admin y Onboarding
+  isSuperAdmin         Boolean          @default(false)
+  onboardingStatus     OnboardingStatus @default(PENDING)
+  onboardingCompletedAt DateTime?
 }
 
 enum Role {
   ADMIN
   SUPERVISOR
   ANALYST
+}
+
+enum OnboardingStatus {
+  PENDING      // No ha iniciado el onboarding
+  IN_PROGRESS  // Está en el tour
+  COMPLETED    // Completó el tour
+  SKIPPED      // Saltó el tour
 }
 
 model Client {

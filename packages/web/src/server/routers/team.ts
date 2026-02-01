@@ -1,29 +1,36 @@
 import { z } from "zod";
 import { TRPCError } from "@trpc/server";
-import { router, protectedProcedure } from "../trpc";
+import { router, protectedProcedure, getEffectiveOrgId } from "../trpc";
 import { prisma } from "@mediabot/shared";
 import bcrypt from "bcryptjs";
 
 export const teamRouter = router({
-  list: protectedProcedure.query(async ({ ctx }) => {
-    return prisma.user.findMany({
-      where: { orgId: ctx.user.orgId },
-      select: {
-        id: true,
-        name: true,
-        email: true,
-        role: true,
-        telegramUserId: true,
-        createdAt: true,
-        _count: {
-          select: {
-            assignedTasks: { where: { status: { in: ["PENDING", "IN_PROGRESS"] } } },
+  list: protectedProcedure
+    .input(z.object({ orgId: z.string().optional() }).optional())
+    .query(async ({ ctx, input }) => {
+      const orgId = getEffectiveOrgId(ctx.user, input?.orgId);
+      const orgFilter = orgId ? { orgId } : {};
+
+      return prisma.user.findMany({
+        where: orgFilter,
+        select: {
+          id: true,
+          name: true,
+          email: true,
+          role: true,
+          isSuperAdmin: true,
+          telegramUserId: true,
+          createdAt: true,
+          org: ctx.user.isSuperAdmin ? { select: { id: true, name: true } } : false,
+          _count: {
+            select: {
+              assignedTasks: { where: { status: { in: ["PENDING", "IN_PROGRESS"] } } },
+            },
           },
         },
-      },
-      orderBy: { name: "asc" },
-    });
-  }),
+        orderBy: { name: "asc" },
+      });
+    }),
 
   create: protectedProcedure
     .input(
@@ -36,9 +43,19 @@ export const teamRouter = router({
         ),
         role: z.enum(["ADMIN", "SUPERVISOR", "ANALYST"]).default("ANALYST"),
         telegramUserId: z.string().optional(),
+        orgId: z.string().optional(), // Super Admin puede especificar org
       })
     )
     .mutation(async ({ input, ctx }) => {
+      // Determinar orgId: Super Admin puede especificar, usuario normal usa el suyo
+      const targetOrgId = getEffectiveOrgId(ctx.user, input.orgId) || ctx.user.orgId;
+      if (!targetOrgId) {
+        throw new TRPCError({
+          code: "BAD_REQUEST",
+          message: "Debe especificar una organización",
+        });
+      }
+
       const passwordHash = await bcrypt.hash(input.password, 12);
       return prisma.user.create({
         data: {
@@ -47,7 +64,7 @@ export const teamRouter = router({
           passwordHash,
           role: input.role,
           telegramUserId: input.telegramUserId || null,
-          orgId: ctx.user.orgId,
+          orgId: targetOrgId,
         },
       });
     }),
@@ -63,10 +80,11 @@ export const teamRouter = router({
     )
     .mutation(async ({ input, ctx }) => {
       const { id, ...data } = input;
-      // Verify user belongs to same org
-      const user = await prisma.user.findFirst({
-        where: { id, orgId: ctx.user.orgId },
-      });
+      // Super Admin puede actualizar cualquier usuario
+      const whereClause = ctx.user.isSuperAdmin
+        ? { id }
+        : { id, orgId: ctx.user.orgId };
+      const user = await prisma.user.findFirst({ where: whereClause });
       if (!user) {
         throw new TRPCError({ code: "NOT_FOUND", message: "User not found" });
       }

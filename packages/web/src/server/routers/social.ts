@@ -13,10 +13,31 @@
 
 import { z } from "zod";
 import { TRPCError } from "@trpc/server";
-import { router, protectedProcedure } from "../trpc";
+import { router, protectedProcedure, getEffectiveOrgId } from "../trpc";
 import { prisma, getEnsembleDataClient } from "@mediabot/shared";
 
 const SocialPlatformEnum = z.enum(["TWITTER", "INSTAGRAM", "TIKTOK"]);
+
+/**
+ * Schema Zod para validar respuesta de suggestHashtags.
+ */
+const HashtagSuggestionSchema = z.object({
+  hashtags: z.array(
+    z.object({
+      hashtag: z.string(),
+      platform: z.enum(["TWITTER", "INSTAGRAM", "TIKTOK", "ALL"]).default("ALL"),
+      confidence: z.number().min(0).max(1).default(0.7),
+      reason: z.string().optional(),
+    })
+  ).default([]),
+  suggestedAccounts: z.array(
+    z.object({
+      platform: z.enum(["TWITTER", "INSTAGRAM", "TIKTOK"]).default("TWITTER"),
+      handle: z.string(),
+      reason: z.string().optional(),
+    })
+  ).default([]),
+});
 
 export const socialRouter = router({
   /**
@@ -26,9 +47,9 @@ export const socialRouter = router({
   suggestHashtags: protectedProcedure
     .input(
       z.object({
-        clientName: z.string().min(1),
-        description: z.string().optional(),
-        industry: z.string().optional(),
+        clientName: z.string().min(1).max(100),
+        description: z.string().max(500).optional(),
+        industry: z.string().max(100).optional(),
         existingKeywords: z.array(z.string()).optional(),
         competitors: z.array(z.string()).optional(),
       })
@@ -84,6 +105,18 @@ Genera:
 - 8-15 hashtags variados (mezcla de genericos e industria)
 - 3-6 cuentas sugeridas (basadas en competidores identificados y medios relevantes)`;
 
+      const fallbackResult = {
+        hashtags: [
+          {
+            hashtag: input.clientName.replace(/\s+/g, ""),
+            platform: "ALL" as const,
+            confidence: 0.8,
+            reason: "Nombre del cliente",
+          },
+        ],
+        suggestedAccounts: [],
+      };
+
       try {
         const genResult = await model.generateContent({
           contents: [{ role: "user", parts: [{ text: prompt }] }],
@@ -92,39 +125,33 @@ Genera:
 
         const rawText = genResult.response.text();
         const jsonText = cleanJsonResponse(rawText);
-        const result = JSON.parse(jsonText);
+        const parsed = JSON.parse(jsonText);
 
-        // Validar y limpiar resultado
-        const validPlatforms = ["TWITTER", "INSTAGRAM", "TIKTOK", "ALL"];
-        const validAccountPlatforms = ["TWITTER", "INSTAGRAM", "TIKTOK"];
+        // Validar con Zod
+        const validated = HashtagSuggestionSchema.safeParse(parsed);
+        if (!validated.success) {
+          console.error("[Social] Zod validation error:", validated.error.message);
+          return fallbackResult;
+        }
 
-        result.hashtags = (result.hashtags || []).map((h: { hashtag: string; platform: string; confidence: number; reason: string }) => ({
+        const result = validated.data;
+
+        // Limpiar resultado (quitar # y @)
+        result.hashtags = result.hashtags.map((h) => ({
           ...h,
           hashtag: h.hashtag.replace(/^#/, ""),
-          platform: validPlatforms.includes(h.platform) ? h.platform : "ALL",
-          confidence: Math.max(0.5, Math.min(1, h.confidence || 0.7)),
+          confidence: Math.max(0.5, Math.min(1, h.confidence)),
         }));
 
-        result.suggestedAccounts = (result.suggestedAccounts || []).map((a: { platform: string; handle: string; reason: string }) => ({
+        result.suggestedAccounts = result.suggestedAccounts.map((a) => ({
           ...a,
           handle: a.handle.replace(/^@/, ""),
-          platform: validAccountPlatforms.includes(a.platform) ? a.platform : "TWITTER",
         }));
 
         return result;
       } catch (error) {
         console.error("[Social] Parse error:", error);
-        return {
-          hashtags: [
-            {
-              hashtag: input.clientName.replace(/\s+/g, ""),
-              platform: "ALL",
-              confidence: 0.8,
-              reason: "Nombre del cliente",
-            },
-          ],
-          suggestedAccounts: [],
-        };
+        return fallbackResult;
       }
     }),
 
@@ -170,12 +197,16 @@ Genera:
         dateTo: z.date().optional(),
         cursor: z.string().optional(),
         limit: z.number().min(1).max(50).default(30),
+        orgId: z.string().optional(), // Super Admin puede especificar org
       })
     )
     .query(async ({ input, ctx }) => {
+      const orgId = getEffectiveOrgId(ctx.user, input.orgId);
+      const clientOrgFilter = orgId ? { client: { orgId } } : {};
+
       const mentions = await prisma.socialMention.findMany({
         where: {
-          client: { orgId: ctx.user.orgId },
+          ...clientOrgFilter,
           ...(input.clientId && { clientId: input.clientId }),
           ...(input.platform && { platform: input.platform }),
           ...(input.sentiment && { sentiment: input.sentiment }),
@@ -210,15 +241,18 @@ Genera:
       z.object({
         clientId: z.string().optional(),
         days: z.number().min(1).max(90).default(7),
+        orgId: z.string().optional(), // Super Admin puede especificar org
       })
     )
     .query(async ({ input, ctx }) => {
       const since = new Date(Date.now() - input.days * 24 * 60 * 60 * 1000);
+      const orgId = getEffectiveOrgId(ctx.user, input.orgId);
+      const clientOrgFilter = orgId ? { client: { orgId } } : {};
 
       const [total, byPlatform, bySentiment, bySourceType] = await Promise.all([
         prisma.socialMention.count({
           where: {
-            client: { orgId: ctx.user.orgId },
+            ...clientOrgFilter,
             ...(input.clientId && { clientId: input.clientId }),
             createdAt: { gte: since },
           },
@@ -226,7 +260,7 @@ Genera:
         prisma.socialMention.groupBy({
           by: ["platform"],
           where: {
-            client: { orgId: ctx.user.orgId },
+            ...clientOrgFilter,
             ...(input.clientId && { clientId: input.clientId }),
             createdAt: { gte: since },
           },
@@ -235,7 +269,7 @@ Genera:
         prisma.socialMention.groupBy({
           by: ["sentiment"],
           where: {
-            client: { orgId: ctx.user.orgId },
+            ...clientOrgFilter,
             ...(input.clientId && { clientId: input.clientId }),
             createdAt: { gte: since },
           },
@@ -244,7 +278,7 @@ Genera:
         prisma.socialMention.groupBy({
           by: ["sourceType"],
           where: {
-            client: { orgId: ctx.user.orgId },
+            ...clientOrgFilter,
             ...(input.clientId && { clientId: input.clientId }),
             createdAt: { gte: since },
           },
@@ -266,11 +300,13 @@ Genera:
   getSocialMentionById: protectedProcedure
     .input(z.object({ id: z.string() }))
     .query(async ({ input, ctx }) => {
+      // Super Admin puede ver cualquier mención social
+      const whereClause = ctx.user.isSuperAdmin
+        ? { id: input.id }
+        : { id: input.id, client: { orgId: ctx.user.orgId } };
+
       const mention = await prisma.socialMention.findFirst({
-        where: {
-          id: input.id,
-          client: { orgId: ctx.user.orgId },
-        },
+        where: whereClause,
         include: {
           client: { select: { id: true, name: true } },
         },
@@ -294,9 +330,12 @@ Genera:
       })
     )
     .query(async ({ input, ctx }) => {
-      // Verificar que el cliente pertenece a la organización
+      // Super Admin puede ver cualquier cliente
+      const clientWhereClause = ctx.user.isSuperAdmin
+        ? { id: input.clientId }
+        : { id: input.clientId, orgId: ctx.user.orgId };
       const client = await prisma.client.findFirst({
-        where: { id: input.clientId, orgId: ctx.user.orgId },
+        where: clientWhereClause,
         select: { id: true },
       });
 
@@ -338,23 +377,26 @@ Genera:
       z.object({
         clientId: z.string().optional(),
         days: z.number().min(1).max(90).default(7),
+        orgId: z.string().optional(), // Super Admin puede especificar org
       })
     )
     .query(async ({ input, ctx }) => {
       const since = new Date(Date.now() - input.days * 24 * 60 * 60 * 1000);
+      const orgId = getEffectiveOrgId(ctx.user, input.orgId);
 
-      const clientFilter = input.clientId
-        ? { clientId: input.clientId }
-        : { client: { orgId: ctx.user.orgId } };
+      // Filtro de organización para raw queries (vacío si Super Admin ve todo)
+      const orgFilterSql = orgId
+        ? prisma.$queryRaw`AND c."orgId" = ${orgId}`
+        : prisma.$queryRaw``;
 
       // Agrupar por fecha
       const trend = await prisma.$queryRaw<{ date: string; count: bigint }[]>`
         SELECT DATE(sm."createdAt") as date, COUNT(*) as count
         FROM "SocialMention" sm
         JOIN "Client" c ON sm."clientId" = c.id
-        WHERE c."orgId" = ${ctx.user.orgId}
+        WHERE sm."createdAt" >= ${since}
+        ${orgFilterSql}
         ${input.clientId ? prisma.$queryRaw`AND sm."clientId" = ${input.clientId}` : prisma.$queryRaw``}
-        AND sm."createdAt" >= ${since}
         GROUP BY DATE(sm."createdAt")
         ORDER BY date ASC
       `;
@@ -378,8 +420,12 @@ Genera:
       })
     )
     .query(async ({ input, ctx }) => {
+      // Super Admin puede ver cualquier cliente
+      const clientWhereClause = ctx.user.isSuperAdmin
+        ? { id: input.clientId }
+        : { id: input.clientId, orgId: ctx.user.orgId };
       const client = await prisma.client.findFirst({
-        where: { id: input.clientId, orgId: ctx.user.orgId },
+        where: clientWhereClause,
         select: { id: true },
       });
 
@@ -428,8 +474,12 @@ Genera:
   getSocialAccounts: protectedProcedure
     .input(z.object({ clientId: z.string() }))
     .query(async ({ input, ctx }) => {
+      // Super Admin puede ver cualquier cliente
+      const clientWhereClause = ctx.user.isSuperAdmin
+        ? { id: input.clientId }
+        : { id: input.clientId, orgId: ctx.user.orgId };
       const client = await prisma.client.findFirst({
-        where: { id: input.clientId, orgId: ctx.user.orgId },
+        where: clientWhereClause,
         select: { id: true, socialMonitoringEnabled: true, socialHashtags: true },
       });
 
@@ -463,9 +513,11 @@ Genera:
       })
     )
     .mutation(async ({ input, ctx }) => {
-      const client = await prisma.client.findFirst({
-        where: { id: input.clientId, orgId: ctx.user.orgId },
-      });
+      // Super Admin puede agregar a cualquier cliente
+      const clientWhereClause = ctx.user.isSuperAdmin
+        ? { id: input.clientId }
+        : { id: input.clientId, orgId: ctx.user.orgId };
+      const client = await prisma.client.findFirst({ where: clientWhereClause });
 
       if (!client) {
         throw new TRPCError({ code: "NOT_FOUND", message: "Cliente no encontrado" });
@@ -542,13 +594,11 @@ Genera:
     .mutation(async ({ input, ctx }) => {
       const { id, ...data } = input;
 
-      // Verificar que la cuenta pertenece a un cliente de la organización
-      const account = await prisma.socialAccount.findFirst({
-        where: {
-          id,
-          client: { orgId: ctx.user.orgId },
-        },
-      });
+      // Super Admin puede actualizar cualquier cuenta
+      const whereClause = ctx.user.isSuperAdmin
+        ? { id }
+        : { id, client: { orgId: ctx.user.orgId } };
+      const account = await prisma.socialAccount.findFirst({ where: whereClause });
 
       if (!account) {
         throw new TRPCError({ code: "NOT_FOUND", message: "Cuenta no encontrada" });
@@ -566,12 +616,11 @@ Genera:
   removeSocialAccount: protectedProcedure
     .input(z.object({ id: z.string() }))
     .mutation(async ({ input, ctx }) => {
-      const account = await prisma.socialAccount.findFirst({
-        where: {
-          id: input.id,
-          client: { orgId: ctx.user.orgId },
-        },
-      });
+      // Super Admin puede eliminar cualquier cuenta
+      const whereClause = ctx.user.isSuperAdmin
+        ? { id: input.id }
+        : { id: input.id, client: { orgId: ctx.user.orgId } };
+      const account = await prisma.socialAccount.findFirst({ where: whereClause });
 
       if (!account) {
         throw new TRPCError({ code: "NOT_FOUND", message: "Cuenta no encontrada" });
@@ -599,9 +648,11 @@ Genera:
     .mutation(async ({ input, ctx }) => {
       const { clientId, ...data } = input;
 
-      const client = await prisma.client.findFirst({
-        where: { id: clientId, orgId: ctx.user.orgId },
-      });
+      // Super Admin puede actualizar cualquier cliente
+      const clientWhereClause = ctx.user.isSuperAdmin
+        ? { id: clientId }
+        : { id: clientId, orgId: ctx.user.orgId };
+      const client = await prisma.client.findFirst({ where: clientWhereClause });
 
       if (!client) {
         throw new TRPCError({ code: "NOT_FOUND", message: "Cliente no encontrado" });
@@ -638,8 +689,12 @@ Genera:
       })
     )
     .mutation(async ({ input, ctx }) => {
+      // Super Admin puede ejecutar recolección para cualquier cliente
+      const clientWhereClause = ctx.user.isSuperAdmin
+        ? { id: input.clientId }
+        : { id: input.clientId, orgId: ctx.user.orgId };
       const client = await prisma.client.findFirst({
-        where: { id: input.clientId, orgId: ctx.user.orgId },
+        where: clientWhereClause,
         select: { id: true, name: true, socialMonitoringEnabled: true },
       });
 
@@ -683,8 +738,12 @@ Genera:
           queued: true,
         };
       } catch (error) {
-        const msg = error instanceof Error ? error.message : "Error al iniciar recolección";
-        throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: msg });
+        // Log del error interno sin exponer al cliente
+        console.error("[Social] Queue error:", error instanceof Error ? error.message : error);
+        throw new TRPCError({
+          code: "INTERNAL_SERVER_ERROR",
+          message: "Error al iniciar recolección. Intente nuevamente.",
+        });
       }
     }),
 });

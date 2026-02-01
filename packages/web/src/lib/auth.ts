@@ -6,7 +6,8 @@ import { prisma } from "@mediabot/shared";
 declare module "next-auth" {
   interface User {
     role: string;
-    orgId: string;
+    orgId: string | null;
+    isSuperAdmin: boolean;
   }
   interface Session {
     user: {
@@ -14,7 +15,8 @@ declare module "next-auth" {
       name: string;
       email: string;
       role: string;
-      orgId: string;
+      orgId: string | null;
+      isSuperAdmin: boolean;
     };
   }
 }
@@ -22,8 +24,9 @@ declare module "next-auth" {
 declare module "next-auth/jwt" {
   interface JWT {
     role: string;
-    orgId: string;
+    orgId: string | null;
     userId: string;
+    isSuperAdmin: boolean;
   }
 }
 
@@ -57,6 +60,7 @@ export const authOptions: NextAuthOptions = {
           email: user.email!,
           role: user.role,
           orgId: user.orgId,
+          isSuperAdmin: user.isSuperAdmin,
         };
       },
     }),
@@ -67,6 +71,7 @@ export const authOptions: NextAuthOptions = {
         token.role = user.role;
         token.orgId = user.orgId;
         token.userId = user.id;
+        token.isSuperAdmin = user.isSuperAdmin;
       }
       return token;
     },
@@ -75,6 +80,7 @@ export const authOptions: NextAuthOptions = {
         session.user.role = token.role;
         session.user.orgId = token.orgId;
         session.user.id = token.userId;
+        session.user.isSuperAdmin = token.isSuperAdmin;
       }
       return session;
     },

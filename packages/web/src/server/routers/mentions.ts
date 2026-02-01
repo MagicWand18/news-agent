@@ -1,7 +1,20 @@
 import { z } from "zod";
-import { router, protectedProcedure } from "../trpc";
+import { TRPCError } from "@trpc/server";
+import { router, protectedProcedure, getEffectiveOrgId } from "../trpc";
 import { prisma, getGeminiModel, cleanJsonResponse } from "@mediabot/shared";
 import type { ResponseGenerationResult } from "@mediabot/shared";
+
+/**
+ * Schema Zod para validar respuesta de generateResponse.
+ */
+const ResponseGenerationSchema = z.object({
+  title: z.string(),
+  body: z.string(),
+  tone: z.enum(["PROFESSIONAL", "DEFENSIVE", "CLARIFICATION", "CELEBRATORY"]).default("PROFESSIONAL"),
+  audience: z.string().default("Medios generales"),
+  callToAction: z.string().optional(),
+  keyMessages: z.array(z.string()).default([]),
+});
 
 export const mentionsRouter = router({
   list: protectedProcedure
@@ -10,19 +23,22 @@ export const mentionsRouter = router({
         clientId: z.string().optional(),
         sentiment: z.enum(["POSITIVE", "NEGATIVE", "NEUTRAL", "MIXED"]).optional(),
         urgency: z.enum(["HIGH", "MEDIUM", "LOW"]).optional(),
-        source: z.string().optional(),
+        source: z.string().max(200).optional(),
         dateFrom: z.date().optional(),
         dateTo: z.date().optional(),
         cursor: z.string().optional(),
         limit: z.number().min(1).max(50).default(20),
+        orgId: z.string().optional(), // Super Admin puede especificar org
       })
     )
     .query(async ({ input, ctx }) => {
-      const { cursor, limit, clientId, sentiment, urgency, source, dateFrom, dateTo } = input;
+      const { cursor, limit, clientId, sentiment, urgency, source, dateFrom, dateTo, orgId: inputOrgId } = input;
+      const orgId = getEffectiveOrgId(ctx.user, inputOrgId);
+      const clientOrgFilter = orgId ? { client: { orgId } } : {};
 
       const mentions = await prisma.mention.findMany({
         where: {
-          client: { orgId: ctx.user.orgId },
+          ...clientOrgFilter,
           ...(clientId && { clientId }),
           ...(sentiment && { sentiment }),
           ...(urgency && { urgency }),
@@ -38,7 +54,7 @@ export const mentionsRouter = router({
         },
         include: {
           article: { select: { title: true, source: true, url: true, publishedAt: true } },
-          client: { select: { name: true } },
+          client: { select: { name: true, org: ctx.user.isSuperAdmin ? { select: { name: true } } : false } },
         },
         orderBy: { createdAt: "desc" },
         take: limit + 1,
@@ -57,11 +73,13 @@ export const mentionsRouter = router({
   getById: protectedProcedure
     .input(z.object({ id: z.string() }))
     .query(async ({ input, ctx }) => {
+      // Super Admin puede ver cualquier mención
+      const whereClause = ctx.user.isSuperAdmin
+        ? { id: input.id }
+        : { id: input.id, client: { orgId: ctx.user.orgId } };
+
       return prisma.mention.findFirst({
-        where: {
-          id: input.id,
-          client: { orgId: ctx.user.orgId },
-        },
+        where: whereClause,
         include: {
           article: true,
           client: true,
@@ -78,11 +96,13 @@ export const mentionsRouter = router({
       })
     )
     .mutation(async ({ input, ctx }) => {
+      // Super Admin puede generar respuesta para cualquier mención
+      const whereClause = ctx.user.isSuperAdmin
+        ? { id: input.mentionId }
+        : { id: input.mentionId, client: { orgId: ctx.user.orgId } };
+
       const mention = await prisma.mention.findFirst({
-        where: {
-          id: input.mentionId,
-          client: { orgId: ctx.user.orgId },
-        },
+        where: whereClause,
         include: {
           article: true,
           client: true,
@@ -90,7 +110,7 @@ export const mentionsRouter = router({
       });
 
       if (!mention) {
-        throw new Error("Mention not found");
+        throw new TRPCError({ code: "NOT_FOUND", message: "Mention not found" });
       }
 
       const toneInstruction = input.tone
@@ -130,6 +150,15 @@ Responde UNICAMENTE con JSON valido, sin markdown ni texto adicional:
 
 Tonos validos: PROFESSIONAL, DEFENSIVE, CLARIFICATION, CELEBRATORY`;
 
+      const fallbackResponse: ResponseGenerationResult = {
+        title: `Comunicado sobre: ${mention.article.title.slice(0, 50)}`,
+        body: "Error al generar el comunicado automatico. Por favor, redacte manualmente.",
+        tone: "PROFESSIONAL",
+        audience: "Medios generales",
+        callToAction: "Revisar y completar manualmente",
+        keyMessages: ["Revisar articulo original", "Definir posicion del cliente"],
+      };
+
       try {
         const genResult = await model.generateContent({
           contents: [{ role: "user", parts: [{ text: prompt }] }],
@@ -138,22 +167,19 @@ Tonos validos: PROFESSIONAL, DEFENSIVE, CLARIFICATION, CELEBRATORY`;
 
         const rawText = genResult.response.text();
         const cleaned = cleanJsonResponse(rawText);
-        const result = JSON.parse(cleaned) as ResponseGenerationResult;
+        const parsed = JSON.parse(cleaned);
 
-        if (!["PROFESSIONAL", "DEFENSIVE", "CLARIFICATION", "CELEBRATORY"].includes(result.tone)) {
-          result.tone = "PROFESSIONAL";
+        // Validar con Zod
+        const validated = ResponseGenerationSchema.safeParse(parsed);
+        if (!validated.success) {
+          console.error("[Mentions] Zod validation error:", validated.error.message);
+          return fallbackResponse;
         }
-        return result;
+
+        return validated.data as ResponseGenerationResult;
       } catch (error) {
         console.error("[Mentions] generateResponse error:", error);
-        return {
-          title: `Comunicado sobre: ${mention.article.title.slice(0, 50)}`,
-          body: "Error al generar el comunicado automatico. Por favor, redacte manualmente.",
-          tone: "PROFESSIONAL" as const,
-          audience: "Medios generales",
-          callToAction: "Revisar y completar manualmente",
-          keyMessages: ["Revisar articulo original", "Definir posicion del cliente"],
-        };
+        return fallbackResponse;
       }
     }),
 });

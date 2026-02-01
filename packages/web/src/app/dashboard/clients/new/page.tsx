@@ -200,11 +200,11 @@ export default function NewClientWizardPage() {
       // Procesar keywords
       setKeywords(
         (config.suggestedKeywords || []).map(
-          (kw: { word: string; type: string; confidence: number; reason: string }) => ({
+          (kw: { word: string; type: string; confidence?: number; reason?: string }) => ({
             word: kw.word,
             type: kw.type as SuggestedKeyword["type"],
-            confidence: kw.confidence,
-            reason: kw.reason,
+            confidence: kw.confidence ?? 0.7,
+            reason: kw.reason ?? "",
             selected: true,
           })
         )
@@ -308,10 +308,10 @@ export default function NewClientWizardPage() {
                   existing.handle === a.handle.replace(/^@/, "")
               )
           )
-          .map((a: { platform: SocialPlatform; handle: string; reason: string }) => ({
+          .map((a: { platform: SocialPlatform; handle: string; reason?: string }) => ({
             platform: a.platform,
             handle: a.handle.replace(/^@/, ""),
-            label: a.reason || "",
+            label: a.reason ?? "",
             isOwned: false,
           }));
         setSocialAccounts((prev) => [...prev, ...newAccounts]);

@@ -1,6 +1,6 @@
 import { z } from "zod";
 import { TRPCError } from "@trpc/server";
-import { router, protectedProcedure } from "../trpc";
+import { router, protectedProcedure, getOrgFilter, getEffectiveOrgId, buildOrgCondition, buildClientOrgCondition } from "../trpc";
 import {
   prisma,
   getOnboardingQueue,
@@ -21,28 +21,60 @@ function subDays(date: Date, days: number): Date {
   return result;
 }
 
+/**
+ * Schema Zod para validar respuesta de generateOnboardingConfig.
+ */
+const OnboardingConfigSchema = z.object({
+  suggestedKeywords: z.array(
+    z.object({
+      word: z.string(),
+      type: z.enum(["NAME", "BRAND", "COMPETITOR", "TOPIC", "ALIAS"]),
+      confidence: z.number().min(0).max(1).optional(),
+      reason: z.string().optional(),
+    })
+  ).default([]),
+  competitors: z.array(
+    z.object({
+      name: z.string(),
+      reason: z.string().optional(),
+    })
+  ).default([]),
+  sensitiveTopics: z.array(z.string()).default([]),
+  industryContext: z.string().default(""),
+  monitoringStrategy: z.array(z.string()).default([]),
+});
+
 export const clientsRouter = router({
-  list: protectedProcedure.query(async ({ ctx }) => {
-    return prisma.client.findMany({
-      where: { orgId: ctx.user.orgId },
-      include: {
-        _count: {
-          select: {
-            keywords: { where: { active: true } },
-            mentions: true,
-            tasks: { where: { status: { in: ["PENDING", "IN_PROGRESS"] } } },
+  list: protectedProcedure
+    .input(z.object({ orgId: z.string().optional() }).optional())
+    .query(async ({ ctx, input }) => {
+      const orgFilter = getOrgFilter(ctx.user, input?.orgId);
+      return prisma.client.findMany({
+        where: orgFilter,
+        include: {
+          _count: {
+            select: {
+              keywords: { where: { active: true } },
+              mentions: true,
+              tasks: { where: { status: { in: ["PENDING", "IN_PROGRESS"] } } },
+            },
           },
+          // Incluir org para Super Admin que ve múltiples orgs
+          org: ctx.user.isSuperAdmin ? { select: { id: true, name: true } } : false,
         },
-      },
-      orderBy: { name: "asc" },
-    });
-  }),
+        orderBy: { name: "asc" },
+      });
+    }),
 
   getById: protectedProcedure
     .input(z.object({ id: z.string() }))
     .query(async ({ input, ctx }) => {
+      // Super Admin puede ver cualquier cliente
       return prisma.client.findFirst({
-        where: { id: input.id, orgId: ctx.user.orgId },
+        where: {
+          id: input.id,
+          ...(ctx.user.isSuperAdmin ? {} : { orgId: ctx.user.orgId! }),
+        },
         include: {
           keywords: { where: { active: true }, orderBy: { type: "asc" } },
           mentions: {
@@ -51,6 +83,7 @@ export const clientsRouter = router({
             take: 50,
           },
           _count: { select: { mentions: true, tasks: true } },
+          org: ctx.user.isSuperAdmin ? { select: { id: true, name: true } } : false,
         },
       });
     }),
@@ -58,16 +91,28 @@ export const clientsRouter = router({
   create: protectedProcedure
     .input(
       z.object({
-        name: z.string().min(1),
-        description: z.string().optional(),
-        industry: z.string().optional(),
+        name: z.string().min(1).max(100),
+        description: z.string().max(500).optional(),
+        industry: z.string().max(100).optional(),
+        orgId: z.string().optional(), // Super Admin puede especificar org
       })
     )
     .mutation(async ({ input, ctx }) => {
+      // Determinar orgId: Super Admin puede especificar, usuario normal usa el suyo
+      const targetOrgId = getEffectiveOrgId(ctx.user, input.orgId) || ctx.user.orgId;
+      if (!targetOrgId) {
+        throw new TRPCError({
+          code: "BAD_REQUEST",
+          message: "Debe especificar una organización",
+        });
+      }
+
       const client = await prisma.client.create({
         data: {
-          ...input,
-          orgId: ctx.user.orgId,
+          name: input.name,
+          description: input.description,
+          industry: input.industry,
+          orgId: targetOrgId,
         },
       });
 
@@ -112,8 +157,12 @@ export const clientsRouter = router({
     )
     .mutation(async ({ input, ctx }) => {
       const { id, ...data } = input;
+      // Super Admin puede actualizar cualquier cliente
       return prisma.client.update({
-        where: { id, orgId: ctx.user.orgId },
+        where: {
+          id,
+          ...(ctx.user.isSuperAdmin ? {} : { orgId: ctx.user.orgId! }),
+        },
         data,
       });
     }),
@@ -121,9 +170,12 @@ export const clientsRouter = router({
   delete: protectedProcedure
     .input(z.object({ id: z.string() }))
     .mutation(async ({ input, ctx }) => {
-      // Verificar que el cliente pertenece a la organización
+      // Verificar que el cliente pertenece a la organización (o es Super Admin)
       const client = await prisma.client.findFirst({
-        where: { id: input.id, orgId: ctx.user.orgId },
+        where: {
+          id: input.id,
+          ...(ctx.user.isSuperAdmin ? {} : { orgId: ctx.user.orgId! }),
+        },
       });
 
       if (!client) {
@@ -150,9 +202,12 @@ export const clientsRouter = router({
       })
     )
     .mutation(async ({ input, ctx }) => {
-      // Verify client belongs to user's org
+      // Super Admin puede agregar keywords a cualquier cliente
       const client = await prisma.client.findFirst({
-        where: { id: input.clientId, orgId: ctx.user.orgId },
+        where: {
+          id: input.clientId,
+          ...(ctx.user.isSuperAdmin ? {} : { orgId: ctx.user.orgId! }),
+        },
       });
       if (!client) {
         throw new TRPCError({ code: "NOT_FOUND", message: "Client not found" });
@@ -165,9 +220,12 @@ export const clientsRouter = router({
   removeKeyword: protectedProcedure
     .input(z.object({ id: z.string() }))
     .mutation(async ({ input, ctx }) => {
-      // Verify keyword belongs to a client in user's org
+      // Super Admin puede eliminar keywords de cualquier cliente
       const keyword = await prisma.keyword.findFirst({
-        where: { id: input.id, client: { orgId: ctx.user.orgId } },
+        where: {
+          id: input.id,
+          ...(ctx.user.isSuperAdmin ? {} : { client: { orgId: ctx.user.orgId! } }),
+        },
       });
       if (!keyword) {
         throw new TRPCError({ code: "NOT_FOUND", message: "Keyword not found" });
@@ -187,8 +245,8 @@ export const clientsRouter = router({
   searchNews: protectedProcedure
     .input(
       z.object({
-        clientName: z.string().min(1),
-        industry: z.string().optional(),
+        clientName: z.string().min(1).max(100),
+        industry: z.string().max(100).optional(),
         days: z.number().min(7).max(60).default(30),
       })
     )
@@ -346,7 +404,15 @@ Para cada noticia encontrada, incluye el título y un resumen breve.`;
           console.log(`[SearchNews] Processed ${foundArticles.length} articles from groundingMetadata`);
         } catch (error) {
           const errMsg = error instanceof Error ? error.message : String(error);
-          console.error("[SearchNews] Gemini search error:", errMsg);
+          // Sanitizar mensaje de error para logs (no exponer API keys ni detalles internos)
+          const sanitizedError = errMsg.includes("API key") || errMsg.includes("401") || errMsg.includes("403")
+            ? "auth_error"
+            : errMsg.includes("quota") || errMsg.includes("rate") || errMsg.includes("429")
+            ? "rate_limit"
+            : errMsg.includes("503") || errMsg.includes("Service Unavailable")
+            ? "service_unavailable"
+            : "unknown_error";
+          console.error("[SearchNews] Gemini error:", { type: sanitizedError });
           // Proporcionar mensaje más específico según el tipo de error
           if (errMsg.includes("503") || errMsg.includes("Service Unavailable")) {
             googleError = "El servicio de búsqueda está temporalmente no disponible. Intenta de nuevo en unos minutos.";
@@ -424,9 +490,9 @@ Para cada noticia encontrada, incluye el título y un resumen breve.`;
   generateOnboardingConfig: protectedProcedure
     .input(
       z.object({
-        clientName: z.string().min(1),
-        description: z.string().optional(),
-        industry: z.string().optional(),
+        clientName: z.string().min(1).max(100),
+        description: z.string().max(500).optional(),
+        industry: z.string().max(100).optional(),
         articles: z.array(
           z.object({
             title: z.string(),
@@ -478,6 +544,21 @@ Tipos validos para keywords: NAME, BRAND, COMPETITOR, TOPIC, ALIAS
 
 IMPORTANTE: Genera 8-12 keywords variados basados en las noticias.`;
 
+      const fallbackConfig = {
+        suggestedKeywords: [
+          {
+            word: input.clientName,
+            type: "NAME" as const,
+            confidence: 1,
+            reason: "Nombre del cliente",
+          },
+        ],
+        competitors: [],
+        sensitiveTopics: [],
+        industryContext: "Configuracion manual requerida",
+        monitoringStrategy: ["Agregar keywords manualmente"],
+      };
+
       try {
         const genResult = await model.generateContent({
           contents: [{ role: "user", parts: [{ text: prompt }] }],
@@ -486,23 +567,18 @@ IMPORTANTE: Genera 8-12 keywords variados basados en las noticias.`;
 
         const rawText = genResult.response.text();
         const jsonText = cleanJsonResponse(rawText);
-        return JSON.parse(jsonText);
+        const parsed = JSON.parse(jsonText);
+
+        // Validar con Zod para evitar datos malformados
+        const result = OnboardingConfigSchema.safeParse(parsed);
+        if (!result.success) {
+          console.error("[Onboarding] Zod validation error:", result.error.message);
+          return fallbackConfig;
+        }
+        return result.data;
       } catch (error) {
         console.error("[Onboarding] Parse error:", error);
-        return {
-          suggestedKeywords: [
-            {
-              word: input.clientName,
-              type: "NAME",
-              confidence: 1,
-              reason: "Nombre del cliente",
-            },
-          ],
-          competitors: [],
-          sensitiveTopics: [],
-          industryContext: "Configuracion manual requerida",
-          monitoringStrategy: ["Agregar keywords manualmente"],
-        };
+        return fallbackConfig;
       }
     }),
 
@@ -535,11 +611,21 @@ IMPORTANTE: Genera 8-12 keywords variados basados en las noticias.`;
             isOwned: z.boolean().default(false),
           })
         ).optional(),
+        orgId: z.string().optional(), // Super Admin puede especificar org
       })
     )
     .mutation(async ({ input, ctx }) => {
       // Limpiar hashtags (quitar # si viene)
       const cleanHashtags = (input.socialHashtags || []).map((h) => h.replace(/^#/, ""));
+
+      // Determinar orgId: Super Admin puede especificar, usuario normal usa el suyo
+      const targetOrgId = getEffectiveOrgId(ctx.user, input.orgId) || ctx.user.orgId;
+      if (!targetOrgId) {
+        throw new TRPCError({
+          code: "BAD_REQUEST",
+          message: "Debe especificar una organización",
+        });
+      }
 
       // Crear cliente
       const client = await prisma.client.create({
@@ -547,7 +633,7 @@ IMPORTANTE: Genera 8-12 keywords variados basados en las noticias.`;
           name: input.name,
           description: input.description,
           industry: input.industry,
-          orgId: ctx.user.orgId,
+          orgId: targetOrgId,
           onboarding: {
             completedAt: new Date().toISOString(),
             method: "wizard",
@@ -644,8 +730,11 @@ IMPORTANTE: Genera 8-12 keywords variados basados en las noticias.`;
   getGroundingConfig: protectedProcedure
     .input(z.object({ clientId: z.string() }))
     .query(async ({ input, ctx }) => {
+      const whereClause = ctx.user.isSuperAdmin
+        ? { id: input.clientId }
+        : { id: input.clientId, orgId: ctx.user.orgId };
       const client = await prisma.client.findFirst({
-        where: { id: input.clientId, orgId: ctx.user.orgId },
+        where: whereClause,
         select: {
           id: true,
           name: true,
@@ -686,10 +775,11 @@ IMPORTANTE: Genera 8-12 keywords variados basados en las noticias.`;
     .mutation(async ({ input, ctx }) => {
       const { clientId, ...data } = input;
 
-      // Verificar que el cliente pertenece a la organización
-      const client = await prisma.client.findFirst({
-        where: { id: clientId, orgId: ctx.user.orgId },
-      });
+      // Verificar que el cliente pertenece a la organización (o es Super Admin)
+      const whereClause = ctx.user.isSuperAdmin
+        ? { id: clientId }
+        : { id: clientId, orgId: ctx.user.orgId };
+      const client = await prisma.client.findFirst({ where: whereClause });
 
       if (!client) {
         throw new TRPCError({ code: "NOT_FOUND", message: "Cliente no encontrado" });
@@ -721,8 +811,11 @@ IMPORTANTE: Genera 8-12 keywords variados basados en las noticias.`;
       })
     )
     .mutation(async ({ input, ctx }) => {
+      const whereClause = ctx.user.isSuperAdmin
+        ? { id: input.clientId }
+        : { id: input.clientId, orgId: ctx.user.orgId };
       const client = await prisma.client.findFirst({
-        where: { id: input.clientId, orgId: ctx.user.orgId },
+        where: whereClause,
         select: {
           id: true,
           name: true,
@@ -777,9 +870,12 @@ IMPORTANTE: Genera 8-12 keywords variados basados en las noticias.`;
   getRecipients: protectedProcedure
     .input(z.object({ clientId: z.string() }))
     .query(async ({ input, ctx }) => {
-      // Verificar que el cliente pertenece a la organización
+      // Verificar que el cliente pertenece a la organización (o es Super Admin)
+      const whereClause = ctx.user.isSuperAdmin
+        ? { id: input.clientId }
+        : { id: input.clientId, orgId: ctx.user.orgId };
       const client = await prisma.client.findFirst({
-        where: { id: input.clientId, orgId: ctx.user.orgId },
+        where: whereClause,
         select: {
           id: true,
           telegramGroupId: true,
@@ -817,10 +913,11 @@ IMPORTANTE: Genera 8-12 keywords variados basados en las noticias.`;
       })
     )
     .mutation(async ({ input, ctx }) => {
-      // Verificar que el cliente pertenece a la organización
-      const client = await prisma.client.findFirst({
-        where: { id: input.clientId, orgId: ctx.user.orgId },
-      });
+      // Verificar que el cliente pertenece a la organización (o es Super Admin)
+      const whereClause = ctx.user.isSuperAdmin
+        ? { id: input.clientId }
+        : { id: input.clientId, orgId: ctx.user.orgId };
+      const client = await prisma.client.findFirst({ where: whereClause });
 
       if (!client) {
         throw new TRPCError({ code: "NOT_FOUND", message: "Cliente no encontrado" });
@@ -896,12 +993,12 @@ IMPORTANTE: Genera 8-12 keywords variados basados en las noticias.`;
     .mutation(async ({ input, ctx }) => {
       const { id, ...data } = input;
 
-      // Verificar que el recipient pertenece a un cliente de la organización
+      // Verificar que el recipient pertenece a un cliente de la organización (o es Super Admin)
+      const whereClause = ctx.user.isSuperAdmin
+        ? { id }
+        : { id, client: { orgId: ctx.user.orgId } };
       const recipient = await prisma.telegramRecipient.findFirst({
-        where: {
-          id,
-          client: { orgId: ctx.user.orgId },
-        },
+        where: whereClause,
         include: { client: true },
       });
 
@@ -938,12 +1035,12 @@ IMPORTANTE: Genera 8-12 keywords variados basados en las noticias.`;
   removeRecipient: protectedProcedure
     .input(z.object({ id: z.string() }))
     .mutation(async ({ input, ctx }) => {
-      // Verificar que el recipient pertenece a un cliente de la organización
+      // Verificar que el recipient pertenece a un cliente de la organización (o es Super Admin)
+      const whereClause = ctx.user.isSuperAdmin
+        ? { id: input.id }
+        : { id: input.id, client: { orgId: ctx.user.orgId } };
       const recipient = await prisma.telegramRecipient.findFirst({
-        where: {
-          id: input.id,
-          client: { orgId: ctx.user.orgId },
-        },
+        where: whereClause,
         include: { client: true },
       });
 
@@ -981,8 +1078,11 @@ IMPORTANTE: Genera 8-12 keywords variados basados en las noticias.`;
       })
     )
     .query(async ({ input, ctx }) => {
+      const whereClause = ctx.user.isSuperAdmin
+        ? { id: input.clientId }
+        : { id: input.clientId, orgId: ctx.user.orgId };
       const client = await prisma.client.findFirst({
-        where: { id: input.clientId, orgId: ctx.user.orgId },
+        where: whereClause,
         include: { keywords: { where: { active: true } } },
       });
 

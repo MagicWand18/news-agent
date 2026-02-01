@@ -9,6 +9,7 @@ import { intelligenceRouter } from "./intelligence";
 import { sourcesRouter } from "./sources";
 import { notificationsRouter } from "./notifications";
 import { socialRouter } from "./social";
+import { organizationsRouter } from "./organizations";
 
 export const appRouter = router({
   dashboard: dashboardRouter,
@@ -21,6 +22,7 @@ export const appRouter = router({
   sources: sourcesRouter,
   notifications: notificationsRouter,
   social: socialRouter,
+  organizations: organizationsRouter,
 });
 
 export type AppRouter = typeof appRouter;

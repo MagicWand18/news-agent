@@ -1,5 +1,6 @@
 import { z } from "zod";
-import { router, protectedProcedure } from "../trpc";
+import { TRPCError } from "@trpc/server";
+import { router, protectedProcedure, getEffectiveOrgId } from "../trpc";
 import { prisma } from "@mediabot/shared";
 import { Prisma } from "@prisma/client";
 
@@ -16,18 +17,23 @@ export const intelligenceRouter = router({
       })
     )
     .query(async ({ input, ctx }) => {
-      const orgId = ctx.user.orgId;
       const { clientId, days, includeCompetitors } = input;
 
-      // Verificar que el cliente pertenece a la org
+      // Super Admin puede ver cualquier cliente
+      const whereClause = ctx.user.isSuperAdmin
+        ? { id: clientId }
+        : { id: clientId, orgId: ctx.user.orgId };
       const client = await prisma.client.findFirst({
-        where: { id: clientId, orgId },
+        where: whereClause,
         include: { keywords: true },
       });
 
       if (!client) {
-        throw new Error("Cliente no encontrado");
+        throw new TRPCError({ code: "NOT_FOUND", message: "Cliente no encontrado" });
       }
+
+      // Usar el orgId del cliente para buscar competidores
+      const orgId = client.orgId;
 
       const endDate = new Date();
       const startDate = new Date();
