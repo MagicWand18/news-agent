@@ -34,8 +34,8 @@ export const socialRouter = router({
       })
     )
     .mutation(async ({ input }) => {
-      // Llamar directamente a la API de Claude para generar sugerencias
-      const { getAnthropicClient, config } = await import("@mediabot/shared");
+      // Llamar a Gemini para generar sugerencias
+      const { getGeminiModel, cleanJsonResponse } = await import("@mediabot/shared");
 
       const keywordsContext = input.existingKeywords?.length
         ? `\n\nKeywords de monitoreo actuales:\n${input.existingKeywords.slice(0, 15).join(", ")}`
@@ -45,13 +45,9 @@ export const socialRouter = router({
         ? `\n\nCOMPETIDORES YA IDENTIFICADOS (USAR ESTOS, no inventar otros):\n${input.competitors.join(", ")}`
         : "";
 
-      const message = await getAnthropicClient().messages.create({
-        model: config.anthropic.model,
-        max_tokens: 1000,
-        messages: [
-          {
-            role: "user",
-            content: `Eres un experto en marketing digital y monitoreo de redes sociales en Mexico y Latinoamerica.
+      const model = getGeminiModel();
+
+      const prompt = `Eres un experto en marketing digital y monitoreo de redes sociales en Mexico y Latinoamerica.
 
 CLIENTE:
 Nombre: ${input.clientName}
@@ -69,45 +65,33 @@ REGLAS IMPORTANTES:
 - Incluir medios de comunicacion locales y nacionales relevantes
 - Considerar Twitter/X, Instagram y TikTok
 - No incluir el simbolo # en los hashtags
+- No incluir el simbolo @ en los handles
 
-Responde SOLO en JSON con este formato:
+Responde UNICAMENTE con JSON valido, sin markdown ni texto adicional:
 {
   "hashtags": [
-    {
-      "hashtag": "nombreSinHashtag",
-      "platform": "TWITTER|INSTAGRAM|TIKTOK|ALL",
-      "confidence": <0.5 a 1.0>,
-      "reason": "Por que es relevante"
-    }
+    {"hashtag": "nombreSinHashtag", "platform": "ALL", "confidence": 0.85, "reason": "Por que es relevante"}
   ],
   "suggestedAccounts": [
-    {
-      "platform": "TWITTER|INSTAGRAM|TIKTOK",
-      "handle": "username_sin_arroba",
-      "reason": "Por que monitorear esta cuenta"
-    }
+    {"platform": "TWITTER", "handle": "username_sin_arroba", "reason": "Por que monitorear esta cuenta"}
   ]
 }
 
+Plataformas validas para hashtags: TWITTER, INSTAGRAM, TIKTOK, ALL
+Plataformas validas para cuentas: TWITTER, INSTAGRAM, TIKTOK
+
 Genera:
 - 8-15 hashtags variados (mezcla de genericos e industria)
-- 3-6 cuentas sugeridas (basadas en competidores identificados y medios relevantes)`,
-          },
-        ],
-      });
-
-      const content = message.content[0];
-      if (content.type !== "text") {
-        throw new TRPCError({
-          code: "INTERNAL_SERVER_ERROR",
-          message: "Error al generar sugerencias",
-        });
-      }
+- 3-6 cuentas sugeridas (basadas en competidores identificados y medios relevantes)`;
 
       try {
-        // Extraer JSON de la respuesta
-        const jsonMatch = content.text.match(/```(?:json)?\s*\n?([\s\S]*?)\n?\s*```/);
-        const jsonText = jsonMatch ? jsonMatch[1].trim() : content.text.trim();
+        const genResult = await model.generateContent({
+          contents: [{ role: "user", parts: [{ text: prompt }] }],
+          generationConfig: { maxOutputTokens: 1024, temperature: 0.4 },
+        });
+
+        const rawText = genResult.response.text();
+        const jsonText = cleanJsonResponse(rawText);
         const result = JSON.parse(jsonText);
 
         // Validar y limpiar resultado
@@ -128,8 +112,8 @@ Genera:
         }));
 
         return result;
-      } catch {
-        console.error("[Social] Parse error:", content.text.slice(0, 500));
+      } catch (error) {
+        console.error("[Social] Parse error:", error);
         return {
           hashtags: [
             {

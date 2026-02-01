@@ -1,85 +1,5 @@
-import { config, getAnthropicClient } from "@mediabot/shared";
+import { getGeminiModel, cleanJsonResponse } from "@mediabot/shared";
 import type { AIAnalysisResult, OnboardingResult, PreFilterResult, ResponseGenerationResult } from "@mediabot/shared";
-
-/**
- * Extracts JSON from Claude responses that may be wrapped in markdown code blocks.
- */
-function cleanJsonResponse(text: string): string {
-  // Try to extract from ```json ... ``` or ``` ... ``` blocks
-  const codeBlockMatch = text.match(/```(?:json)?\s*\n?([\s\S]*?)\n?\s*```/);
-  if (codeBlockMatch) {
-    return codeBlockMatch[1].trim();
-  }
-  return text.trim();
-}
-
-export async function analyzeMention(params: {
-  articleTitle: string;
-  articleContent: string;
-  source: string;
-  clientName: string;
-  clientDescription: string;
-  clientIndustry: string;
-  keyword: string;
-}): Promise<AIAnalysisResult> {
-  const message = await getAnthropicClient().messages.create({
-    model: config.anthropic.model,
-    max_tokens: 500,
-    messages: [
-      {
-        role: "user",
-        content: `Analiza esta mencion en medios para un cliente de una agencia de PR.
-
-Cliente: ${params.clientName}
-Industria: ${params.clientIndustry || "No especificada"}
-Descripcion: ${params.clientDescription || "No disponible"}
-Keyword detectado: ${params.keyword}
-
-Articulo:
-Titulo: ${params.articleTitle}
-Fuente: ${params.source}
-Contenido: ${params.articleContent?.slice(0, 1500) || "No disponible"}
-
-Responde en JSON con este formato exacto:
-{
-  "summary": "Resumen ejecutivo de 2-3 lineas explicando por que esta mencion es relevante para el cliente",
-  "sentiment": "POSITIVE|NEGATIVE|NEUTRAL|MIXED",
-  "relevance": <numero del 1 al 10>,
-  "suggestedAction": "Accion concreta sugerida para el equipo de PR"
-}
-
-Solo responde con el JSON, sin markdown ni texto adicional.`,
-      },
-    ],
-  });
-
-  const content = message.content[0];
-  if (content.type !== "text") {
-    throw new Error("Unexpected response type from Claude");
-  }
-
-  const rawText = content.text;
-  console.log("[AI] Raw analyzeMention response:", rawText.slice(0, 300));
-
-  try {
-    const cleaned = cleanJsonResponse(rawText);
-    const result = JSON.parse(cleaned) as AIAnalysisResult;
-    // Validate and clamp
-    result.relevance = Math.max(1, Math.min(10, Math.round(result.relevance)));
-    if (!["POSITIVE", "NEGATIVE", "NEUTRAL", "MIXED"].includes(result.sentiment)) {
-      result.sentiment = "NEUTRAL";
-    }
-    return result;
-  } catch {
-    console.error("[AI] Failed to parse AI response:", rawText);
-    return {
-      summary: "Mencion detectada - analisis automatico no disponible",
-      sentiment: "NEUTRAL",
-      relevance: 5,
-      suggestedAction: "Revisar manualmente",
-    };
-  }
-}
 
 /**
  * Pre-filters articles to reduce false positives before creating mentions.
@@ -94,14 +14,9 @@ export async function preFilterArticle(params: {
   keyword: string;
 }): Promise<PreFilterResult> {
   const contentPreview = params.articleContent?.slice(0, 800) || "";
+  const model = getGeminiModel();
 
-  const message = await getAnthropicClient().messages.create({
-    model: config.anthropic.model,
-    max_tokens: 200,
-    messages: [
-      {
-        role: "user",
-        content: `Determina si este articulo es realmente relevante para el cliente o es un falso positivo.
+  const prompt = `Determina si este articulo es realmente relevante para el cliente o es un falso positivo.
 
 Cliente: "${params.clientName}"
 Descripcion del cliente: ${params.clientDescription || "No disponible"}
@@ -113,37 +28,89 @@ Contenido: ${contentPreview}
 
 Analiza si el keyword "${params.keyword}" en este articulo se refiere realmente al cliente "${params.clientName}" o es una coincidencia (ej: nombre comun, palabra generica, otro contexto).
 
-Responde SOLO en JSON:
-{
-  "relevant": true/false,
-  "reason": "explicacion breve de 1 linea",
-  "confidence": <0.0 a 1.0>
-}`,
-      },
-    ],
-  });
-
-  const content = message.content[0];
-  if (content.type !== "text") {
-    throw new Error("Unexpected response type from Claude");
-  }
-
-  const rawText = content.text;
-  console.log("[AI] Pre-filter response:", rawText.slice(0, 150));
+Responde UNICAMENTE con JSON valido, sin markdown ni texto adicional:
+{"relevant": true, "reason": "explicacion breve", "confidence": 0.85}`;
 
   try {
+    const result = await model.generateContent({
+      contents: [{ role: "user", parts: [{ text: prompt }] }],
+      generationConfig: { maxOutputTokens: 256, temperature: 0.2 },
+    });
+
+    const rawText = result.response.text();
+    console.log("[AI] Pre-filter response:", rawText.slice(0, 150));
+
     const cleaned = cleanJsonResponse(rawText);
-    const result = JSON.parse(cleaned) as PreFilterResult;
-    // Ensure confidence is between 0 and 1
-    result.confidence = Math.max(0, Math.min(1, result.confidence));
-    return result;
-  } catch {
-    console.error("[AI] Failed to parse pre-filter response:", rawText);
-    // Default to relevant if parsing fails (don't lose potential mentions)
+    const parsed = JSON.parse(cleaned) as PreFilterResult;
+    parsed.confidence = Math.max(0, Math.min(1, parsed.confidence));
+    return parsed;
+  } catch (error) {
+    console.error("[AI] Failed to parse pre-filter response:", error);
     return {
       relevant: true,
       reason: "Error de parsing - aceptado por defecto",
       confidence: 0.5,
+    };
+  }
+}
+
+export async function analyzeMention(params: {
+  articleTitle: string;
+  articleContent: string;
+  source: string;
+  clientName: string;
+  clientDescription: string;
+  clientIndustry: string;
+  keyword: string;
+}): Promise<AIAnalysisResult> {
+  const model = getGeminiModel();
+
+  const prompt = `Analiza esta mencion en medios para un cliente de una agencia de PR.
+
+Cliente: ${params.clientName}
+Industria: ${params.clientIndustry || "No especificada"}
+Descripcion: ${params.clientDescription || "No disponible"}
+Keyword detectado: ${params.keyword}
+
+Articulo:
+Titulo: ${params.articleTitle}
+Fuente: ${params.source}
+Contenido: ${params.articleContent?.slice(0, 1500) || "No disponible"}
+
+Responde UNICAMENTE con JSON valido, sin markdown ni texto adicional:
+{
+  "summary": "Resumen ejecutivo de 2-3 lineas explicando por que esta mencion es relevante para el cliente",
+  "sentiment": "POSITIVE",
+  "relevance": 8,
+  "suggestedAction": "Accion concreta sugerida para el equipo de PR"
+}
+
+Valores posibles para sentiment: POSITIVE, NEGATIVE, NEUTRAL, MIXED
+Relevance es un numero del 1 al 10.`;
+
+  try {
+    const result = await model.generateContent({
+      contents: [{ role: "user", parts: [{ text: prompt }] }],
+      generationConfig: { maxOutputTokens: 512, temperature: 0.3 },
+    });
+
+    const rawText = result.response.text();
+    console.log("[AI] Raw analyzeMention response:", rawText.slice(0, 300));
+
+    const cleaned = cleanJsonResponse(rawText);
+    const parsed = JSON.parse(cleaned) as AIAnalysisResult;
+    parsed.relevance = Math.max(1, Math.min(10, Math.round(parsed.relevance)));
+    if (!["POSITIVE", "NEGATIVE", "NEUTRAL", "MIXED"].includes(parsed.sentiment)) {
+      parsed.sentiment = "NEUTRAL";
+    }
+    return parsed;
+  } catch (error) {
+    console.error("[AI] Failed to parse AI response:", error);
+    return {
+      summary: "Mencion detectada - analisis automatico no disponible",
+      sentiment: "NEUTRAL",
+      relevance: 5,
+      suggestedAction: "Revisar manualmente",
     };
   }
 }
@@ -159,13 +126,9 @@ export async function runOnboarding(params: {
     .map((a) => `- ${a.title} (${a.source})`)
     .join("\n");
 
-  const message = await getAnthropicClient().messages.create({
-    model: config.anthropic.model,
-    max_tokens: 1000,
-    messages: [
-      {
-        role: "user",
-        content: `Eres un experto en monitoreo de medios y PR. Un nuevo cliente se ha registrado:
+  const model = getGeminiModel();
+
+  const prompt = `Eres un experto en monitoreo de medios y PR. Un nuevo cliente se ha registrado:
 
 Nombre: ${params.clientName}
 Descripcion: ${params.description || "No proporcionada"}
@@ -174,39 +137,38 @@ Industria: ${params.industry || "No especificada"}
 Menciones recientes encontradas:
 ${articlesContext || "Ninguna encontrada"}
 
-Genera sugerencias para configurar el monitoreo de este cliente. Responde en JSON:
+Genera sugerencias para configurar el monitoreo de este cliente.
+
+Responde UNICAMENTE con JSON valido, sin markdown ni texto adicional:
 {
-  "suggestedKeywords": [{"word": "keyword", "type": "NAME|BRAND|COMPETITOR|TOPIC|ALIAS"}],
+  "suggestedKeywords": [{"word": "keyword", "type": "NAME"}],
   "competitors": ["nombre competidor 1", "nombre competidor 2"],
   "sensitiveTopics": ["tema sensible que monitorear"],
   "actionLines": ["linea de accion sugerida para monitoreo"],
   "recentMentions": [{"title": "titulo", "url": "url", "source": "fuente"}]
 }
 
+Tipos validos para keywords: NAME, BRAND, COMPETITOR, TOPIC, ALIAS
+
 Incluye al menos:
 - 5-10 keywords variados (nombre, variantes, marcas si aplica, alias)
 - 2-3 competidores identificados
 - 2-3 temas sensibles para la industria
-- 3-5 lineas de accion para monitoreo proactivo
-
-Solo responde con el JSON, sin markdown ni texto adicional.`,
-      },
-    ],
-  });
-
-  const content = message.content[0];
-  if (content.type !== "text") {
-    throw new Error("Unexpected response type from Claude");
-  }
-
-  const rawText = content.text;
-  console.log("[AI] Raw onboarding response:", rawText.slice(0, 300));
+- 3-5 lineas de accion para monitoreo proactivo`;
 
   try {
+    const result = await model.generateContent({
+      contents: [{ role: "user", parts: [{ text: prompt }] }],
+      generationConfig: { maxOutputTokens: 1024, temperature: 0.4 },
+    });
+
+    const rawText = result.response.text();
+    console.log("[AI] Raw onboarding response:", rawText.slice(0, 300));
+
     const cleaned = cleanJsonResponse(rawText);
     return JSON.parse(cleaned) as OnboardingResult;
-  } catch {
-    console.error("[AI] Failed to parse onboarding response:", rawText);
+  } catch (error) {
+    console.error("[AI] Failed to parse onboarding response:", error);
     return {
       suggestedKeywords: [{ word: params.clientName, type: "NAME" }],
       competitors: [],
@@ -233,13 +195,9 @@ export async function generateResponse(params: {
     ? `El tono DEBE ser ${params.requestedTone}.`
     : `Selecciona el tono mas apropiado basado en el sentimiento del articulo.`;
 
-  const message = await getAnthropicClient().messages.create({
-    model: config.anthropic.model,
-    max_tokens: 1200,
-    messages: [
-      {
-        role: "user",
-        content: `Eres un experto en comunicacion corporativa y relaciones publicas.
+  const model = getGeminiModel();
+
+  const prompt = `Eres un experto en comunicacion corporativa y relaciones publicas.
 Genera un borrador de comunicado de prensa en respuesta a esta mencion en medios.
 
 Cliente: ${params.clientName}
@@ -258,39 +216,35 @@ Resumen: ${params.aiSummary || "No disponible"}
 
 ${toneInstruction}
 
-Genera un comunicado en JSON con este formato exacto:
+Responde UNICAMENTE con JSON valido, sin markdown ni texto adicional:
 {
   "title": "Titulo del comunicado (conciso y profesional)",
   "body": "Cuerpo completo del comunicado (3-4 parrafos, incluye contexto, posicion del cliente, datos relevantes y cierre)",
-  "tone": "PROFESSIONAL|DEFENSIVE|CLARIFICATION|CELEBRATORY",
+  "tone": "PROFESSIONAL",
   "audience": "Publico objetivo principal (ej: medios generales, prensa especializada, stakeholders)",
   "callToAction": "Siguiente paso recomendado para el equipo de PR",
   "keyMessages": ["Mensaje clave 1", "Mensaje clave 2", "Mensaje clave 3"]
 }
 
-Solo responde con el JSON, sin markdown ni texto adicional.`,
-      },
-    ],
-  });
-
-  const content = message.content[0];
-  if (content.type !== "text") {
-    throw new Error("Unexpected response type from Claude");
-  }
-
-  const rawText = content.text;
-  console.log("[AI] Raw generateResponse response:", rawText.slice(0, 300));
+Tonos validos: PROFESSIONAL, DEFENSIVE, CLARIFICATION, CELEBRATORY`;
 
   try {
+    const result = await model.generateContent({
+      contents: [{ role: "user", parts: [{ text: prompt }] }],
+      generationConfig: { maxOutputTokens: 1536, temperature: 0.4 },
+    });
+
+    const rawText = result.response.text();
+    console.log("[AI] Raw generateResponse response:", rawText.slice(0, 300));
+
     const cleaned = cleanJsonResponse(rawText);
-    const result = JSON.parse(cleaned) as ResponseGenerationResult;
-    // Validate tone
-    if (!["PROFESSIONAL", "DEFENSIVE", "CLARIFICATION", "CELEBRATORY"].includes(result.tone)) {
-      result.tone = "PROFESSIONAL";
+    const parsed = JSON.parse(cleaned) as ResponseGenerationResult;
+    if (!["PROFESSIONAL", "DEFENSIVE", "CLARIFICATION", "CELEBRATORY"].includes(parsed.tone)) {
+      parsed.tone = "PROFESSIONAL";
     }
-    return result;
-  } catch {
-    console.error("[AI] Failed to parse generateResponse response:", rawText);
+    return parsed;
+  } catch (error) {
+    console.error("[AI] Failed to parse generateResponse response:", error);
     return {
       title: `Comunicado sobre: ${params.articleTitle.slice(0, 50)}`,
       body: "Error al generar el comunicado automatico. Por favor, redacte manualmente.",
@@ -312,13 +266,9 @@ export async function generateDigestSummary(params: {
     .map((m) => `- ${m.title} (${m.source}, ${m.sentiment}, relevancia ${m.relevance}/10)`)
     .join("\n");
 
-  const message = await getAnthropicClient().messages.create({
-    model: config.anthropic.model,
-    max_tokens: 400,
-    messages: [
-      {
-        role: "user",
-        content: `Genera un resumen ejecutivo del dia para el equipo de PR del cliente "${params.clientName}".
+  const model = getGeminiModel();
+
+  const prompt = `Genera un resumen ejecutivo del dia para el equipo de PR del cliente "${params.clientName}".
 
 Total menciones: ${params.totalMentions}
 Sentimiento: Positivas=${params.sentimentBreakdown.positive}, Negativas=${params.sentimentBreakdown.negative}, Neutras=${params.sentimentBreakdown.neutral}, Mixtas=${params.sentimentBreakdown.mixed}
@@ -326,13 +276,19 @@ Sentimiento: Positivas=${params.sentimentBreakdown.positive}, Negativas=${params
 Menciones mas relevantes:
 ${topMentionsText || "Ninguna relevante"}
 
-Escribe un resumen de 3-5 lineas en espanol, directo y accionable. No uses markdown.`,
-      },
-    ],
-  });
+Escribe un resumen de 3-5 lineas en espanol, directo y accionable. No uses markdown ni formato especial.`;
 
-  const content = message.content[0];
-  return content.type === "text" ? content.text : "Resumen no disponible";
+  try {
+    const result = await model.generateContent({
+      contents: [{ role: "user", parts: [{ text: prompt }] }],
+      generationConfig: { maxOutputTokens: 512, temperature: 0.4 },
+    });
+
+    return result.response.text();
+  } catch (error) {
+    console.error("[AI] Failed to generate digest summary:", error);
+    return "Resumen no disponible";
+  }
 }
 
 // ==================== SPRINT 6: FUNCIONES DE INTELIGENCIA ====================
@@ -358,45 +314,35 @@ export async function extractTopic(params: {
 ${params.existingTopics.slice(0, 20).join(", ")}`
     : "";
 
-  const message = await getAnthropicClient().messages.create({
-    model: config.anthropic.model,
-    max_tokens: 200,
-    messages: [
-      {
-        role: "user",
-        content: `Extrae el tema principal de este articulo relacionado con "${params.clientName}".
+  const model = getGeminiModel();
+
+  const prompt = `Extrae el tema principal de este articulo relacionado con "${params.clientName}".
 
 Titulo: ${params.articleTitle}
 Contenido: ${params.articleContent?.slice(0, 1000) || "No disponible"}
 ${existingTopicsHint}
 
-Responde SOLO en JSON:
-{
-  "topic": "Nombre corto del tema (2-4 palabras, ej: Expansion internacional, Resultados financieros, Lanzamiento producto)",
-  "confidence": <0.0 a 1.0>,
-  "keywords": ["palabra1", "palabra2", "palabra3"]
-}
+Responde UNICAMENTE con JSON valido, sin markdown ni texto adicional:
+{"topic": "Nombre corto del tema (2-4 palabras)", "confidence": 0.85, "keywords": ["palabra1", "palabra2", "palabra3"]}
 
-El tema debe ser especifico pero reutilizable para agrupar articulos similares.`,
-      },
-    ],
-  });
-
-  const content = message.content[0];
-  if (content.type !== "text") {
-    throw new Error("Unexpected response type from Claude");
-  }
-
-  const rawText = content.text;
-  console.log("[AI] extractTopic response:", rawText.slice(0, 150));
+El tema debe ser especifico pero reutilizable para agrupar articulos similares.
+Ejemplos: "Expansion internacional", "Resultados financieros", "Lanzamiento producto"`;
 
   try {
+    const result = await model.generateContent({
+      contents: [{ role: "user", parts: [{ text: prompt }] }],
+      generationConfig: { maxOutputTokens: 256, temperature: 0.3 },
+    });
+
+    const rawText = result.response.text();
+    console.log("[AI] extractTopic response:", rawText.slice(0, 150));
+
     const cleaned = cleanJsonResponse(rawText);
-    const result = JSON.parse(cleaned) as TopicExtractionResult;
-    result.confidence = Math.max(0, Math.min(1, result.confidence));
-    return result;
-  } catch {
-    console.error("[AI] Failed to parse extractTopic response:", rawText);
+    const parsed = JSON.parse(cleaned) as TopicExtractionResult;
+    parsed.confidence = Math.max(0, Math.min(1, parsed.confidence));
+    return parsed;
+  } catch (error) {
+    console.error("[AI] Failed to parse extractTopic response:", error);
     return {
       topic: "General",
       confidence: 0.3,
@@ -411,24 +357,6 @@ export interface WeeklyInsightsResult {
   topicsSummary: string;
   recommendedActions: string[];
   riskAlerts: string[];
-}
-
-// ==================== SPRINT 8: ONBOARDING MEJORADO ====================
-
-export interface EnhancedOnboardingResult {
-  suggestedKeywords: Array<{
-    word: string;
-    type: "NAME" | "BRAND" | "COMPETITOR" | "TOPIC" | "ALIAS";
-    confidence: number;
-    reason: string;
-  }>;
-  competitors: Array<{
-    name: string;
-    reason: string;
-  }>;
-  sensitiveTopics: string[];
-  industryContext: string;
-  monitoringStrategy: string[];
 }
 
 /**
@@ -469,13 +397,9 @@ export async function generateWeeklyInsights(params: {
         ? "disminuyeron"
         : "se mantuvieron";
 
-  const message = await getAnthropicClient().messages.create({
-    model: config.anthropic.model,
-    max_tokens: 800,
-    messages: [
-      {
-        role: "user",
-        content: `Genera insights semanales accionables para el equipo de PR del cliente "${params.clientName}" (industria: ${params.clientIndustry || "No especificada"}).
+  const model = getGeminiModel();
+
+  const prompt = `Genera insights semanales accionables para el equipo de PR del cliente "${params.clientName}" (industria: ${params.clientIndustry || "No especificada"}).
 
 DATOS DE LA SEMANA:
 - Menciones totales: ${params.weeklyStats.totalMentions} (${mentionTrend} vs semana anterior: ${params.weeklyStats.previousWeekMentions})
@@ -491,42 +415,30 @@ ${topicsText || "Sin datos de temas"}
 COMPETIDORES:
 ${competitorsText}
 
-Responde en JSON con este formato:
+Responde UNICAMENTE con JSON valido, sin markdown ni texto adicional:
 {
-  "insights": [
-    "Insight 1: observacion clave con dato especifico",
-    "Insight 2: otra observacion relevante",
-    "Insight 3: tendencia o patron detectado"
-  ],
+  "insights": ["Insight 1: observacion clave con dato especifico", "Insight 2: otra observacion relevante", "Insight 3: tendencia o patron detectado"],
   "sovAnalysis": "Analisis del Share of Voice y posicion competitiva en 1-2 oraciones",
   "topicsSummary": "Resumen de temas dominantes y emergentes en 1-2 oraciones",
-  "recommendedActions": [
-    "Accion 1: tarea especifica y accionable",
-    "Accion 2: otra recomendacion practica"
-  ],
-  "riskAlerts": [
-    "Alerta si hay riesgos o senales de atencion (o array vacio si no hay)"
-  ]
+  "recommendedActions": ["Accion 1: tarea especifica y accionable", "Accion 2: otra recomendacion practica"],
+  "riskAlerts": ["Alerta si hay riesgos o senales de atencion (o array vacio si no hay)"]
 }
 
-Los insights deben ser especificos, con datos, y orientados a la accion.`,
-      },
-    ],
-  });
-
-  const content = message.content[0];
-  if (content.type !== "text") {
-    throw new Error("Unexpected response type from Claude");
-  }
-
-  const rawText = content.text;
-  console.log("[AI] generateWeeklyInsights response:", rawText.slice(0, 300));
+Los insights deben ser especificos, con datos, y orientados a la accion.`;
 
   try {
+    const result = await model.generateContent({
+      contents: [{ role: "user", parts: [{ text: prompt }] }],
+      generationConfig: { maxOutputTokens: 1024, temperature: 0.4 },
+    });
+
+    const rawText = result.response.text();
+    console.log("[AI] generateWeeklyInsights response:", rawText.slice(0, 300));
+
     const cleaned = cleanJsonResponse(rawText);
     return JSON.parse(cleaned) as WeeklyInsightsResult;
-  } catch {
-    console.error("[AI] Failed to parse generateWeeklyInsights response:", rawText);
+  } catch (error) {
+    console.error("[AI] Failed to parse generateWeeklyInsights response:", error);
     return {
       insights: ["No fue posible generar insights automaticos esta semana"],
       sovAnalysis: "Analisis no disponible",
@@ -569,13 +481,9 @@ export async function suggestSocialHashtags(params: {
     ? `\n\nKeywords de monitoreo de noticias actuales:\n${params.existingKeywords.slice(0, 15).join(", ")}`
     : "";
 
-  const message = await getAnthropicClient().messages.create({
-    model: config.anthropic.model,
-    max_tokens: 1000,
-    messages: [
-      {
-        role: "user",
-        content: `Eres un experto en marketing digital y monitoreo de redes sociales en Mexico y Latinoamerica.
+  const model = getGeminiModel();
+
+  const prompt = `Eres un experto en marketing digital y monitoreo de redes sociales en Mexico y Latinoamerica.
 
 CLIENTE:
 Nombre: ${params.clientName}
@@ -590,69 +498,61 @@ REGLAS:
 - Sugerir cuentas de competidores, influencers del sector, medios relevantes
 - Considerar Twitter/X, Instagram y TikTok
 - No incluir el simbolo # en los hashtags
+- No incluir el simbolo @ en los handles
 
-Responde SOLO en JSON con este formato:
+Responde UNICAMENTE con JSON valido, sin markdown ni texto adicional:
 {
   "hashtags": [
-    {
-      "hashtag": "nombreSinHashtag",
-      "platform": "TWITTER|INSTAGRAM|TIKTOK|ALL",
-      "confidence": <0.5 a 1.0>,
-      "reason": "Por que es relevante"
-    }
+    {"hashtag": "nombreSinHashtag", "platform": "ALL", "confidence": 0.85, "reason": "Por que es relevante"}
   ],
   "suggestedAccounts": [
-    {
-      "platform": "TWITTER|INSTAGRAM|TIKTOK",
-      "handle": "username_sin_arroba",
-      "reason": "Por que monitorear esta cuenta"
-    }
+    {"platform": "TWITTER", "handle": "username_sin_arroba", "reason": "Por que monitorear esta cuenta"}
   ]
 }
 
+Plataformas validas para hashtags: TWITTER, INSTAGRAM, TIKTOK, ALL
+Plataformas validas para cuentas: TWITTER, INSTAGRAM, TIKTOK
+
 Genera:
 - 8-15 hashtags variados (mezcla de genericos e industria)
-- 3-6 cuentas sugeridas (competidores, influencers, medios)`,
-      },
-    ],
-  });
-
-  const content = message.content[0];
-  if (content.type !== "text") {
-    throw new Error("Unexpected response type from Claude");
-  }
-
-  const rawText = content.text;
-  console.log("[AI] suggestSocialHashtags response:", rawText.slice(0, 300));
+- 3-6 cuentas sugeridas (competidores, influencers, medios)`;
 
   try {
+    const result = await model.generateContent({
+      contents: [{ role: "user", parts: [{ text: prompt }] }],
+      generationConfig: { maxOutputTokens: 1024, temperature: 0.4 },
+    });
+
+    const rawText = result.response.text();
+    console.log("[AI] suggestSocialHashtags response:", rawText.slice(0, 300));
+
     const cleaned = cleanJsonResponse(rawText);
-    const result = JSON.parse(cleaned) as SuggestSocialHashtagsResult;
+    const parsed = JSON.parse(cleaned) as SuggestSocialHashtagsResult;
 
     // Validar plataformas
     const validPlatforms = ["TWITTER", "INSTAGRAM", "TIKTOK", "ALL"] as const;
     const validAccountPlatforms = ["TWITTER", "INSTAGRAM", "TIKTOK"] as const;
 
-    result.hashtags = (result.hashtags || []).map((h) => ({
+    parsed.hashtags = (parsed.hashtags || []).map((h) => ({
       ...h,
-      hashtag: h.hashtag.replace(/^#/, ""), // Quitar # si viene
+      hashtag: h.hashtag.replace(/^#/, ""),
       platform: validPlatforms.includes(h.platform as typeof validPlatforms[number])
         ? h.platform
         : "ALL",
       confidence: Math.max(0.5, Math.min(1, h.confidence || 0.7)),
     }));
 
-    result.suggestedAccounts = (result.suggestedAccounts || []).map((a) => ({
+    parsed.suggestedAccounts = (parsed.suggestedAccounts || []).map((a) => ({
       ...a,
-      handle: a.handle.replace(/^@/, ""), // Quitar @ si viene
+      handle: a.handle.replace(/^@/, ""),
       platform: validAccountPlatforms.includes(a.platform as typeof validAccountPlatforms[number])
         ? a.platform
         : "TWITTER",
     }));
 
-    return result;
-  } catch {
-    console.error("[AI] Failed to parse suggestSocialHashtags response:", rawText);
+    return parsed;
+  } catch (error) {
+    console.error("[AI] Failed to parse suggestSocialHashtags response:", error);
     return {
       hashtags: [
         {
@@ -695,13 +595,9 @@ export async function analyzeSocialMention(params: {
   const engagementText = `Likes: ${params.engagement.likes}, Comentarios: ${params.engagement.comments}, Compartidos: ${params.engagement.shares}${params.engagement.views ? `, Vistas: ${params.engagement.views}` : ""}`;
   const followersText = params.authorFollowers ? `Seguidores del autor: ${params.authorFollowers}` : "";
 
-  const message = await getAnthropicClient().messages.create({
-    model: config.anthropic.model,
-    max_tokens: 400,
-    messages: [
-      {
-        role: "user",
-        content: `Analiza esta mencion en redes sociales para un cliente de PR.
+  const model = getGeminiModel();
+
+  const prompt = `Analiza esta mencion en redes sociales para un cliente de PR.
 
 CLIENTE: ${params.clientName}
 Descripcion: ${params.clientDescription || "No disponible"}
@@ -713,49 +609,46 @@ Contenido: "${params.content || "(sin texto)"}"
 Engagement: ${engagementText}
 Detectado por: ${params.sourceType} "${params.sourceValue}"
 
-Responde en JSON:
+Responde UNICAMENTE con JSON valido, sin markdown ni texto adicional:
 {
   "summary": "Resumen ejecutivo de 1-2 lineas sobre la relevancia para el cliente",
-  "sentiment": "POSITIVE|NEGATIVE|NEUTRAL|MIXED",
-  "relevance": <1 a 10>,
+  "sentiment": "NEUTRAL",
+  "relevance": 5,
   "suggestedAction": "Accion concreta sugerida (ej: responder, monitorear, escalar)",
-  "engagementLevel": "HIGH|MEDIUM|LOW"
+  "engagementLevel": "MEDIUM"
 }
 
-Criterios de engagement:
+Valores de sentiment: POSITIVE, NEGATIVE, NEUTRAL, MIXED
+Relevance: numero del 1 al 10
+Valores de engagementLevel:
 - HIGH: Viral o de influencer con >10k seguidores
 - MEDIUM: Buen alcance o de cuenta verificada
-- LOW: Alcance limitado
-
-Solo responde con el JSON.`,
-      },
-    ],
-  });
-
-  const content = message.content[0];
-  if (content.type !== "text") {
-    throw new Error("Unexpected response type from Claude");
-  }
-
-  const rawText = content.text;
-  console.log("[AI] analyzeSocialMention response:", rawText.slice(0, 200));
+- LOW: Alcance limitado`;
 
   try {
+    const result = await model.generateContent({
+      contents: [{ role: "user", parts: [{ text: prompt }] }],
+      generationConfig: { maxOutputTokens: 512, temperature: 0.3 },
+    });
+
+    const rawText = result.response.text();
+    console.log("[AI] analyzeSocialMention response:", rawText.slice(0, 200));
+
     const cleaned = cleanJsonResponse(rawText);
-    const result = JSON.parse(cleaned) as SocialMentionAnalysisResult;
+    const parsed = JSON.parse(cleaned) as SocialMentionAnalysisResult;
 
     // Validar y normalizar
-    result.relevance = Math.max(1, Math.min(10, Math.round(result.relevance)));
-    if (!["POSITIVE", "NEGATIVE", "NEUTRAL", "MIXED"].includes(result.sentiment)) {
-      result.sentiment = "NEUTRAL";
+    parsed.relevance = Math.max(1, Math.min(10, Math.round(parsed.relevance)));
+    if (!["POSITIVE", "NEGATIVE", "NEUTRAL", "MIXED"].includes(parsed.sentiment)) {
+      parsed.sentiment = "NEUTRAL";
     }
-    if (!["HIGH", "MEDIUM", "LOW"].includes(result.engagementLevel)) {
-      result.engagementLevel = "MEDIUM";
+    if (!["HIGH", "MEDIUM", "LOW"].includes(parsed.engagementLevel)) {
+      parsed.engagementLevel = "MEDIUM";
     }
 
-    return result;
-  } catch {
-    console.error("[AI] Failed to parse analyzeSocialMention response:", rawText);
+    return parsed;
+  } catch (error) {
+    console.error("[AI] Failed to parse analyzeSocialMention response:", error);
     return {
       summary: "Mencion detectada en redes sociales - analisis no disponible",
       sentiment: "NEUTRAL",
@@ -764,6 +657,24 @@ Solo responde con el JSON.`,
       engagementLevel: "MEDIUM",
     };
   }
+}
+
+// ==================== SPRINT 8: ONBOARDING MEJORADO ====================
+
+export interface EnhancedOnboardingResult {
+  suggestedKeywords: Array<{
+    word: string;
+    type: "NAME" | "BRAND" | "COMPETITOR" | "TOPIC" | "ALIAS";
+    confidence: number;
+    reason: string;
+  }>;
+  competitors: Array<{
+    name: string;
+    reason: string;
+  }>;
+  sensitiveTopics: string[];
+  industryContext: string;
+  monitoringStrategy: string[];
 }
 
 /**
@@ -786,13 +697,9 @@ export async function runEnhancedOnboarding(params: {
     .map((a, i) => `${i + 1}. "${a.title}" - ${a.source}${a.snippet ? `\n   ${a.snippet.slice(0, 200)}` : ""}`)
     .join("\n\n");
 
-  const message = await getAnthropicClient().messages.create({
-    model: config.anthropic.model,
-    max_tokens: 1500,
-    messages: [
-      {
-        role: "user",
-        content: `Eres un experto en monitoreo de medios y relaciones publicas en Mexico.
+  const model = getGeminiModel();
+
+  const prompt = `Eres un experto en monitoreo de medios y relaciones publicas en Mexico.
 Analiza las siguientes noticias recientes sobre un nuevo cliente y genera una estrategia de monitoreo.
 
 CLIENTE:
@@ -815,61 +722,50 @@ Basandote en estas noticias REALES, genera:
 
 3. TEMAS SENSIBLES: Temas que requieren atencion especial
 
-Responde en JSON con este formato exacto:
+Responde UNICAMENTE con JSON valido, sin markdown ni texto adicional:
 {
   "suggestedKeywords": [
-    {
-      "word": "palabra exacta",
-      "type": "NAME|BRAND|COMPETITOR|TOPIC|ALIAS",
-      "confidence": <0.5 a 1.0>,
-      "reason": "Por que es relevante (ej: aparece en X noticias)"
-    }
+    {"word": "palabra exacta", "type": "NAME", "confidence": 0.95, "reason": "Por que es relevante"}
   ],
   "competitors": [
-    {
-      "name": "Nombre del competidor",
-      "reason": "Por que es competidor"
-    }
+    {"name": "Nombre del competidor", "reason": "Por que es competidor"}
   ],
   "sensitiveTopics": ["tema1", "tema2"],
   "industryContext": "Breve contexto de la industria y posicion del cliente",
   "monitoringStrategy": ["Estrategia 1", "Estrategia 2"]
 }
 
+Tipos validos para keywords: NAME, BRAND, COMPETITOR, TOPIC, ALIAS
+
 IMPORTANTE:
 - Genera al menos 8-12 keywords variados y especificos
 - Los keywords deben ser REALES, basados en las noticias proporcionadas
 - Incluye variaciones del nombre (con/sin acentos, abreviaciones)
-- La confianza debe reflejar cuantas veces aparece en las noticias
-
-Solo responde con el JSON, sin markdown ni texto adicional.`,
-      },
-    ],
-  });
-
-  const content = message.content[0];
-  if (content.type !== "text") {
-    throw new Error("Unexpected response type from Claude");
-  }
-
-  const rawText = content.text;
-  console.log("[AI] Enhanced onboarding response:", rawText.slice(0, 400));
+- La confianza debe reflejar cuantas veces aparece en las noticias`;
 
   try {
+    const result = await model.generateContent({
+      contents: [{ role: "user", parts: [{ text: prompt }] }],
+      generationConfig: { maxOutputTokens: 2048, temperature: 0.4 },
+    });
+
+    const rawText = result.response.text();
+    console.log("[AI] Enhanced onboarding response:", rawText.slice(0, 400));
+
     const cleaned = cleanJsonResponse(rawText);
-    const result = JSON.parse(cleaned) as EnhancedOnboardingResult;
+    const parsed = JSON.parse(cleaned) as EnhancedOnboardingResult;
 
     // Validar tipos de keywords
     const validTypes = ["NAME", "BRAND", "COMPETITOR", "TOPIC", "ALIAS"] as const;
-    result.suggestedKeywords = result.suggestedKeywords.map((kw) => ({
+    parsed.suggestedKeywords = parsed.suggestedKeywords.map((kw) => ({
       ...kw,
       type: validTypes.includes(kw.type as typeof validTypes[number]) ? kw.type : "TOPIC",
       confidence: Math.max(0.5, Math.min(1, kw.confidence || 0.7)),
     }));
 
-    return result;
-  } catch {
-    console.error("[AI] Failed to parse enhanced onboarding response:", rawText);
+    return parsed;
+  } catch (error) {
+    console.error("[AI] Failed to parse enhanced onboarding response:", error);
     return {
       suggestedKeywords: [
         {

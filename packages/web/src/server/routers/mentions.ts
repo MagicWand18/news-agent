@@ -1,6 +1,6 @@
 import { z } from "zod";
 import { router, protectedProcedure } from "../trpc";
-import { prisma, config, getAnthropicClient } from "@mediabot/shared";
+import { prisma, getGeminiModel, cleanJsonResponse } from "@mediabot/shared";
 import type { ResponseGenerationResult } from "@mediabot/shared";
 
 export const mentionsRouter = router({
@@ -97,13 +97,9 @@ export const mentionsRouter = router({
         ? `El tono DEBE ser ${input.tone}.`
         : `Selecciona el tono mas apropiado basado en el sentimiento del articulo.`;
 
-      const message = await getAnthropicClient().messages.create({
-        model: config.anthropic.model,
-        max_tokens: 1200,
-        messages: [
-          {
-            role: "user",
-            content: `Eres un experto en comunicacion corporativa y relaciones publicas.
+      const model = getGeminiModel();
+
+      const prompt = `Eres un experto en comunicacion corporativa y relaciones publicas.
 Genera un borrador de comunicado de prensa en respuesta a esta mencion en medios.
 
 Cliente: ${mention.client.name}
@@ -122,39 +118,34 @@ Resumen: ${mention.aiSummary || "No disponible"}
 
 ${toneInstruction}
 
-Genera un comunicado en JSON con este formato exacto:
+Responde UNICAMENTE con JSON valido, sin markdown ni texto adicional:
 {
   "title": "Titulo del comunicado (conciso y profesional)",
   "body": "Cuerpo completo del comunicado (3-4 parrafos, incluye contexto, posicion del cliente, datos relevantes y cierre)",
-  "tone": "PROFESSIONAL|DEFENSIVE|CLARIFICATION|CELEBRATORY",
+  "tone": "PROFESSIONAL",
   "audience": "Publico objetivo principal (ej: medios generales, prensa especializada, stakeholders)",
   "callToAction": "Siguiente paso recomendado para el equipo de PR",
   "keyMessages": ["Mensaje clave 1", "Mensaje clave 2", "Mensaje clave 3"]
 }
 
-Solo responde con el JSON, sin markdown ni texto adicional.`,
-          },
-        ],
-      });
-
-      const content = message.content[0];
-      if (content.type !== "text") {
-        throw new Error("Unexpected response type from Claude");
-      }
-
-      const rawText = content.text;
-
-      // Extract JSON from potential markdown code blocks
-      const codeBlockMatch = rawText.match(/```(?:json)?\s*\n?([\s\S]*?)\n?\s*```/);
-      const cleaned = codeBlockMatch ? codeBlockMatch[1].trim() : rawText.trim();
+Tonos validos: PROFESSIONAL, DEFENSIVE, CLARIFICATION, CELEBRATORY`;
 
       try {
+        const genResult = await model.generateContent({
+          contents: [{ role: "user", parts: [{ text: prompt }] }],
+          generationConfig: { maxOutputTokens: 1536, temperature: 0.4 },
+        });
+
+        const rawText = genResult.response.text();
+        const cleaned = cleanJsonResponse(rawText);
         const result = JSON.parse(cleaned) as ResponseGenerationResult;
+
         if (!["PROFESSIONAL", "DEFENSIVE", "CLARIFICATION", "CELEBRATORY"].includes(result.tone)) {
           result.tone = "PROFESSIONAL";
         }
         return result;
-      } catch {
+      } catch (error) {
+        console.error("[Mentions] generateResponse error:", error);
         return {
           title: `Comunicado sobre: ${mention.article.title.slice(0, 50)}`,
           body: "Error al generar el comunicado automatico. Por favor, redacte manualmente.",

@@ -3,8 +3,8 @@ import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 // Mock de módulos
 vi.mock("@mediabot/shared", () => ({
   config: {
-    anthropic: {
-      model: "claude-3-haiku-20240307",
+    ai: {
+      model: "gemini-2.0-flash",
     },
   },
   prisma: {
@@ -12,14 +12,16 @@ vi.mock("@mediabot/shared", () => ({
       findMany: vi.fn(),
     },
   },
-  getAnthropicClient: vi.fn().mockReturnValue({
-    messages: {
-      create: vi.fn(),
-    },
+  getGeminiModel: vi.fn().mockReturnValue({
+    generateContent: vi.fn(),
+  }),
+  cleanJsonResponse: vi.fn((text: string) => {
+    const match = text.match(/```(?:json)?\s*\n?([\s\S]*?)\n?\s*```/);
+    return match ? match[1].trim() : text.trim();
   }),
 }));
 
-import { prisma, getAnthropicClient } from "@mediabot/shared";
+import { prisma, getGeminiModel } from "@mediabot/shared";
 
 // Importar funciones del módulo (usamos implementaciones de test ya que algunas no están exportadas)
 
@@ -311,29 +313,22 @@ describe("clustering", () => {
   describe("AI comparison", () => {
     it("should parse AI response correctly", async () => {
       const mockResponse = {
-        content: [
-          {
-            type: "text",
-            text: '{"sameEvent": true, "confidence": 0.85}',
-          },
-        ],
-      };
-
-      const mockClient = {
-        messages: {
-          create: vi.fn().mockResolvedValue(mockResponse),
+        response: {
+          text: () => '{"sameEvent": true, "confidence": 0.85}',
         },
       };
 
-      vi.mocked(getAnthropicClient).mockReturnValue(mockClient as never);
+      const mockModel = {
+        generateContent: vi.fn().mockResolvedValue(mockResponse),
+      };
+
+      vi.mocked(getGeminiModel).mockReturnValue(mockModel as never);
 
       // Simular parsing de respuesta
-      const content = mockResponse.content[0];
-      if (content.type === "text") {
-        const result = JSON.parse(content.text);
-        expect(result.sameEvent).toBe(true);
-        expect(result.confidence).toBe(0.85);
-      }
+      const text = mockResponse.response.text();
+      const result = JSON.parse(text);
+      expect(result.sameEvent).toBe(true);
+      expect(result.confidence).toBe(0.85);
     });
 
     it("should handle malformed AI response", () => {

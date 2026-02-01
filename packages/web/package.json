@@ -9,7 +9,6 @@
     "lint": "next lint"
   },
   "dependencies": {
-    "@anthropic-ai/sdk": "^0.39.0",
     "@google/generative-ai": "^0.24.1",
     "@mediabot/shared": "*",
     "@prisma/client": "^5.8.0",

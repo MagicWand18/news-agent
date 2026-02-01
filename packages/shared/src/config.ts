@@ -27,14 +27,13 @@ export const config = {
   telegram: {
     botToken: requireEnv("TELEGRAM_BOT_TOKEN", process.env.NODE_ENV === "test" ? "test-token" : undefined),
   },
-  anthropic: {
-    apiKey: requireEnv("ANTHROPIC_API_KEY", process.env.NODE_ENV === "test" ? "test-key" : undefined),
-    model: optionalEnv("CLAUDE_MODEL", "claude-3-5-haiku-20241022"),
-  },
   google: {
     cseApiKey: optionalEnv("GOOGLE_CSE_API_KEY", ""),
     cseCx: optionalEnv("GOOGLE_CSE_CX", ""),
-    apiKey: optionalEnv("GOOGLE_API_KEY", ""), // Gemini API key for search grounding
+    apiKey: optionalEnv("GOOGLE_API_KEY", ""),
+  },
+  ai: {
+    model: optionalEnv("GEMINI_MODEL", "gemini-2.0-flash"),
   },
   newsdata: {
     apiKey: optionalEnv("NEWSDATA_API_KEY", ""),

@@ -4,11 +4,12 @@ import { router, protectedProcedure } from "../trpc";
 import {
   prisma,
   getOnboardingQueue,
-  getAnthropicClient,
-  config,
+  getGeminiModel,
+  cleanJsonResponse,
   normalizeUrl,
   validateAndEnrichUrl,
   deduplicateUrls,
+  config,
 } from "@mediabot/shared";
 
 /**
@@ -436,7 +437,7 @@ Para cada noticia encontrada, incluye el título y un resumen breve.`;
       })
     )
     .mutation(async ({ input }) => {
-      // Llamar a la API de Claude para generar keywords
+      // Llamar a Gemini para generar keywords
       const articlesContext = input.articles
         .slice(0, 15)
         .map(
@@ -445,13 +446,9 @@ Para cada noticia encontrada, incluye el título y un resumen breve.`;
         )
         .join("\n\n");
 
-      const message = await getAnthropicClient().messages.create({
-        model: config.anthropic.model,
-        max_tokens: 1500,
-        messages: [
-          {
-            role: "user",
-            content: `Eres un experto en monitoreo de medios y relaciones publicas en Mexico.
+      const model = getGeminiModel();
+
+      const prompt = `Eres un experto en monitoreo de medios y relaciones publicas en Mexico.
 Analiza las siguientes noticias recientes sobre un cliente y genera una estrategia de monitoreo.
 
 CLIENTE:
@@ -464,15 +461,10 @@ ${articlesContext || "No se encontraron noticias recientes"}
 
 Genera keywords y configuracion basada en estas noticias REALES.
 
-Responde en JSON con este formato:
+Responde UNICAMENTE con JSON valido, sin markdown ni texto adicional:
 {
   "suggestedKeywords": [
-    {
-      "word": "palabra exacta",
-      "type": "NAME|BRAND|COMPETITOR|TOPIC|ALIAS",
-      "confidence": <0.5 a 1.0>,
-      "reason": "Por que es relevante"
-    }
+    {"word": "palabra exacta", "type": "NAME", "confidence": 0.95, "reason": "Por que es relevante"}
   ],
   "competitors": [
     {"name": "Competidor", "reason": "Por que es competidor"}
@@ -482,27 +474,21 @@ Responde en JSON con este formato:
   "monitoringStrategy": ["Estrategia 1", "Estrategia 2"]
 }
 
-IMPORTANTE: Genera 8-12 keywords variados basados en las noticias.
-Solo responde con el JSON.`,
-          },
-        ],
-      });
+Tipos validos para keywords: NAME, BRAND, COMPETITOR, TOPIC, ALIAS
 
-      const content = message.content[0];
-      if (content.type !== "text") {
-        throw new TRPCError({
-          code: "INTERNAL_SERVER_ERROR",
-          message: "Error al generar configuracion",
-        });
-      }
+IMPORTANTE: Genera 8-12 keywords variados basados en las noticias.`;
 
       try {
-        // Extraer JSON de la respuesta
-        const jsonMatch = content.text.match(/```(?:json)?\s*\n?([\s\S]*?)\n?\s*```/);
-        const jsonText = jsonMatch ? jsonMatch[1].trim() : content.text.trim();
+        const genResult = await model.generateContent({
+          contents: [{ role: "user", parts: [{ text: prompt }] }],
+          generationConfig: { maxOutputTokens: 2048, temperature: 0.4 },
+        });
+
+        const rawText = genResult.response.text();
+        const jsonText = cleanJsonResponse(rawText);
         return JSON.parse(jsonText);
-      } catch {
-        console.error("[Onboarding] Parse error:", content.text.slice(0, 500));
+      } catch (error) {
+        console.error("[Onboarding] Parse error:", error);
         return {
           suggestedKeywords: [
             {

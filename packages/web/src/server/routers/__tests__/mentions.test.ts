@@ -9,18 +9,20 @@ vi.mock("@mediabot/shared", () => ({
     },
   },
   config: {
-    anthropic: {
-      model: "claude-3-haiku-20240307",
+    ai: {
+      model: "gemini-2.0-flash",
     },
   },
-  getAnthropicClient: vi.fn().mockReturnValue({
-    messages: {
-      create: vi.fn(),
-    },
+  getGeminiModel: vi.fn().mockReturnValue({
+    generateContent: vi.fn(),
+  }),
+  cleanJsonResponse: vi.fn((text: string) => {
+    const match = text.match(/```(?:json)?\s*\n?([\s\S]*?)\n?\s*```/);
+    return match ? match[1].trim() : text.trim();
   }),
 }));
 
-import { prisma, getAnthropicClient, config } from "@mediabot/shared";
+import { prisma, getGeminiModel, config } from "@mediabot/shared";
 
 // Tipos para testing
 interface MentionListInput {
@@ -298,25 +300,23 @@ describe("mentions router", () => {
         keyMessages: ["Mensaje 1", "Mensaje 2"],
       };
 
-      const mockAIClient = {
-        messages: {
-          create: vi.fn().mockResolvedValue({
-            content: [{ type: "text", text: JSON.stringify(mockResponse) }],
-          }),
-        },
+      const mockModel = {
+        generateContent: vi.fn().mockResolvedValue({
+          response: {
+            text: () => JSON.stringify(mockResponse),
+          },
+        }),
       };
 
-      vi.mocked(getAnthropicClient).mockReturnValue(mockAIClient as never);
+      vi.mocked(getGeminiModel).mockReturnValue(mockModel as never);
 
-      const response = await mockAIClient.messages.create({
-        model: config.anthropic.model,
-        max_tokens: 1200,
-        messages: [{ role: "user", content: "Genera comunicado..." }],
+      const result = await mockModel.generateContent({
+        contents: [{ role: "user", parts: [{ text: "Genera comunicado..." }] }],
+        generationConfig: { maxOutputTokens: 1536 },
       });
 
-      expect(response.content[0].type).toBe("text");
-
-      const parsed = JSON.parse(response.content[0].text);
+      const text = result.response.text();
+      const parsed = JSON.parse(text);
       expect(parsed.tone).toBe("PROFESSIONAL");
       expect(parsed.keyMessages).toHaveLength(2);
     });

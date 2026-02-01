@@ -1,30 +1,50 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 
 // Mock de prisma antes de importar el módulo
-vi.mock("@mediabot/shared", () => ({
-  prisma: {
-    article: {
-      findFirst: vi.fn(),
-      findMany: vi.fn(),
-      create: vi.fn(),
+vi.mock("@mediabot/shared", async (importOriginal) => {
+  const actual = await importOriginal<typeof import("@mediabot/shared")>();
+  return {
+    // Importar funciones de URL utilities reales
+    normalizeUrl: actual.normalizeUrl,
+    validateUrl: actual.validateUrl,
+    validateAndEnrichUrl: vi.fn().mockImplementation(async (url: string, title?: string) => ({
+      valid: true,
+      finalUrl: url,
+      url: url,
+      title: title || "Test Title",
+      source: new URL(url).hostname.replace("www.", ""),
+      status: 200,
+    })),
+    deduplicateUrls: actual.deduplicateUrls,
+    extractDomain: actual.extractDomain,
+    // Mocks de prisma
+    prisma: {
+      article: {
+        findFirst: vi.fn(),
+        findMany: vi.fn(),
+        create: vi.fn(),
+      },
+      mention: {
+        findFirst: vi.fn(),
+        create: vi.fn(),
+        count: vi.fn(),
+      },
+      client: {
+        update: vi.fn(),
+      },
     },
-    mention: {
-      findFirst: vi.fn(),
-      create: vi.fn(),
-      count: vi.fn(),
+    config: {
+      google: {
+        apiKey: "test-google-api-key",
+        cseApiKey: "test-cse-api-key",
+        cseCx: "test-cse-cx",
+      },
+      ai: {
+        model: "gemini-2.0-flash",
+      },
     },
-    client: {
-      update: vi.fn(),
-    },
-  },
-  config: {
-    google: {
-      apiKey: "test-google-api-key",
-      cseApiKey: "test-cse-api-key",
-      cseCx: "test-cse-cx",
-    },
-  },
-}));
+  };
+});
 
 // Mock de Google Generative AI
 vi.mock("@google/generative-ai", () => ({
@@ -35,7 +55,7 @@ vi.mock("@google/generative-ai", () => ({
   })),
 }));
 
-import { prisma, config } from "@mediabot/shared";
+import { prisma, config, validateAndEnrichUrl } from "@mediabot/shared";
 import { GoogleGenerativeAI } from "@google/generative-ai";
 
 // Importar después de los mocks
@@ -48,6 +68,16 @@ import {
 describe("grounding-service", () => {
   beforeEach(() => {
     vi.clearAllMocks();
+
+    // Resetear mock de validateAndEnrichUrl después de clearAllMocks
+    vi.mocked(validateAndEnrichUrl).mockImplementation(async (url: string, title?: string) => ({
+      valid: true,
+      finalUrl: url,
+      url: url,
+      title: title || "Test Title",
+      source: new URL(url).hostname.replace("www.", ""),
+      status: 200,
+    }));
   });
 
   afterEach(() => {
@@ -99,11 +129,21 @@ describe("grounding-service", () => {
         ],
       };
 
-      // Mock de generateContent
+      // Mock de generateContent con groundingMetadata (fuente de URLs reales)
       const mockModel = {
         generateContent: vi.fn().mockResolvedValue({
           response: {
             text: () => JSON.stringify(mockGeminiResponse),
+            candidates: [
+              {
+                groundingMetadata: {
+                  groundingChunks: [
+                    { web: { uri: "https://eluniversal.com.mx/article1", title: "Test Article 1" } },
+                    { web: { uri: "https://milenio.com/article2", title: "Test Article 2" } },
+                  ],
+                },
+              },
+            ],
           },
         }),
       };
@@ -179,10 +219,21 @@ describe("grounding-service", () => {
         ],
       };
 
+      // Mock con dos URLs iguales en groundingChunks - la deduplicación ocurre ahí
       const mockModel = {
         generateContent: vi.fn().mockResolvedValue({
           response: {
             text: () => JSON.stringify(mockGeminiResponse),
+            candidates: [
+              {
+                groundingMetadata: {
+                  groundingChunks: [
+                    { web: { uri: "https://example.com/duplicate", title: "Duplicate Article" } },
+                    { web: { uri: "https://example.com/duplicate", title: "Duplicate Article Copy" } },
+                  ],
+                },
+              },
+            ],
           },
         }),
       };
@@ -241,10 +292,18 @@ describe("grounding-service", () => {
     });
 
     it("should handle malformed JSON from Gemini", async () => {
+      // Mock sin groundingChunks válidos y con JSON malformado
       const mockModel = {
         generateContent: vi.fn().mockResolvedValue({
           response: {
             text: () => "This is not valid JSON",
+            candidates: [
+              {
+                groundingMetadata: {
+                  groundingChunks: [], // Sin URLs válidas
+                },
+              },
+            ],
           },
         }),
       };
@@ -257,11 +316,13 @@ describe("grounding-service", () => {
       );
 
       vi.mocked(prisma.client.update).mockResolvedValue({} as never);
+      vi.mocked(prisma.article.findMany).mockResolvedValue([]);
 
       const result = await executeGroundingSearch(baseParams);
 
-      expect(result.success).toBe(false);
-      expect(result.error).toBeDefined();
+      // Sin URLs en groundingMetadata, no hay artículos
+      expect(result.success).toBe(true);
+      expect(result.articlesFound).toBe(0);
     });
   });
 

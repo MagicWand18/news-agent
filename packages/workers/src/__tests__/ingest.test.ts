@@ -24,10 +24,13 @@ vi.mock("@mediabot/shared", () => ({
   prisma: mockPrisma,
   config: {
     redis: { url: "redis://localhost:6379" },
-    anthropic: { apiKey: "test", model: "test" },
+    ai: { model: "gemini-2.0-flash" },
+    google: { apiKey: "test" },
     telegram: { botToken: "test" },
     database: { url: "test" },
+    jobs: { retryAttempts: 3, backoffDelayMs: 5000 },
   },
+  getSettingNumber: vi.fn().mockResolvedValue(0.6),
 }));
 
 vi.mock("../queues.js", () => ({

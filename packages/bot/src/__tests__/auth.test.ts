@@ -12,7 +12,8 @@ vi.mock("@mediabot/shared", () => ({
     database: { url: "test" },
     redis: { url: "redis://localhost:6379" },
     telegram: { botToken: "test" },
-    anthropic: { apiKey: "test", model: "test" },
+    ai: { model: "gemini-2.0-flash" },
+    google: { apiKey: "test" },
   },
 }));
 

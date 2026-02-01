@@ -1,4 +1,4 @@
-import { config, prisma, getAnthropicClient } from "@mediabot/shared";
+import { prisma, getGeminiModel, cleanJsonResponse } from "@mediabot/shared";
 
 // Simple in-memory cache for recent cluster comparisons
 // Key: `${clientId}:${normalizedTitle}`, Value: { parentId, expiresAt }
@@ -74,13 +74,9 @@ async function aiCompareArticles(params: {
   title2: string;
   summary2: string;
 }): Promise<{ sameEvent: boolean; confidence: number }> {
-  const message = await getAnthropicClient().messages.create({
-    model: config.anthropic.model,
-    max_tokens: 150,
-    messages: [
-      {
-        role: "user",
-        content: `Determina si estos dos articulos tratan sobre el MISMO evento o noticia.
+  const model = getGeminiModel();
+
+  const prompt = `Determina si estos dos articulos tratan sobre el MISMO evento o noticia.
 
 Articulo 1:
 Titulo: ${params.title1}
@@ -90,33 +86,28 @@ Articulo 2:
 Titulo: ${params.title2}
 Resumen: ${params.summary2 || "No disponible"}
 
-Responde SOLO en JSON:
-{
-  "sameEvent": true/false,
-  "confidence": <0.0 a 1.0>
-}
+Responde UNICAMENTE con JSON valido, sin markdown ni texto adicional:
+{"sameEvent": true, "confidence": 0.9}
 
 sameEvent=true si ambos hablan del mismo evento/noticia/anuncio especifico.
-sameEvent=false si son temas relacionados pero eventos distintos.`,
-      },
-    ],
-  });
-
-  const content = message.content[0];
-  if (content.type !== "text") {
-    return { sameEvent: false, confidence: 0 };
-  }
+sameEvent=false si son temas relacionados pero eventos distintos.`;
 
   try {
-    const codeBlockMatch = content.text.match(/```(?:json)?\s*\n?([\s\S]*?)\n?\s*```/);
-    const cleaned = codeBlockMatch ? codeBlockMatch[1].trim() : content.text.trim();
-    const result = JSON.parse(cleaned);
+    const result = await model.generateContent({
+      contents: [{ role: "user", parts: [{ text: prompt }] }],
+      generationConfig: { maxOutputTokens: 256, temperature: 0.2 },
+    });
+
+    const text = result.response.text();
+    const cleaned = cleanJsonResponse(text);
+    const parsed = JSON.parse(cleaned);
+
     return {
-      sameEvent: Boolean(result.sameEvent),
-      confidence: Math.max(0, Math.min(1, result.confidence || 0)),
+      sameEvent: Boolean(parsed.sameEvent),
+      confidence: Math.max(0, Math.min(1, parsed.confidence || 0)),
     };
-  } catch {
-    console.error("[Clustering] Failed to parse AI comparison:", content.text);
+  } catch (error) {
+    console.error("[Clustering] Failed to parse AI comparison:", error);
     return { sameEvent: false, confidence: 0 };
   }
 }
