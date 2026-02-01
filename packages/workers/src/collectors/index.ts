@@ -4,7 +4,7 @@ import { collectGdelt } from "./gdelt.js";
 import { collectNewsdata } from "./newsdata.js";
 import { collectRss } from "./rss.js";
 import { collectGoogle } from "./google.js";
-import { collectSocial } from "./social.js";
+import { collectSocial, collectSocialForClient } from "./social.js";
 import type { NormalizedArticle } from "@mediabot/shared";
 
 function withErrorLogging(worker: Worker, name: string) {
@@ -79,9 +79,18 @@ export function startCollectorWorkers(_queues: ReturnType<typeof import("../queu
   // Social Media Worker
   withErrorLogging(new Worker(
     QUEUE_NAMES.COLLECT_SOCIAL,
-    async () => {
-      const stats = await collectSocial();
-      console.log(`📱 Social: ${stats.postsNew} new posts from ${stats.clientsProcessed} clients`);
+    async (job) => {
+      // Si viene un clientId, recolectar solo para ese cliente
+      const { clientId, manual } = job.data as { clientId?: string; manual?: boolean } || {};
+      if (clientId) {
+        console.log(`📱 Social: Manual collection for client ${clientId}`);
+        const stats = await collectSocialForClient(clientId);
+        console.log(`📱 Social: ${stats.postsNew} new posts, ${stats.errors} errors`);
+      } else {
+        // Recolección programada para todos los clientes
+        const stats = await collectSocial();
+        console.log(`📱 Social: ${stats.postsNew} new posts from ${stats.clientsProcessed} clients`);
+      }
     },
     { connection, concurrency: 1 }
   ), "Social");
