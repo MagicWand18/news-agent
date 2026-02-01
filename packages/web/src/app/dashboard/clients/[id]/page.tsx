@@ -5,7 +5,7 @@ import { MentionRow } from "@/components/mention-row";
 import { SocialMentionRow, SocialMentionRowSkeleton } from "@/components/social-mention-row";
 import { useParams, useRouter } from "next/navigation";
 import { useState } from "react";
-import { ArrowLeft, Plus, X, BarChart3, Target, TrendingUp, TrendingDown, Minus, Trash2, Settings, Search, Calendar, Loader2, MessageCircle, Building2, Users, User } from "lucide-react";
+import { ArrowLeft, Plus, X, BarChart3, Target, TrendingUp, TrendingDown, Minus, Trash2, Settings, Search, Calendar, Loader2, MessageCircle, Building2, Users, User, RefreshCw } from "lucide-react";
 import Link from "next/link";
 import {
   BarChart,
@@ -1252,6 +1252,7 @@ const SOCIAL_PLATFORM_COLORS: Record<string, string> = {
  */
 function SocialStatsSection({ clientId }: { clientId: string }) {
   const [days, setDays] = useState(7);
+  const utils = trpc.useUtils();
 
   const stats = trpc.social.getSocialStats.useQuery(
     { clientId, days },
@@ -1262,6 +1263,17 @@ function SocialStatsSection({ clientId }: { clientId: string }) {
     { clientId, days },
     { refetchOnWindowFocus: false }
   );
+
+  const triggerCollection = trpc.social.triggerCollection.useMutation({
+    onSuccess: () => {
+      // Refrescar datos después de unos segundos
+      setTimeout(() => {
+        utils.social.getSocialStats.invalidate({ clientId });
+        utils.social.getSocialTrend.invalidate({ clientId });
+        utils.social.getSocialMentions.invalidate({ clientId });
+      }, 5000);
+    },
+  });
 
   if (stats.isLoading || trend.isLoading) {
     return (
@@ -1315,16 +1327,47 @@ function SocialStatsSection({ clientId }: { clientId: string }) {
           </h3>
           <p className="text-sm text-gray-500 dark:text-gray-400">Últimos {days} días</p>
         </div>
-        <select
-          value={days}
-          onChange={(e) => setDays(Number(e.target.value))}
-          className="rounded-lg border border-gray-200 dark:border-gray-600 bg-white dark:bg-gray-700 px-3 py-1.5 text-sm text-gray-900 dark:text-white"
-        >
-          <option value={7}>7 días</option>
-          <option value={30}>30 días</option>
-          <option value={60}>60 días</option>
-        </select>
+        <div className="flex items-center gap-2">
+          <button
+            onClick={() => triggerCollection.mutate({ clientId })}
+            disabled={triggerCollection.isPending}
+            className="flex items-center gap-1.5 rounded-lg bg-purple-600 px-3 py-1.5 text-sm font-medium text-white hover:bg-purple-700 disabled:opacity-50 transition-colors"
+          >
+            {triggerCollection.isPending ? (
+              <>
+                <Loader2 className="h-4 w-4 animate-spin" />
+                Recolectando...
+              </>
+            ) : (
+              <>
+                <RefreshCw className="h-4 w-4" />
+                Recolectar
+              </>
+            )}
+          </button>
+          <select
+            value={days}
+            onChange={(e) => setDays(Number(e.target.value))}
+            className="rounded-lg border border-gray-200 dark:border-gray-600 bg-white dark:bg-gray-700 px-3 py-1.5 text-sm text-gray-900 dark:text-white"
+          >
+            <option value={7}>7 días</option>
+            <option value={30}>30 días</option>
+            <option value={60}>60 días</option>
+          </select>
+        </div>
       </div>
+
+      {/* Mensaje de éxito/error */}
+      {triggerCollection.isSuccess && (
+        <div className="mb-4 rounded-lg bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800 p-3 text-sm text-green-700 dark:text-green-400">
+          Recolección iniciada. Los resultados aparecerán en unos momentos.
+        </div>
+      )}
+      {triggerCollection.isError && (
+        <div className="mb-4 rounded-lg bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 p-3 text-sm text-red-700 dark:text-red-400">
+          {triggerCollection.error.message || "Error al iniciar recolección"}
+        </div>
+      )}
 
       {/* Stats Cards */}
       <div className="mb-6 grid grid-cols-2 gap-4 sm:grid-cols-4">
