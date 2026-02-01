@@ -3,7 +3,39 @@
  * Busca noticias en internet usando Google Search grounding.
  */
 import { prisma, config } from "@mediabot/shared";
-import { GoogleGenerativeAI } from "@google/generative-ai";
+import { GoogleGenerativeAI, GenerateContentResult } from "@google/generative-ai";
+
+/**
+ * Estructura de un chunk de grounding (URL real de Google Search).
+ */
+interface GroundingChunk {
+  web?: {
+    uri: string;
+    title?: string;
+  };
+}
+
+/**
+ * Extrae URLs reales del groundingMetadata del response de Gemini.
+ * Estos son los URLs que Google Search realmente encontró.
+ */
+function extractGroundingUrls(result: GenerateContentResult): GroundingChunk[] {
+  try {
+    // Acceder al candidato y su metadata de grounding
+    const candidate = result.response.candidates?.[0];
+    if (!candidate) return [];
+
+    // El groundingMetadata contiene los chunks con URLs reales
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const metadata = (candidate as any).groundingMetadata;
+    if (!metadata?.groundingChunks) return [];
+
+    return metadata.groundingChunks as GroundingChunk[];
+  } catch (error) {
+    console.warn("[Grounding] Error extracting grounding URLs:", error);
+    return [];
+  }
+}
 
 export type GroundingTrigger = "manual" | "auto_low_mentions" | "weekly" | "onboarding";
 
@@ -179,52 +211,78 @@ REGLAS:
     const response = result.response;
     const text = response.text();
 
-    // Extraer JSON de la respuesta
+    // PRIMERO: Extraer URLs reales del groundingMetadata (fuente confiable)
+    const groundingChunks = extractGroundingUrls(result);
+    console.log(`[Grounding] Found ${groundingChunks.length} URLs in groundingMetadata`);
+
+    // Extraer JSON de la respuesta para títulos/snippets/fechas
     const jsonMatch = text.match(/\{[\s\S]*"articles"[\s\S]*\}/);
-    if (!jsonMatch) {
-      console.error("[Grounding] No JSON found in response");
-      return {
-        success: false,
-        articles: [],
-        articlesFound: 0,
-        mentionsCreated: 0,
-        trigger,
-        error: "No se encontró JSON en la respuesta de Gemini",
-        executedAt,
-      };
+    let parsedArticles: Array<{
+      title: string;
+      source: string;
+      url: string;
+      snippet?: string;
+      date?: string;
+    }> = [];
+
+    if (jsonMatch) {
+      try {
+        const parsed = JSON.parse(jsonMatch[0]);
+        parsedArticles = parsed.articles || [];
+        console.log(`[Grounding] Gemini text contains ${parsedArticles.length} articles`);
+      } catch (e) {
+        console.warn("[Grounding] Failed to parse JSON from response text");
+      }
     }
 
-    const parsed = JSON.parse(jsonMatch[0]) as {
-      articles: Array<{
-        title: string;
-        source: string;
-        url: string;
-        snippet?: string;
-        date?: string;
-      }>;
-    };
-
-    console.log(`[Grounding] Gemini found ${parsed.articles?.length || 0} articles`);
-
-    // Procesar artículos encontrados
+    // Procesar URLs del groundingMetadata (fuente principal)
     let skippedUrls = 0;
-    for (const item of parsed.articles || []) {
-      if (!item.url || !item.title) continue;
+    let processedFromMetadata = 0;
+
+    for (const chunk of groundingChunks) {
+      if (!chunk.web?.uri) continue;
+
+      const url = chunk.web.uri;
 
       // Validar que el URL existe y responde 200
-      const finalUrl = await validateAndResolveUrl(item.url);
+      const finalUrl = await validateAndResolveUrl(url);
       if (!finalUrl) {
         skippedUrls++;
-        continue; // No guardar URLs inválidos o que no responden
+        continue;
       }
 
-      // Verificar duplicados con el URL final
+      // Verificar duplicados
       if (foundArticles.some((a) => a.url === finalUrl)) continue;
 
-      // Parsear fecha si existe
+      // Extraer dominio como source
+      let source = chunk.web.title || "Web";
+      try {
+        const urlObj = new URL(finalUrl);
+        source = urlObj.hostname.replace("www.", "");
+      } catch {
+        // Mantener el title del chunk
+      }
+
+      // Buscar info adicional en el JSON de Gemini (título, snippet, fecha)
+      // Intentar matchear por dominio ya que los URLs de Gemini son inventados
+      const domain = source.toLowerCase();
+      const matchingArticle = parsedArticles.find((a) => {
+        try {
+          const articleDomain = new URL(a.url).hostname.replace("www.", "").toLowerCase();
+          return articleDomain === domain;
+        } catch {
+          return false;
+        }
+      });
+
+      // Usar info del JSON si existe, si no usar defaults
+      const title = matchingArticle?.title || chunk.web.title || `Artículo de ${source}`;
+      const snippet = matchingArticle?.snippet;
+
+      // Parsear fecha si existe en el JSON
       let publishedAt: Date | undefined;
-      if (item.date) {
-        const parsedDate = new Date(item.date);
+      if (matchingArticle?.date) {
+        const parsedDate = new Date(matchingArticle.date);
         if (!isNaN(parsedDate.getTime())) {
           publishedAt = parsedDate;
         }
@@ -239,9 +297,9 @@ REGLAS:
         article = await prisma.article.create({
           data: {
             url: finalUrl,
-            title: item.title,
-            source: item.source || "Google",
-            content: item.snippet || null,
+            title,
+            source,
+            content: snippet || null,
             publishedAt: publishedAt || null,
           },
         });
@@ -252,15 +310,17 @@ REGLAS:
 
       foundArticles.push({
         id: article.id,
-        title: item.title,
-        source: item.source || "Google",
+        title,
+        source,
         url: finalUrl,
-        snippet: item.snippet,
+        snippet,
         publishedAt,
         isHistorical,
       });
+      processedFromMetadata++;
     }
 
+    console.log(`[Grounding] Processed ${processedFromMetadata} articles from groundingMetadata`);
     if (skippedUrls > 0) {
       console.log(`[Grounding] Skipped ${skippedUrls} articles with invalid/unreachable URLs`);
     }

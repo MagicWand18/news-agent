@@ -232,6 +232,7 @@ function MentionsPageContent() {
             relevance={mention.relevance}
             urgency={mention.urgency}
             date={mention.createdAt}
+            publishedAt={mention.article.publishedAt}
             url={mention.article.url}
             summary={mention.aiSummary}
             action={mention.aiAction}

@@ -16,6 +16,7 @@ interface MentionData {
     title: string;
     source: string;
     url: string;
+    publishedAt?: Date | null;
   };
   client: {
     name: string;
@@ -93,6 +94,9 @@ interface TimelineItemProps {
 function TimelineItem({ mention, index }: TimelineItemProps) {
   const sent = sentimentConfig[mention.sentiment] || sentimentConfig.NEUTRAL;
   const urg = urgencyConfig[mention.urgency] || urgencyConfig.MEDIUM;
+  // Usar fecha de publicación si existe, si no usar fecha de detección
+  const displayDate = mention.article.publishedAt ? new Date(mention.article.publishedAt) : new Date(mention.createdAt);
+  const isEstimatedDate = !mention.article.publishedAt;
 
   return (
     <div
@@ -129,7 +133,9 @@ function TimelineItem({ mention, index }: TimelineItemProps) {
             <div className="flex items-center gap-2 text-xs text-gray-500 dark:text-gray-400">
               <span className="font-semibold text-gray-700 dark:text-gray-300">{mention.article.source}</span>
               <span className="text-gray-300 dark:text-gray-600">|</span>
-              <span>{timeAgo(mention.createdAt)}</span>
+              <span title={isEstimatedDate ? "Fecha de detección" : "Fecha de publicación"}>
+                {timeAgo(displayDate)}{isEstimatedDate && " ~"}
+              </span>
             </div>
             <Link
               href={`/dashboard/mentions/${mention.id}`}

@@ -12,6 +12,8 @@ interface MentionRowProps {
   relevance: number;
   urgency: string;
   date: Date;
+  /** Fecha de publicación del artículo (si se conoce) */
+  publishedAt?: Date | null;
   url: string;
   summary?: string | null;
   action?: string | null;
@@ -40,12 +42,16 @@ export function MentionRow({
   relevance,
   urgency,
   date,
+  publishedAt,
   url,
   summary,
   action,
 }: MentionRowProps) {
   const sent = sentimentConfig[sentiment] || sentimentConfig.NEUTRAL;
   const urg = urgencyConfig[urgency] || urgencyConfig.MEDIUM;
+  // Usar fecha de publicación si existe, si no usar fecha de detección
+  const displayDate = publishedAt ? new Date(publishedAt) : new Date(date);
+  const isEstimatedDate = !publishedAt;
 
   return (
     <div className="group border-b border-gray-100 dark:border-gray-700 py-4 transition-colors last:border-0 hover:bg-gray-50/50 dark:hover:bg-gray-700/50">
@@ -62,7 +68,9 @@ export function MentionRow({
             <span className="hidden sm:inline text-gray-300 dark:text-gray-600">|</span>
             <span>{clientName}</span>
             <span className="hidden sm:inline text-gray-300 dark:text-gray-600">|</span>
-            <span className="text-gray-400 dark:text-gray-500">{timeAgo(date)}</span>
+            <span className="text-gray-400 dark:text-gray-500" title={isEstimatedDate ? "Fecha de detección" : "Fecha de publicación"}>
+              {timeAgo(displayDate)}{isEstimatedDate && " ~"}
+            </span>
             <a
               href={url}
               target="_blank"

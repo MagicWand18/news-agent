@@ -240,6 +240,28 @@ export const clientsRouter = router({
     .mutation(async ({ input }) => {
       const { GoogleGenerativeAI } = await import("@google/generative-ai");
 
+      // Estructura de un chunk de grounding (URL real de Google Search)
+      interface GroundingChunk {
+        web?: {
+          uri: string;
+          title?: string;
+        };
+      }
+
+      // Extrae URLs reales del groundingMetadata
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      function extractGroundingUrls(result: any): GroundingChunk[] {
+        try {
+          const candidate = result.response.candidates?.[0];
+          if (!candidate) return [];
+          const metadata = candidate.groundingMetadata;
+          if (!metadata?.groundingChunks) return [];
+          return metadata.groundingChunks as GroundingChunk[];
+        } catch {
+          return [];
+        }
+      }
+
       const foundArticles: Array<{
         id: string;
         title: string;
@@ -276,25 +298,7 @@ CRITERIOS DE BÚSQUEDA:
 - Incluir menciones directas e indirectas (competidores, industria, ejecutivos)
 - Priorizar noticias con impacto mediático
 
-Responde en formato JSON:
-{
-  "articles": [
-    {
-      "title": "título completo de la noticia",
-      "source": "nombre del medio",
-      "url": "URL completa y funcional del artículo",
-      "snippet": "resumen de 2-3 oraciones del contenido",
-      "date": "YYYY-MM-DD"
-    }
-  ]
-}
-
-REGLAS:
-- Mínimo 10 artículos, máximo 20
-- URLs deben ser reales y accesibles
-- No inventar noticias - solo incluir las que realmente existen
-- Si hay pocas noticias directas, incluir noticias relacionadas con la industria o competidores
-- Responde SOLO con el JSON, sin explicaciones`;
+Para cada noticia encontrada, incluye el título y un resumen breve.`;
 
           const result = await model.generateContent({
             contents: [{ role: "user", parts: [{ text: prompt }] }],
@@ -304,80 +308,79 @@ REGLAS:
           const response = result.response;
           const text = response.text();
 
-          // Extraer JSON de la respuesta
-          const jsonMatch = text.match(/\{[\s\S]*"articles"[\s\S]*\}/);
-          if (jsonMatch) {
-            const parsed = JSON.parse(jsonMatch[0]) as {
-              articles: Array<{
-                title: string;
-                source: string;
-                url: string;
-                snippet?: string;
-                date?: string;
-              }>;
-            };
+          // PRIMERO: Extraer URLs reales del groundingMetadata (fuente confiable)
+          const groundingChunks = extractGroundingUrls(result);
+          console.log(`[SearchNews] Found ${groundingChunks.length} URLs in groundingMetadata`);
 
-            searchedOnline = true;
-            console.log(`[SearchNews] Gemini found ${parsed.articles?.length || 0} articles`);
+          // Intentar extraer títulos/snippets del texto de respuesta
+          const lines = text.split("\n").filter((l) => l.trim());
 
-            let skippedUrls = 0;
-            for (const item of parsed.articles || []) {
-              if (!item.url || !item.title) continue;
+          searchedOnline = groundingChunks.length > 0;
+          let skippedUrls = 0;
 
-              // Validar que el URL existe y responde 200
-              const finalUrl = await validateAndResolveUrl(item.url);
-              if (!finalUrl) {
-                skippedUrls++;
-                continue; // No guardar URLs inválidos o que no responden
-              }
+          for (const chunk of groundingChunks) {
+            if (!chunk.web?.uri) continue;
 
-              // Verificar duplicados con el URL final
-              if (foundArticles.some((a) => a.url === finalUrl)) continue;
+            const url = chunk.web.uri;
 
-              // Parsear fecha si existe
-              let publishedAt: Date | undefined;
-              if (item.date) {
-                const parsed = new Date(item.date);
-                if (!isNaN(parsed.getTime())) {
-                  publishedAt = parsed;
-                }
-              }
+            // Validar que el URL existe y responde 200
+            const finalUrl = await validateAndResolveUrl(url);
+            if (!finalUrl) {
+              skippedUrls++;
+              continue;
+            }
 
-              // Crear o encontrar el artículo en la base de datos
-              let article = await prisma.article.findFirst({
-                where: { url: finalUrl },
-              });
+            // Verificar duplicados
+            if (foundArticles.some((a) => a.url === finalUrl)) continue;
 
-              if (!article) {
-                article = await prisma.article.create({
-                  data: {
-                    url: finalUrl,
-                    title: item.title,
-                    source: item.source || "Google",
-                    content: item.snippet || null,
-                    publishedAt: publishedAt || null,
-                  },
-                });
-              }
+            // Extraer dominio como source
+            let source = chunk.web.title || "Web";
+            try {
+              const urlObj = new URL(finalUrl);
+              source = urlObj.hostname.replace("www.", "");
+            } catch {
+              // Mantener el title del chunk
+            }
 
-              // Marcar como histórico si la fecha está fuera del período solicitado
-              const isHistorical = publishedAt ? publishedAt < minAcceptableDate : false;
+            // Buscar título en el texto de respuesta que contenga el dominio
+            const titleLine = lines.find((l) =>
+              l.toLowerCase().includes(source.split(".")[0].toLowerCase()) ||
+              l.includes("**") || l.includes("##")
+            );
+            const title = titleLine?.replace(/[*#]/g, "").trim() || chunk.web.title || `Artículo de ${source}`;
 
-              foundArticles.push({
-                id: article.id,
-                title: item.title,
-                source: item.source || "Google",
-                url: finalUrl,
-                snippet: item.snippet,
-                publishedAt,
-                isHistorical,
+            // Crear o encontrar el artículo en la base de datos
+            let article = await prisma.article.findFirst({
+              where: { url: finalUrl },
+            });
+
+            if (!article) {
+              article = await prisma.article.create({
+                data: {
+                  url: finalUrl,
+                  title,
+                  source,
+                  content: null,
+                  publishedAt: null,
+                },
               });
             }
 
-            if (skippedUrls > 0) {
-              console.log(`[SearchNews] Skipped ${skippedUrls} articles with invalid/unreachable URLs`);
-            }
+            foundArticles.push({
+              id: article.id,
+              title: article.title,
+              source: article.source,
+              url: finalUrl,
+              snippet: article.content?.slice(0, 300) || undefined,
+              publishedAt: article.publishedAt || undefined,
+              isHistorical: false,
+            });
           }
+
+          if (skippedUrls > 0) {
+            console.log(`[SearchNews] Skipped ${skippedUrls} articles with invalid/unreachable URLs`);
+          }
+          console.log(`[SearchNews] Processed ${foundArticles.length} articles from groundingMetadata`);
         } catch (error) {
           const errMsg = error instanceof Error ? error.message : String(error);
           console.error("[SearchNews] Gemini search error:", errMsg);
