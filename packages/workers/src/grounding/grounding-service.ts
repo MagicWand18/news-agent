@@ -2,7 +2,15 @@
  * Servicio de grounding con Gemini.
  * Busca noticias en internet usando Google Search grounding.
  */
-import { prisma, config } from "@mediabot/shared";
+import {
+  prisma,
+  config,
+  normalizeUrl,
+  validateUrl,
+  validateAndEnrichUrl,
+  deduplicateUrls,
+  extractDomain,
+} from "@mediabot/shared";
 import { GoogleGenerativeAI, GenerateContentResult } from "@google/generative-ai";
 
 /**
@@ -76,61 +84,6 @@ function subDays(date: Date, days: number): Date {
   const result = new Date(date);
   result.setDate(result.getDate() - days);
   return result;
-}
-
-/**
- * Detecta si un URL es un redirect temporal de Google Vertex AI Search.
- */
-function isVertexRedirectUrl(url: string): boolean {
-  return url.includes("vertexaisearch.cloud.google.com/grounding-api-redirect");
-}
-
-/**
- * Valida que un URL exista y responda correctamente.
- * Retorna el URL final (después de redirects) o null si no es válido.
- */
-async function validateAndResolveUrl(url: string): Promise<string | null> {
-  try {
-    const controller = new AbortController();
-    const timeout = setTimeout(() => controller.abort(), 10000); // 10s timeout
-
-    const response = await fetch(url, {
-      method: "HEAD",
-      redirect: "follow",
-      signal: controller.signal,
-      headers: {
-        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
-        "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
-      },
-    });
-
-    clearTimeout(timeout);
-
-    const finalUrl = response.url;
-
-    // Rechazar URLs de Vertex AI redirect
-    if (isVertexRedirectUrl(finalUrl)) {
-      console.warn(`[Grounding] URL points to Vertex redirect: ${finalUrl.slice(0, 60)}...`);
-      return null;
-    }
-
-    // Verificar que responda 200 OK (o 2xx)
-    if (!response.ok) {
-      console.warn(`[Grounding] URL returned ${response.status}: ${finalUrl.slice(0, 80)}...`);
-      return null;
-    }
-
-    // Si el URL cambió (redirect), loguear
-    if (finalUrl !== url) {
-      console.log(`[Grounding] Resolved redirect -> ${finalUrl.slice(0, 80)}...`);
-    }
-
-    return finalUrl;
-  } catch (error) {
-    const msg = error instanceof Error ? error.message : String(error);
-    console.warn(`[Grounding] URL validation failed: ${msg} - ${url.slice(0, 60)}...`);
-    return null;
-  }
 }
 
 /**
@@ -214,15 +167,11 @@ REGLAS:
     // PRIMERO: Extraer URLs reales del groundingMetadata (fuente confiable)
     const rawChunks = extractGroundingUrls(result);
 
-    // Deduplicar chunks por URL antes de procesar
-    const seenUrls = new Set<string>();
-    const groundingChunks = rawChunks.filter((chunk) => {
-      if (!chunk.web?.uri) return false;
-      const url = chunk.web.uri.split("?")[0]; // Normalizar quitando query params
-      if (seenUrls.has(url)) return false;
-      seenUrls.add(url);
-      return true;
-    });
+    // Deduplicar chunks usando normalización robusta
+    const groundingChunks = deduplicateUrls(
+      rawChunks.filter((chunk) => chunk.web?.uri),
+      (chunk) => chunk.web!.uri
+    );
 
     console.log(`[Grounding] Found ${rawChunks.length} URLs in groundingMetadata, ${groundingChunks.length} unique`);
 
@@ -255,77 +204,33 @@ REGLAS:
 
       const url = chunk.web.uri;
 
-      // Validar que el URL existe y responde 200
-      const finalUrl = await validateAndResolveUrl(url);
-      if (!finalUrl) {
+      // Validar URL con retry y fallback, obtener título enriquecido
+      const enriched = await validateAndEnrichUrl(url, chunk.web?.title, {
+        retries: 2,
+        timeout: 10000,
+        detectSoft404: true,
+      });
+
+      if (!enriched.valid || !enriched.finalUrl) {
         skippedUrls++;
+        console.warn(`[Grounding] URL validation failed: ${enriched.error} - ${url.slice(0, 60)}...`);
         continue;
       }
 
-      // Verificar duplicados
-      if (foundArticles.some((a) => a.url === finalUrl)) continue;
+      const finalUrl = enriched.finalUrl;
 
-      // Extraer dominio como source
-      let source = "Web";
-      try {
-        const urlObj = new URL(finalUrl);
-        source = urlObj.hostname.replace("www.", "");
-      } catch {
-        // Mantener default
-      }
+      // Verificar duplicados con normalización
+      const normalizedFinalUrl = normalizeUrl(finalUrl);
+      if (foundArticles.some((a) => normalizeUrl(a.url) === normalizedFinalUrl)) continue;
 
-      // Obtener título real de la página
-      let title = chunk.web?.title || `Artículo de ${source}`;
-      let snippet: string | undefined;
-      try {
-        // Para YouTube, usar oEmbed API (más confiable)
-        if (finalUrl.includes("youtube.com/watch") || finalUrl.includes("youtu.be/")) {
-          const oembedUrl = `https://www.youtube.com/oembed?url=${encodeURIComponent(finalUrl)}&format=json`;
-          const oembedRes = await fetch(oembedUrl, { signal: AbortSignal.timeout(8000) });
-          if (oembedRes.ok) {
-            const data = (await oembedRes.json()) as { title?: string };
-            if (data.title) {
-              title = data.title;
-            }
-          }
-        } else {
-          // Para otros sitios, extraer del HTML
-          const pageRes = await fetch(finalUrl, {
-            signal: AbortSignal.timeout(8000),
-            headers: {
-              "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36",
-              "Accept": "text/html,application/xhtml+xml",
-            },
-          });
-          if (pageRes.ok) {
-            const html = await pageRes.text();
-            const titleMatch = html.match(/<title[^>]*>([^<]+)<\/title>/i);
-            if (titleMatch?.[1]) {
-              title = titleMatch[1].trim()
-                .replace(/\s*[-|–—]\s*[^-|–—]{0,30}$/, "")
-                .trim();
-            }
-            // Extraer meta description como snippet
-            const descMatch = html.match(/<meta[^>]*name=["']description["'][^>]*content=["']([^"']+)["']/i);
-            if (descMatch?.[1]) {
-              snippet = descMatch[1].trim().slice(0, 300);
-            }
-          }
-        }
-      } catch (err) {
-        console.warn(`[Grounding] Failed to get title for ${finalUrl.slice(0, 50)}: ${err}`);
-      }
-
-      // Si el título sigue siendo genérico, usar el chunk title
-      if (title === `Artículo de ${source}` && chunk.web?.title) {
-        title = chunk.web.title;
-      }
+      const source = enriched.source;
+      const title = enriched.title;
 
       // Buscar fecha en el JSON de Gemini si matchea por dominio
       const domain = source.toLowerCase();
       const matchingArticle = parsedArticles.find((a) => {
         try {
-          const articleDomain = new URL(a.url).hostname.replace("www.", "").toLowerCase();
+          const articleDomain = extractDomain(a.url).toLowerCase();
           return articleDomain === domain;
         } catch {
           return false;
@@ -340,6 +245,9 @@ REGLAS:
           publishedAt = parsedDate;
         }
       }
+
+      // Usar snippet del JSON de Gemini si está disponible
+      const snippet = matchingArticle?.snippet;
 
       // Crear o actualizar el artículo en la base de datos
       let article = await prisma.article.findFirst({
@@ -356,8 +264,8 @@ REGLAS:
             publishedAt: publishedAt || null,
           },
         });
-      } else if (title.length > 20 && !title.startsWith("Artículo de")) {
-        // Actualizar título si tenemos uno mejor
+      } else if (!enriched.isGenericTitle && title.length > 20) {
+        // Actualizar título si tenemos uno mejor (no genérico)
         article = await prisma.article.update({
           where: { id: article.id },
           data: { title, source, content: snippet || article.content },
