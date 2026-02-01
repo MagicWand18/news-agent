@@ -54,16 +54,11 @@ function isVertexRedirectUrl(url: string): boolean {
 }
 
 /**
- * Resuelve un URL de redirect siguiendo la redirección.
- * Retorna el URL final o null si no se puede resolver.
+ * Valida que un URL exista y responda correctamente.
+ * Retorna el URL final (después de redirects) o null si no es válido.
  */
-async function resolveRedirectUrl(url: string): Promise<string | null> {
-  if (!isVertexRedirectUrl(url)) {
-    return url; // No es un redirect, retornar tal cual
-  }
-
+async function validateAndResolveUrl(url: string): Promise<string | null> {
   try {
-    // Hacer una petición HEAD para seguir el redirect sin descargar el contenido
     const controller = new AbortController();
     const timeout = setTimeout(() => controller.abort(), 10000); // 10s timeout
 
@@ -72,30 +67,36 @@ async function resolveRedirectUrl(url: string): Promise<string | null> {
       redirect: "follow",
       signal: controller.signal,
       headers: {
-        "User-Agent": "Mozilla/5.0 (compatible; MediaBot/1.0)",
+        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
+        "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
       },
     });
 
     clearTimeout(timeout);
 
-    // Verificar que el URL final no sea también un redirect de Vertex
     const finalUrl = response.url;
+
+    // Rechazar URLs de Vertex AI redirect
     if (isVertexRedirectUrl(finalUrl)) {
-      console.warn(`[Grounding] Redirect still points to Vertex: ${finalUrl}`);
+      console.warn(`[Grounding] URL points to Vertex redirect: ${finalUrl.slice(0, 60)}...`);
       return null;
     }
 
-    // Verificar que sea un URL válido (no error page)
-    if (!response.ok && response.status !== 301 && response.status !== 302) {
-      console.warn(`[Grounding] Redirect target returned ${response.status}: ${finalUrl}`);
+    // Verificar que responda 200 OK (o 2xx)
+    if (!response.ok) {
+      console.warn(`[Grounding] URL returned ${response.status}: ${finalUrl.slice(0, 80)}...`);
       return null;
     }
 
-    console.log(`[Grounding] Resolved redirect: ${url.slice(0, 60)}... -> ${finalUrl}`);
+    // Si el URL cambió (redirect), loguear
+    if (finalUrl !== url) {
+      console.log(`[Grounding] Resolved redirect -> ${finalUrl.slice(0, 80)}...`);
+    }
+
     return finalUrl;
   } catch (error) {
     const msg = error instanceof Error ? error.message : String(error);
-    console.warn(`[Grounding] Failed to resolve redirect: ${msg}`);
+    console.warn(`[Grounding] URL validation failed: ${msg} - ${url.slice(0, 60)}...`);
     return null;
   }
 }
@@ -206,19 +207,15 @@ REGLAS:
     console.log(`[Grounding] Gemini found ${parsed.articles?.length || 0} articles`);
 
     // Procesar artículos encontrados
-    let skippedRedirects = 0;
+    let skippedUrls = 0;
     for (const item of parsed.articles || []) {
       if (!item.url || !item.title) continue;
 
-      // Resolver redirects de Vertex AI Search
-      let finalUrl = item.url;
-      if (isVertexRedirectUrl(item.url)) {
-        const resolved = await resolveRedirectUrl(item.url);
-        if (!resolved) {
-          skippedRedirects++;
-          continue; // No guardar si no se puede resolver el redirect
-        }
-        finalUrl = resolved;
+      // Validar que el URL existe y responde 200
+      const finalUrl = await validateAndResolveUrl(item.url);
+      if (!finalUrl) {
+        skippedUrls++;
+        continue; // No guardar URLs inválidos o que no responden
       }
 
       // Verificar duplicados con el URL final
@@ -264,8 +261,8 @@ REGLAS:
       });
     }
 
-    if (skippedRedirects > 0) {
-      console.log(`[Grounding] Skipped ${skippedRedirects} articles with unresolvable redirect URLs`);
+    if (skippedUrls > 0) {
+      console.log(`[Grounding] Skipped ${skippedUrls} articles with invalid/unreachable URLs`);
     }
 
     // Complementar con artículos existentes en la DB
