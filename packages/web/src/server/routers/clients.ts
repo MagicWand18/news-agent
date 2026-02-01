@@ -323,9 +323,6 @@ Para cada noticia encontrada, incluye el título y un resumen breve.`;
 
           console.log(`[SearchNews] Found ${rawChunks.length} URLs in groundingMetadata, ${groundingChunks.length} unique`);
 
-          // Intentar extraer títulos/snippets del texto de respuesta
-          const lines = text.split("\n").filter((l) => l.trim());
-
           searchedOnline = groundingChunks.length > 0;
           let skippedUrls = 0;
 
@@ -345,20 +342,41 @@ Para cada noticia encontrada, incluye el título y un resumen breve.`;
             if (foundArticles.some((a) => a.url === finalUrl)) continue;
 
             // Extraer dominio como source
-            let source = chunk.web.title || "Web";
+            let source = "Web";
             try {
               const urlObj = new URL(finalUrl);
               source = urlObj.hostname.replace("www.", "");
             } catch {
-              // Mantener el title del chunk
+              // Mantener default
             }
 
-            // Buscar título en el texto de respuesta que contenga el dominio
-            const titleLine = lines.find((l) =>
-              l.toLowerCase().includes(source.split(".")[0].toLowerCase()) ||
-              l.includes("**") || l.includes("##")
-            );
-            const title = titleLine?.replace(/[*#]/g, "").trim() || chunk.web.title || `Artículo de ${source}`;
+            // Obtener título real del HTML de la página
+            let title = chunk.web?.title || `Artículo de ${source}`;
+            try {
+              const controller = new AbortController();
+              const timeout = setTimeout(() => controller.abort(), 5000);
+              const pageRes = await fetch(finalUrl, {
+                signal: controller.signal,
+                headers: {
+                  "User-Agent": "Mozilla/5.0 (compatible; MediaBot/1.0)",
+                  "Accept": "text/html",
+                },
+              });
+              clearTimeout(timeout);
+              if (pageRes.ok) {
+                const html = await pageRes.text();
+                // Extraer <title> del HTML
+                const titleMatch = html.match(/<title[^>]*>([^<]+)<\/title>/i);
+                if (titleMatch?.[1]) {
+                  title = titleMatch[1].trim()
+                    .replace(/\s*[-|–—]\s*YouTube$/i, "") // Limpiar sufijo YouTube
+                    .replace(/\s*[-|–—]\s*[^-|–—]+$/, "") // Limpiar sufijo de sitio
+                    .trim();
+                }
+              }
+            } catch {
+              // Usar título del chunk si falla el fetch
+            }
 
             // Crear o encontrar el artículo en la base de datos
             let article = await prisma.article.findFirst({

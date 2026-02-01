@@ -266,16 +266,49 @@ REGLAS:
       if (foundArticles.some((a) => a.url === finalUrl)) continue;
 
       // Extraer dominio como source
-      let source = chunk.web.title || "Web";
+      let source = "Web";
       try {
         const urlObj = new URL(finalUrl);
         source = urlObj.hostname.replace("www.", "");
       } catch {
-        // Mantener el title del chunk
+        // Mantener default
       }
 
-      // Buscar info adicional en el JSON de Gemini (título, snippet, fecha)
-      // Intentar matchear por dominio ya que los URLs de Gemini son inventados
+      // Obtener título real del HTML de la página
+      let title = chunk.web?.title || `Artículo de ${source}`;
+      let snippet: string | undefined;
+      try {
+        const controller = new AbortController();
+        const timeout = setTimeout(() => controller.abort(), 5000);
+        const pageRes = await fetch(finalUrl, {
+          signal: controller.signal,
+          headers: {
+            "User-Agent": "Mozilla/5.0 (compatible; MediaBot/1.0)",
+            "Accept": "text/html",
+          },
+        });
+        clearTimeout(timeout);
+        if (pageRes.ok) {
+          const html = await pageRes.text();
+          // Extraer <title> del HTML
+          const titleMatch = html.match(/<title[^>]*>([^<]+)<\/title>/i);
+          if (titleMatch?.[1]) {
+            title = titleMatch[1].trim()
+              .replace(/\s*[-|–—]\s*YouTube$/i, "")
+              .replace(/\s*[-|–—]\s*[^-|–—]+$/, "")
+              .trim();
+          }
+          // Extraer meta description como snippet
+          const descMatch = html.match(/<meta[^>]*name=["']description["'][^>]*content=["']([^"']+)["']/i);
+          if (descMatch?.[1]) {
+            snippet = descMatch[1].trim().slice(0, 300);
+          }
+        }
+      } catch {
+        // Usar título del chunk si falla el fetch
+      }
+
+      // Buscar fecha en el JSON de Gemini si matchea por dominio
       const domain = source.toLowerCase();
       const matchingArticle = parsedArticles.find((a) => {
         try {
@@ -285,10 +318,6 @@ REGLAS:
           return false;
         }
       });
-
-      // Usar info del JSON si existe, si no usar defaults
-      const title = matchingArticle?.title || chunk.web.title || `Artículo de ${source}`;
-      const snippet = matchingArticle?.snippet;
 
       // Parsear fecha si existe en el JSON
       let publishedAt: Date | undefined;
