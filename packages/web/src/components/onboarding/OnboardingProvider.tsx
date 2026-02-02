@@ -24,6 +24,20 @@ const STORAGE_KEYS = {
   LAST_PATHNAME: "mediabot_tour_last_pathname",
 };
 
+// Constantes de tiempo (en ms)
+const TIMING = {
+  WELCOME_MODAL_DELAY: 500,
+  RESUME_INITIAL_DELAY: 300,
+  RESUME_REOPEN_DELAY: 400,
+  ELEMENT_RETRY_INTERVAL: 150,
+  MAX_ELEMENT_RETRIES: 20, // ~3 segundos máximo de espera
+  COMPLETION_DELAY: 2000,
+  START_TOUR_DELAY: 300,
+};
+
+// Total de pasos del tour
+const TOTAL_STEPS = tourSteps.length;
+
 interface OnboardingContextValue {
   status: OnboardingStatus;
   isLoading: boolean;
@@ -121,6 +135,7 @@ function OnboardingController({ children }: { children: ReactNode }) {
     // Solo procesar si estamos navegando y llegamos a la ruta correcta
     if (navState.isNavigating && navState.pendingStep !== null && navState.targetPath === pathname) {
       isProcessingNavigationRef.current = true;
+      let retryCount = 0;
 
       const resumeTour = () => {
         const step = tourSteps[navState.pendingStep!];
@@ -145,15 +160,23 @@ function OnboardingController({ children }: { children: ReactNode }) {
             setCurrentStep(navState.pendingStep!);
             setIsOpen(true);
             isProcessingNavigationRef.current = false;
-          }, 400);
+          }, TIMING.RESUME_REOPEN_DELAY);
         } else {
-          // Elemento no encontrado, reintentar
-          setTimeout(resumeTour, 150);
+          retryCount++;
+          if (retryCount >= TIMING.MAX_ELEMENT_RETRIES) {
+            // Elemento no encontrado después de max reintentos, limpiar y continuar
+            console.warn(`Tour: elemento "${step.target}" no encontrado después de ${retryCount} intentos`);
+            clearNavigationState();
+            isProcessingNavigationRef.current = false;
+            return;
+          }
+          // Reintentar
+          setTimeout(resumeTour, TIMING.ELEMENT_RETRY_INTERVAL);
         }
       };
 
       // Dar tiempo a que el DOM se renderice
-      setTimeout(resumeTour, 300);
+      setTimeout(resumeTour, TIMING.RESUME_INITIAL_DELAY);
     }
   }, [pathname, setCurrentStep, setIsOpen]);
 
@@ -163,7 +186,7 @@ function OnboardingController({ children }: { children: ReactNode }) {
     if (!isLoading && status === "PENDING" && pathname === "/dashboard" && !navState.isNavigating) {
       const timer = setTimeout(() => {
         setShowWelcomeModal(true);
-      }, 500);
+      }, TIMING.WELCOME_MODAL_DELAY);
       return () => clearTimeout(timer);
     }
   }, [isLoading, status, pathname]);
@@ -179,13 +202,19 @@ function OnboardingController({ children }: { children: ReactNode }) {
     // 1. El tour está cerrado
     // 2. El status es IN_PROGRESS
     // 3. NO estamos en proceso de navegación
+    // 4. El usuario llegó al último paso (o cerró manualmente - se marca como SKIPPED)
     if (!isOpen && status === "IN_PROGRESS") {
       completionTimeoutRef.current = setTimeout(() => {
         const navState = getNavigationState();
         if (!navState.isNavigating) {
-          updateStatusMutation.mutate({ status: "COMPLETED" });
+          // Si el usuario estaba en el último paso, marcar como completado
+          // Si cerró antes, marcar como skipped (abandonó el tour)
+          const isLastStep = currentStep >= TOTAL_STEPS - 1;
+          updateStatusMutation.mutate({
+            status: isLastStep ? "COMPLETED" : "SKIPPED"
+          });
         }
-      }, 2000); // 2 segundos de delay
+      }, TIMING.COMPLETION_DELAY);
     }
 
     return () => {
@@ -193,7 +222,7 @@ function OnboardingController({ children }: { children: ReactNode }) {
         clearTimeout(completionTimeoutRef.current);
       }
     };
-  }, [isOpen, status, updateStatusMutation]);
+  }, [isOpen, status, currentStep, updateStatusMutation]);
 
   // Manejar navegación cuando cambia el paso
   useEffect(() => {
@@ -240,7 +269,7 @@ function OnboardingController({ children }: { children: ReactNode }) {
       setTimeout(() => {
         setCurrentStep(0);
         setIsOpen(true);
-      }, 300);
+      }, TIMING.START_TOUR_DELAY);
     }
   }, [updateStatusMutation, pathname, router, setCurrentStep, setIsOpen]);
 

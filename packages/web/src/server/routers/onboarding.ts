@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { TRPCError } from "@trpc/server";
 import { router, protectedProcedure } from "../trpc";
 import { prisma } from "@mediabot/shared";
 
@@ -101,7 +102,23 @@ export const onboardingRouter = router({
       });
 
       if (!currentUser?.isSuperAdmin) {
-        throw new Error("Solo los super administradores pueden reactivar el tutorial de otros usuarios");
+        throw new TRPCError({
+          code: "FORBIDDEN",
+          message: "Solo los super administradores pueden reactivar el tutorial de otros usuarios",
+        });
+      }
+
+      // Verificar que el usuario target existe
+      const targetUser = await prisma.user.findUnique({
+        where: { id: input.userId },
+        select: { id: true },
+      });
+
+      if (!targetUser) {
+        throw new TRPCError({
+          code: "NOT_FOUND",
+          message: "Usuario no encontrado",
+        });
       }
 
       const user = await prisma.user.update({
