@@ -128,7 +128,7 @@ export default function ClientsPage() {
       {/* Chips de filtros activos */}
       <FilterChips chips={filterChips} onRemove={handleRemoveChip} />
 
-      <div className="rounded-xl bg-white shadow-sm dark:bg-gray-800">
+      <div className="rounded-xl bg-white shadow-sm dark:bg-gray-800" data-tour-id="clients-list">
         <table className="w-full">
           <thead>
             <tr className="border-b text-left text-sm text-gray-500 dark:border-gray-700 dark:text-gray-400">

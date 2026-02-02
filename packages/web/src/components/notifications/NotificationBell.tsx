@@ -30,7 +30,7 @@ export function NotificationBell() {
   }, []);
 
   return (
-    <div className="relative">
+    <div className="relative" data-tour-id="notification-bell">
       <button
         onClick={() => setIsOpen(!isOpen)}
         className={cn(

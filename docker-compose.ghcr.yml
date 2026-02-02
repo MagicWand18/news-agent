@@ -1,0 +1,75 @@
+# Docker Compose using pre-built images from GitHub Container Registry
+# Use with: bash deploy/quick-deploy.sh
+version: "3.9"
+
+services:
+  postgres:
+    image: postgres:16-alpine
+    container_name: mediabot-postgres
+    restart: unless-stopped
+    ports:
+      - "5432:5432"
+    environment:
+      POSTGRES_USER: mediabot
+      POSTGRES_PASSWORD: ${DB_PASSWORD:-mediabot_prod_2025}
+      POSTGRES_DB: mediabot
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U mediabot"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  redis:
+    image: redis:7-alpine
+    container_name: mediabot-redis
+    restart: unless-stopped
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  web:
+    image: ghcr.io/magicwand18/news-agent/web:latest
+    container_name: mediabot-web
+    restart: unless-stopped
+    ports:
+      - "3000:3000"
+    env_file: .env
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+
+  workers:
+    image: ghcr.io/magicwand18/news-agent/workers:latest
+    container_name: mediabot-workers
+    restart: unless-stopped
+    env_file: .env
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+
+  bot:
+    image: ghcr.io/magicwand18/news-agent/bot:latest
+    container_name: mediabot-bot
+    restart: unless-stopped
+    env_file: .env
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+
+volumes:
+  postgres_data:
+  redis_data:
