@@ -21,9 +21,11 @@ interface OnboardingContextValue {
   status: OnboardingStatus;
   isLoading: boolean;
   isTourRunning: boolean;
+  isNavigating: boolean;
   startTour: () => void;
   skipOnboarding: () => void;
   resetTour: () => void;
+  setIsNavigating: (value: boolean) => void;
 }
 
 const OnboardingContext = createContext<OnboardingContextValue | null>(null);
@@ -48,8 +50,8 @@ function OnboardingController({ children }: { children: ReactNode }) {
   const router = useRouter();
   const { setIsOpen, isOpen, setCurrentStep, currentStep } = useTour();
   const [showWelcomeModal, setShowWelcomeModal] = useState(false);
-  const isNavigatingRef = useRef(false);
-  const pendingStepRef = useRef<number | null>(null);
+  const [isNavigating, setIsNavigating] = useState(false);
+  const completionTimeoutRef = useRef<NodeJS.Timeout | null>(null);
 
   // Query para obtener el estado de onboarding
   const { data, isLoading, refetch } = trpc.onboarding.getStatus.useQuery(undefined, {
@@ -83,93 +85,52 @@ function OnboardingController({ children }: { children: ReactNode }) {
     }
   }, [isLoading, status, pathname]);
 
-  // Detectar cuando el tour termina
+  // Detectar cuando el tour termina (con delay para evitar falsos positivos durante navegación)
   useEffect(() => {
-    if (!isOpen && status === "IN_PROGRESS" && !isNavigatingRef.current) {
-      // El tour se cerró mientras estaba en progreso
-      updateStatusMutation.mutate({ status: "COMPLETED" });
+    // Limpiar timeout previo
+    if (completionTimeoutRef.current) {
+      clearTimeout(completionTimeoutRef.current);
+      completionTimeoutRef.current = null;
     }
-  }, [isOpen, status, updateStatusMutation]);
 
-  // Verificar si el elemento existe en el DOM después de navegar
-  useEffect(() => {
-    if (pendingStepRef.current !== null && !isNavigatingRef.current) {
-      const step = tourSteps[pendingStepRef.current];
-      if (step) {
-        const checkElement = () => {
-          const element = document.querySelector(step.target);
-          if (element) {
-            // Ejecutar acción si es necesario
-            const action = getStepAction(pendingStepRef.current!);
-            if (action === "scrollToElement") {
-              element.scrollIntoView({ behavior: "smooth", block: "center" });
-            }
-
-            // Pequeño delay para asegurar scroll completado
-            setTimeout(() => {
-              setCurrentStep(pendingStepRef.current!);
-              setIsOpen(true);
-              pendingStepRef.current = null;
-            }, 300);
-          } else {
-            // Reintentar si el elemento aún no está disponible
-            setTimeout(checkElement, 100);
-          }
-        };
-
-        setTimeout(checkElement, 200);
-      }
-    }
-  }, [pathname, setCurrentStep, setIsOpen]);
-
-  /**
-   * Navega a una ruta y ejecuta callback cuando llega
-   */
-  const navigateToStep = useCallback(async (stepIndex: number) => {
-    const targetRoute = getStepRoute(stepIndex);
-
-    if (!targetRoute || pathname === targetRoute) {
-      // Ya estamos en la ruta correcta
-      const step = tourSteps[stepIndex];
-      const action = getStepAction(stepIndex);
-
-      if (action === "scrollToElement" && step) {
-        const element = document.querySelector(step.target);
-        if (element) {
-          element.scrollIntoView({ behavior: "smooth", block: "center" });
+    if (!isOpen && status === "IN_PROGRESS") {
+      // Esperar un momento para verificar si realmente se cerró o si estamos navegando
+      completionTimeoutRef.current = setTimeout(() => {
+        // Verificar de nuevo si el tour sigue cerrado y no estamos navegando
+        if (!isNavigating) {
+          updateStatusMutation.mutate({ status: "COMPLETED" });
         }
-      }
-
-      setTimeout(() => {
-        setCurrentStep(stepIndex);
-        setIsOpen(true);
-      }, 100);
-      return;
+      }, 1000); // 1 segundo de delay
     }
 
-    // Necesitamos navegar
-    isNavigatingRef.current = true;
-    pendingStepRef.current = stepIndex;
-    setIsOpen(false);
-
-    // Navegar a la ruta
-    router.push(targetRoute);
-
-    // Esperar a que la navegación complete
-    setTimeout(() => {
-      isNavigatingRef.current = false;
-    }, 500);
-  }, [pathname, router, setCurrentStep, setIsOpen]);
+    return () => {
+      if (completionTimeoutRef.current) {
+        clearTimeout(completionTimeoutRef.current);
+      }
+    };
+  }, [isOpen, status, isNavigating, updateStatusMutation]);
 
   const startTour = useCallback(() => {
     setShowWelcomeModal(false);
     updateStatusMutation.mutate({ status: "IN_PROGRESS" });
 
-    // Empezar desde el paso 0, asegurando que estamos en /dashboard
-    setTimeout(() => {
-      navigateToStep(0);
-    }, 300);
-  }, [updateStatusMutation, navigateToStep]);
+    // Asegurar que estamos en /dashboard y empezar
+    if (pathname !== "/dashboard") {
+      setIsNavigating(true);
+      router.push("/dashboard");
+      // El tour se abrirá cuando la página cargue
+      setTimeout(() => {
+        setIsNavigating(false);
+        setCurrentStep(0);
+        setIsOpen(true);
+      }, 500);
+    } else {
+      setTimeout(() => {
+        setCurrentStep(0);
+        setIsOpen(true);
+      }, 300);
+    }
+  }, [updateStatusMutation, pathname, router, setCurrentStep, setIsOpen]);
 
   const skipOnboarding = useCallback(() => {
     setShowWelcomeModal(false);
@@ -184,9 +145,11 @@ function OnboardingController({ children }: { children: ReactNode }) {
     status,
     isLoading: isLoading || updateStatusMutation.isPending || resetMutation.isPending,
     isTourRunning: isOpen,
+    isNavigating,
     startTour,
     skipOnboarding,
     resetTour,
+    setIsNavigating,
   };
 
   return (
@@ -220,15 +183,16 @@ const reactourSteps = tourSteps.map((step) => ({
  * Componente wrapper que maneja la navegación entre pasos
  */
 function TourNavigationHandler({ children }: { children: ReactNode }) {
-  const { currentStep, setCurrentStep, setIsOpen, isOpen } = useTour();
+  const { currentStep, setIsOpen, isOpen } = useTour();
+  const { setIsNavigating } = useOnboarding();
   const router = useRouter();
   const pathname = usePathname();
   const prevStepRef = useRef(currentStep);
-  const isNavigatingRef = useRef(false);
+  const localNavigatingRef = useRef(false);
 
   // Manejar cambio de paso con navegación
   useEffect(() => {
-    if (!isOpen || isNavigatingRef.current) return;
+    if (!isOpen || localNavigatingRef.current) return;
 
     // Solo actuar si el paso cambió
     if (prevStepRef.current === currentStep) return;
@@ -238,7 +202,8 @@ function TourNavigationHandler({ children }: { children: ReactNode }) {
 
     if (targetRoute && pathname !== targetRoute) {
       // Necesitamos navegar a otra página
-      isNavigatingRef.current = true;
+      localNavigatingRef.current = true;
+      setIsNavigating(true);
       setIsOpen(false);
 
       router.push(targetRoute);
@@ -256,7 +221,8 @@ function TourNavigationHandler({ children }: { children: ReactNode }) {
           }
 
           setTimeout(() => {
-            isNavigatingRef.current = false;
+            localNavigatingRef.current = false;
+            setIsNavigating(false);
             setIsOpen(true);
           }, 300);
         } else {
@@ -278,7 +244,7 @@ function TourNavigationHandler({ children }: { children: ReactNode }) {
         }
       }
     }
-  }, [currentStep, isOpen, pathname, router, setCurrentStep, setIsOpen]);
+  }, [currentStep, isOpen, pathname, router, setIsOpen, setIsNavigating]);
 
   return <>{children}</>;
 }
@@ -336,9 +302,9 @@ export function OnboardingProvider({ children }: OnboardingProviderProps) {
         }),
       }}
     >
-      <TourNavigationHandler>
-        <OnboardingController>{children}</OnboardingController>
-      </TourNavigationHandler>
+      <OnboardingController>
+        <TourNavigationHandler>{children}</TourNavigationHandler>
+      </OnboardingController>
     </TourProvider>
   );
 }
