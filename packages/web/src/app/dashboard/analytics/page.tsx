@@ -147,7 +147,7 @@ export default function AnalyticsPage() {
       </div>
 
       {/* Filtros */}
-      <FilterBar activeCount={activeFilterCount} onClear={handleClearFilters}>
+      <FilterBar activeCount={activeFilterCount} onClear={handleClearFilters} data-tour-id="analytics-filters">
         <FilterSelect
           label="Cliente"
           value={clientId}
@@ -182,7 +182,7 @@ export default function AnalyticsPage() {
       </FilterBar>
 
       {/* Row 1: Mentions by Day */}
-      <div className="rounded-xl border border-gray-100 dark:border-gray-700 bg-white dark:bg-gray-800 p-6 shadow-sm dark:shadow-gray-900/20">
+      <div className="rounded-xl border border-gray-100 dark:border-gray-700 bg-white dark:bg-gray-800 p-6 shadow-sm dark:shadow-gray-900/20" data-tour-id="analytics-mentions-day">
         <h3 className="font-semibold text-gray-900 dark:text-white">Menciones por dia</h3>
         <p className="mb-4 text-sm text-gray-500 dark:text-gray-400">Ultimos {days} dias</p>
         {isLoading ? (
@@ -245,7 +245,7 @@ export default function AnalyticsPage() {
       </div>
 
       {/* Row 2: Sentiment Trend + Urgency */}
-      <div className="grid grid-cols-1 gap-6 lg:grid-cols-3">
+      <div className="grid grid-cols-1 gap-6 lg:grid-cols-3" data-tour-id="analytics-sentiment">
         {/* Sentiment Trend */}
         <div className="col-span-1 rounded-xl border border-gray-100 dark:border-gray-700 bg-white dark:bg-gray-800 p-6 shadow-sm dark:shadow-gray-900/20 lg:col-span-2">
           <h3 className="font-semibold text-gray-900 dark:text-white">Tendencia de sentimiento</h3>
@@ -388,7 +388,7 @@ export default function AnalyticsPage() {
       </div>
 
       {/* Row 3: Top Sources + Top Keywords */}
-      <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
+      <div className="grid grid-cols-1 gap-6 lg:grid-cols-2" data-tour-id="analytics-sources">
         {/* Top Sources */}
         <div className="rounded-xl border border-gray-100 dark:border-gray-700 bg-white dark:bg-gray-800 p-6 shadow-sm dark:shadow-gray-900/20">
           <h3 className="font-semibold text-gray-900 dark:text-white">Top fuentes</h3>
@@ -470,7 +470,7 @@ export default function AnalyticsPage() {
       </div>
 
       {/* Row 4: Topics */}
-      <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
+      <div className="grid grid-cols-1 gap-6 lg:grid-cols-2" data-tour-id="analytics-topics">
         {/* Topic Cloud */}
         <div className="rounded-xl border border-gray-100 dark:border-gray-700 bg-white dark:bg-gray-800 p-6 shadow-sm dark:shadow-gray-900/20">
           <div className="mb-4 flex items-center gap-2">
@@ -572,7 +572,7 @@ export default function AnalyticsPage() {
       </div>
 
       {/* Row 5: Social Media Analytics */}
-      <div className="rounded-xl border border-gray-100 dark:border-gray-700 bg-white dark:bg-gray-800 p-6 shadow-sm dark:shadow-gray-900/20">
+      <div className="rounded-xl border border-gray-100 dark:border-gray-700 bg-white dark:bg-gray-800 p-6 shadow-sm dark:shadow-gray-900/20" data-tour-id="analytics-social">
         <div className="mb-4 flex items-center gap-2">
           <Share2 className="h-5 w-5 text-purple-500" />
           <h3 className="font-semibold text-gray-900 dark:text-white">Redes Sociales</h3>

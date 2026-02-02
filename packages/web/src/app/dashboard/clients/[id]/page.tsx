@@ -246,7 +246,7 @@ export default function ClientDetailPage() {
       )}
 
       {/* Stats */}
-      <div className="grid grid-cols-2 gap-4 sm:grid-cols-4">
+      <div className="grid grid-cols-2 gap-4 sm:grid-cols-4" data-tour-id="client-stats">
         <div className="rounded-lg bg-white dark:bg-gray-800 p-4 shadow-sm dark:shadow-gray-900/20">
           <p className="text-sm text-gray-500 dark:text-gray-400">Menciones</p>
           <p className="text-2xl font-bold text-gray-900 dark:text-white">{c._count.mentions}</p>
@@ -269,7 +269,7 @@ export default function ClientDetailPage() {
       <SOVSection clientId={id} />
 
       {/* Keywords */}
-      <div className="rounded-xl bg-white dark:bg-gray-800 p-6 shadow-sm dark:shadow-gray-900/20">
+      <div className="rounded-xl bg-white dark:bg-gray-800 p-6 shadow-sm dark:shadow-gray-900/20" data-tour-id="client-keywords">
         <h3 className="mb-4 font-semibold text-gray-900 dark:text-white">Keywords</h3>
         <div className="mb-4 flex flex-wrap gap-2">
           {c.keywords.map((kw) => (
@@ -488,7 +488,7 @@ function SOVSection({ clientId }: { clientId: string }) {
   const trendColor = trend === "up" ? "text-emerald-600 dark:text-emerald-400" : trend === "down" ? "text-red-600 dark:text-red-400" : "text-gray-500 dark:text-gray-400";
 
   return (
-    <div className="rounded-xl bg-white dark:bg-gray-800 p-6 shadow-sm dark:shadow-gray-900/20">
+    <div className="rounded-xl bg-white dark:bg-gray-800 p-6 shadow-sm dark:shadow-gray-900/20" data-tour-id="client-sov">
       <div className="mb-4 flex items-center justify-between">
         <div>
           <h3 className="font-semibold text-gray-900 dark:text-white flex items-center gap-2">
@@ -837,7 +837,7 @@ function TelegramRecipientsSection({ clientId, clientName }: { clientId: string;
   );
 
   return (
-    <div className="rounded-xl bg-white dark:bg-gray-800 p-6 shadow-sm dark:shadow-gray-900/20">
+    <div className="rounded-xl bg-white dark:bg-gray-800 p-6 shadow-sm dark:shadow-gray-900/20" data-tour-id="client-telegram">
       <div className="mb-4 flex items-center justify-between">
         <h3 className="font-semibold text-gray-900 dark:text-white flex items-center gap-2">
           <MessageCircle className="h-5 w-5 text-brand-600" />
@@ -1150,7 +1150,7 @@ function GroundingConfigSection({ clientId }: { clientId: string }) {
   };
 
   return (
-    <div className="rounded-xl bg-white dark:bg-gray-800 p-6 shadow-sm dark:shadow-gray-900/20">
+    <div className="rounded-xl bg-white dark:bg-gray-800 p-6 shadow-sm dark:shadow-gray-900/20" data-tour-id="client-grounding">
       <h3 className="mb-4 font-semibold text-gray-900 dark:text-white flex items-center gap-2">
         <Settings className="h-5 w-5 text-brand-600" />
         Configuración de Búsqueda Automática
@@ -1460,7 +1460,7 @@ function SocialStatsSection({ clientId }: { clientId: string }) {
   };
 
   return (
-    <div className="rounded-xl bg-white dark:bg-gray-800 p-6 shadow-sm dark:shadow-gray-900/20">
+    <div className="rounded-xl bg-white dark:bg-gray-800 p-6 shadow-sm dark:shadow-gray-900/20" data-tour-id="client-social">
       <div className="mb-4 flex items-center justify-between">
         <div>
           <h3 className="font-semibold text-gray-900 dark:text-white flex items-center gap-2">

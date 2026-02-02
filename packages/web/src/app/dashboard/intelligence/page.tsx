@@ -129,7 +129,7 @@ export default function IntelligencePage() {
       </FilterBar>
 
       {/* KPIs Row */}
-      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
+      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4" data-tour-id="intelligence-kpis">
         <KPICard
           title="SOV Promedio"
           value={`${kpis.data?.avgSOV?.toFixed(1) || "0"}%`}
@@ -161,7 +161,7 @@ export default function IntelligencePage() {
       </div>
 
       {/* Row 2: SOV Chart + SOV Breakdown */}
-      <div className="grid grid-cols-1 gap-6 lg:grid-cols-3">
+      <div className="grid grid-cols-1 gap-6 lg:grid-cols-3" data-tour-id="intelligence-sov">
         {/* SOV Trend */}
         <div className="col-span-1 rounded-xl border border-gray-100 dark:border-gray-700 bg-white dark:bg-gray-800 p-6 shadow-sm dark:shadow-gray-900/20 lg:col-span-2">
           <h3 className="font-semibold text-gray-900 dark:text-white">Tendencia Share of Voice</h3>
@@ -262,7 +262,7 @@ export default function IntelligencePage() {
       </div>
 
       {/* Row 3: Topics + Insights */}
-      <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
+      <div className="grid grid-cols-1 gap-6 lg:grid-cols-2" data-tour-id="intelligence-topics">
         {/* Topics */}
         <div className="rounded-xl border border-gray-100 dark:border-gray-700 bg-white dark:bg-gray-800 p-6 shadow-sm dark:shadow-gray-900/20">
           <div className="mb-4 flex items-center justify-between">
@@ -332,7 +332,7 @@ export default function IntelligencePage() {
       </div>
 
       {/* Row 4: Source Tiers */}
-      <div className="rounded-xl border border-gray-100 dark:border-gray-700 bg-white dark:bg-gray-800 p-6 shadow-sm dark:shadow-gray-900/20">
+      <div className="rounded-xl border border-gray-100 dark:border-gray-700 bg-white dark:bg-gray-800 p-6 shadow-sm dark:shadow-gray-900/20" data-tour-id="intelligence-tiers">
         <h3 className="font-semibold text-gray-900 dark:text-white">Fuentes por Tier</h3>
         <p className="mb-4 text-sm text-gray-500 dark:text-gray-400">
           Clasificacion de fuentes por alcance e impacto
