@@ -17,7 +17,7 @@ export async function authMiddleware(ctx: BotContext, next: NextFunction) {
 
   if (user) {
     ctx.session.userId = user.id;
-    ctx.session.orgId = user.orgId;
+    ctx.session.orgId = user.orgId ?? undefined;
     return next();
   }
 
