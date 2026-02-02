@@ -83,4 +83,44 @@ export const onboardingRouter = router({
       completedAt: user.onboardingCompletedAt,
     };
   }),
+
+  /**
+   * Reactiva el tutorial para otro usuario (solo superadmin)
+   */
+  resetForUser: protectedProcedure
+    .input(
+      z.object({
+        userId: z.string(),
+      })
+    )
+    .mutation(async ({ ctx, input }) => {
+      // Verificar que el usuario actual es superadmin
+      const currentUser = await prisma.user.findUnique({
+        where: { id: ctx.user.id },
+        select: { isSuperAdmin: true },
+      });
+
+      if (!currentUser?.isSuperAdmin) {
+        throw new Error("Solo los super administradores pueden reactivar el tutorial de otros usuarios");
+      }
+
+      const user = await prisma.user.update({
+        where: { id: input.userId },
+        data: {
+          onboardingStatus: "PENDING",
+          onboardingCompletedAt: null,
+        },
+        select: {
+          id: true,
+          name: true,
+          onboardingStatus: true,
+        },
+      });
+
+      return {
+        userId: user.id,
+        userName: user.name,
+        status: user.onboardingStatus,
+      };
+    }),
 });

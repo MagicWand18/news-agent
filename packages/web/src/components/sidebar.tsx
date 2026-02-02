@@ -54,7 +54,7 @@ const navigation = [
   { name: "Fuentes", href: "/dashboard/sources", icon: Rss },
   { name: "Tareas", href: "/dashboard/tasks", icon: CheckSquare },
   { name: "Equipo", href: "/dashboard/team", icon: UserCog },
-  { name: "Configuracion", href: "/dashboard/settings", icon: Settings, adminOnly: true },
+  { name: "Configuracion", href: "/dashboard/settings", icon: Settings, superAdminOnly: true },
 ] as const;
 
 export function Sidebar() {

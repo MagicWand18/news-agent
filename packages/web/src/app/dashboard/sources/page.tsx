@@ -54,6 +54,7 @@ const statusLabels: Record<string, { label: string; color: string }> = {
 export default function SourcesPage() {
   const { data: session, status: authStatus } = useSession();
   const isAdmin = (session?.user as { role?: string })?.role === "ADMIN";
+  const isSuperAdmin = (session?.user as { isSuperAdmin?: boolean })?.isSuperAdmin === true;
 
   const [tab, setTab] = useState<Tab>("sources");
   const [search, setSearch] = useState("");
@@ -261,7 +262,7 @@ export default function SourcesPage() {
             <Send className="h-4 w-4" />
             Solicitar Fuente
           </button>
-          {isAdmin && (
+          {isSuperAdmin && (
             <button
               onClick={() => setShowCreateModal(true)}
               className="flex items-center gap-2 rounded-lg bg-brand-600 px-4 py-2 text-sm font-medium text-white hover:bg-brand-700"
@@ -274,7 +275,7 @@ export default function SourcesPage() {
       </div>
 
       {/* Stats Cards */}
-      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-5">
+      <div className={`grid gap-4 sm:grid-cols-2 ${isSuperAdmin ? "lg:grid-cols-5" : "lg:grid-cols-4"}`}>
         <div className="rounded-xl bg-white dark:bg-gray-800 p-4 shadow-sm dark:shadow-gray-900/20">
           <div className="flex items-center gap-3">
             <div className="rounded-lg bg-blue-100 p-2">
@@ -319,53 +320,77 @@ export default function SourcesPage() {
             </div>
           </div>
         </div>
-        <div className="rounded-xl bg-white dark:bg-gray-800 p-4 shadow-sm dark:shadow-gray-900/20">
-          <div className="flex items-center gap-3">
-            <div className="rounded-lg bg-red-100 p-2">
-              <AlertTriangle className="h-5 w-5 text-red-600" />
-            </div>
-            <div>
-              <p className="text-2xl font-bold text-gray-900 dark:text-white">{statsQuery.data?.failing || 0}</p>
-              <p className="text-xs text-gray-500 dark:text-gray-400">Con errores</p>
+        {isSuperAdmin && (
+          <div className="rounded-xl bg-white dark:bg-gray-800 p-4 shadow-sm dark:shadow-gray-900/20">
+            <div className="flex items-center gap-3">
+              <div className="rounded-lg bg-red-100 p-2">
+                <AlertTriangle className="h-5 w-5 text-red-600" />
+              </div>
+              <div>
+                <p className="text-2xl font-bold text-gray-900 dark:text-white">{statsQuery.data?.failing || 0}</p>
+                <p className="text-xs text-gray-500 dark:text-gray-400">Con errores</p>
+              </div>
             </div>
           </div>
+        )}
+      </div>
+
+      {/* Tabs - Solo visible para superadmin */}
+      {isSuperAdmin && (
+        <div className="border-b border-gray-200 dark:border-gray-700">
+          <nav className="-mb-px flex gap-6">
+            <button
+              onClick={() => setTab("sources")}
+              className={`border-b-2 pb-3 text-sm font-medium ${
+                tab === "sources"
+                  ? "border-brand-600 text-brand-600"
+                  : "border-transparent text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200"
+              }`}
+            >
+              <Rss className="mr-2 inline h-4 w-4" />
+              Fuentes RSS
+            </button>
+            <button
+              onClick={() => setTab("requests")}
+              className={`border-b-2 pb-3 text-sm font-medium ${
+                tab === "requests"
+                  ? "border-brand-600 text-brand-600"
+                  : "border-transparent text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200"
+              }`}
+            >
+              <FileText className="mr-2 inline h-4 w-4" />
+              Solicitudes
+              {isAdmin && requestStatsQuery.data?.PENDING && (
+                <span className="ml-2 rounded-full bg-yellow-100 dark:bg-yellow-900/30 px-2 py-0.5 text-xs text-yellow-800 dark:text-yellow-400">
+                  {requestStatsQuery.data.PENDING}
+                </span>
+              )}
+            </button>
+          </nav>
         </div>
-      </div>
+      )}
 
-      {/* Tabs */}
-      <div className="border-b border-gray-200 dark:border-gray-700">
-        <nav className="-mb-px flex gap-6">
-          <button
-            onClick={() => setTab("sources")}
-            className={`border-b-2 pb-3 text-sm font-medium ${
-              tab === "sources"
-                ? "border-brand-600 text-brand-600"
-                : "border-transparent text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200"
-            }`}
-          >
-            <Rss className="mr-2 inline h-4 w-4" />
-            Fuentes RSS
-          </button>
-          <button
-            onClick={() => setTab("requests")}
-            className={`border-b-2 pb-3 text-sm font-medium ${
-              tab === "requests"
-                ? "border-brand-600 text-brand-600"
-                : "border-transparent text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200"
-            }`}
-          >
-            <FileText className="mr-2 inline h-4 w-4" />
-            Solicitudes
-            {isAdmin && requestStatsQuery.data?.PENDING && (
-              <span className="ml-2 rounded-full bg-yellow-100 dark:bg-yellow-900/30 px-2 py-0.5 text-xs text-yellow-800 dark:text-yellow-400">
-                {requestStatsQuery.data.PENDING}
-              </span>
-            )}
-          </button>
-        </nav>
-      </div>
+      {/* Vista para usuarios de agencia (no superadmin) */}
+      {!isSuperAdmin && (
+        <div className="rounded-xl bg-white dark:bg-gray-800 p-6 shadow-sm dark:shadow-gray-900/20">
+          <div className="text-center">
+            <Rss className="mx-auto h-12 w-12 text-gray-400" />
+            <h3 className="mt-4 text-lg font-medium text-gray-900 dark:text-white">
+              Fuentes de medios disponibles
+            </h3>
+            <p className="mt-2 text-sm text-gray-500 dark:text-gray-400">
+              Actualmente hay <span className="font-semibold">{statsQuery.data?.active || 0}</span> fuentes activas
+              monitoreando noticias para tus clientes.
+            </p>
+            <p className="mt-4 text-sm text-gray-500 dark:text-gray-400">
+              Si necesitas que agreguemos un medio específico, usa el botón &ldquo;Solicitar Fuente&rdquo;
+              y nuestro equipo lo revisará.
+            </p>
+          </div>
+        </div>
+      )}
 
-      {tab === "sources" && (
+      {isSuperAdmin && tab === "sources" && (
         <>
           {/* Filters */}
           <div className="flex flex-wrap items-center gap-3">
@@ -630,7 +655,7 @@ export default function SourcesPage() {
         </>
       )}
 
-      {tab === "requests" && (
+      {isSuperAdmin && tab === "requests" && (
         <>
           {/* Request Filters */}
           <div className="flex items-center gap-3">
@@ -781,8 +806,8 @@ export default function SourcesPage() {
         </>
       )}
 
-      {/* Create/Edit Modal */}
-      {(showCreateModal || editingSource) && isAdmin && (
+      {/* Create/Edit Modal - Solo superadmin */}
+      {(showCreateModal || editingSource) && isSuperAdmin && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50">
           <div className="w-full max-w-md rounded-xl bg-white dark:bg-gray-800 p-6 shadow-xl">
             <h3 className="text-lg font-semibold text-gray-900 dark:text-white">

@@ -15,6 +15,7 @@ import {
   Pencil,
   Check,
   X,
+  BookOpen,
 } from "lucide-react";
 import Link from "next/link";
 
@@ -74,6 +75,11 @@ function AgencyDetailContent({ orgId }: { orgId: string }) {
     onSuccess: () => {
       org.refetch();
       setIsEditing(false);
+    },
+  });
+  const resetTutorial = trpc.onboarding.resetForUser.useMutation({
+    onSuccess: (data) => {
+      alert(`Tutorial reactivado para ${data.userName}`);
     },
   });
 
@@ -388,6 +394,7 @@ function AgencyDetailContent({ orgId }: { orgId: string }) {
               <th className="px-6 py-3 font-medium">Email</th>
               <th className="px-6 py-3 font-medium">Rol</th>
               <th className="px-6 py-3 font-medium">Creado</th>
+              <th className="px-6 py-3 font-medium">Acciones</th>
             </tr>
           </thead>
           <tbody>
@@ -418,6 +425,17 @@ function AgencyDetailContent({ orgId }: { orgId: string }) {
                 </td>
                 <td className="px-6 py-4 text-gray-500 dark:text-gray-400">
                   {new Date(user.createdAt).toLocaleDateString("es-MX")}
+                </td>
+                <td className="px-6 py-4">
+                  <button
+                    onClick={() => resetTutorial.mutate({ userId: user.id })}
+                    disabled={resetTutorial.isPending}
+                    className="flex items-center gap-1 rounded px-2 py-1 text-sm text-gray-600 hover:bg-gray-100 dark:text-gray-400 dark:hover:bg-gray-700"
+                    title="Reactivar tutorial guiado"
+                  >
+                    <BookOpen className="h-4 w-4" />
+                    <span className="hidden sm:inline">Reactivar tutorial</span>
+                  </button>
                 </td>
               </tr>
             ))}
