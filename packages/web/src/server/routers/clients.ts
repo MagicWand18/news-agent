@@ -107,6 +107,24 @@ export const clientsRouter = router({
         });
       }
 
+      // Validar límite de clientes de la organización
+      const org = await prisma.organization.findUnique({
+        where: { id: targetOrgId },
+        select: {
+          maxClients: true,
+          _count: { select: { clients: true } },
+        },
+      });
+
+      if (org?.maxClients !== null && org?.maxClients !== undefined) {
+        if (org._count.clients >= org.maxClients) {
+          throw new TRPCError({
+            code: "FORBIDDEN",
+            message: `Esta organización ha alcanzado su límite de ${org.maxClients} cliente(s). Contacta al administrador.`,
+          });
+        }
+      }
+
       const client = await prisma.client.create({
         data: {
           name: input.name,
@@ -165,6 +183,62 @@ export const clientsRouter = router({
         },
         data,
       });
+    }),
+
+  /**
+   * Transferir cliente a otra organización (solo Super Admin)
+   */
+  transferClient: protectedProcedure
+    .input(
+      z.object({
+        clientId: z.string(),
+        newOrgId: z.string(),
+      })
+    )
+    .mutation(async ({ input, ctx }) => {
+      // Solo Super Admin puede transferir clientes
+      if (!ctx.user.isSuperAdmin) {
+        throw new TRPCError({
+          code: "FORBIDDEN",
+          message: "Solo Super Admin puede transferir clientes entre organizaciones",
+        });
+      }
+
+      // Verificar que el cliente existe
+      const client = await prisma.client.findUnique({
+        where: { id: input.clientId },
+        select: { id: true, name: true, orgId: true },
+      });
+
+      if (!client) {
+        throw new TRPCError({ code: "NOT_FOUND", message: "Cliente no encontrado" });
+      }
+
+      // Verificar que la organización destino existe
+      const targetOrg = await prisma.organization.findUnique({
+        where: { id: input.newOrgId },
+        select: { id: true, name: true },
+      });
+
+      if (!targetOrg) {
+        throw new TRPCError({ code: "NOT_FOUND", message: "Organización destino no encontrada" });
+      }
+
+      // No hacer nada si ya pertenece a esa organización
+      if (client.orgId === input.newOrgId) {
+        return { success: true, message: "El cliente ya pertenece a esta organización" };
+      }
+
+      // Transferir el cliente
+      await prisma.client.update({
+        where: { id: input.clientId },
+        data: { orgId: input.newOrgId },
+      });
+
+      return {
+        success: true,
+        message: `Cliente "${client.name}" transferido a "${targetOrg.name}"`,
+      };
     }),
 
   delete: protectedProcedure

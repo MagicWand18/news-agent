@@ -8,11 +8,12 @@ datasource db {
 }
 
 model Organization {
-  id        String   @id @default(cuid())
-  name      String
-  createdAt DateTime @default(now())
-  users     User[]
-  clients   Client[]
+  id         String   @id @default(cuid())
+  name       String
+  maxClients Int?     // Límite de clientes (null = sin límite)
+  createdAt  DateTime @default(now())
+  users      User[]
+  clients    Client[]
 }
 
 model User {

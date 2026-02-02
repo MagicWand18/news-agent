@@ -94,7 +94,8 @@ python3 tests/e2e/test_mediabot_full.py
 
 - **Server**: 159.65.97.78 (DigitalOcean)
 - **Dashboard**: http://159.65.97.78:3000
-- **Default login**: admin@mediabot.local / admin123
+- **Super Admin**: admin@example.com / 6lB5/A1NOVFOkOWG (ve todas las organizaciones)
+- **Admin Crisalida**: admin@crisalida.com / Cris4lid402 (organización Crisalida)
 
 ## Database Access (Production)
 

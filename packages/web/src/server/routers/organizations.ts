@@ -17,6 +17,7 @@ export const organizationsRouter = router({
       select: {
         id: true,
         name: true,
+        maxClients: true,
         createdAt: true,
         _count: {
           select: {
@@ -102,10 +103,11 @@ export const organizationsRouter = router({
       z.object({
         id: z.string(),
         name: z.string().min(1, "El nombre es requerido"),
+        maxClients: z.number().int().min(0).nullable().optional(),
       })
     )
     .mutation(async ({ input }) => {
-      const { id, name } = input;
+      const { id, name, maxClients } = input;
 
       const org = await prisma.organization.findUnique({ where: { id } });
       if (!org) {
@@ -117,7 +119,10 @@ export const organizationsRouter = router({
 
       return prisma.organization.update({
         where: { id },
-        data: { name },
+        data: {
+          name,
+          ...(maxClients !== undefined && { maxClients }),
+        },
       });
     }),
 

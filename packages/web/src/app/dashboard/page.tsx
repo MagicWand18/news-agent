@@ -59,7 +59,7 @@ export default function DashboardPage() {
       </div>
 
       {/* KPI Cards */}
-      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-5">
+      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-5" data-tour-id="kpi-cards">
         {stats.isLoading ? (
           <>
             <StatCardSkeleton />
@@ -121,7 +121,7 @@ export default function DashboardPage() {
 
       {/* Charts */}
       <div className="grid grid-cols-1 gap-6 lg:grid-cols-3">
-        <div className="col-span-1 rounded-xl border border-gray-100 bg-white p-6 shadow-sm lg:col-span-2 dark:border-gray-700 dark:bg-gray-800">
+        <div className="col-span-1 rounded-xl border border-gray-100 bg-white p-6 shadow-sm lg:col-span-2 dark:border-gray-700 dark:bg-gray-800" data-tour-id="mentions-chart">
           <h3 className="font-semibold text-gray-900 dark:text-gray-100">Menciones por dia</h3>
           <p className="mb-4 text-sm text-gray-500 dark:text-gray-400">Ultimos 7 dias</p>
           {stats.isLoading ? (
@@ -181,7 +181,7 @@ export default function DashboardPage() {
           )}
         </div>
 
-        <div className="rounded-xl border border-gray-100 bg-white p-6 shadow-sm dark:border-gray-700 dark:bg-gray-800">
+        <div className="rounded-xl border border-gray-100 bg-white p-6 shadow-sm dark:border-gray-700 dark:bg-gray-800" data-tour-id="sentiment-chart">
           <h3 className="font-semibold text-gray-900 dark:text-gray-100">Sentimiento</h3>
           <p className="mb-4 text-sm text-gray-500 dark:text-gray-400">Ultimos 7 dias</p>
           {stats.isLoading ? (
@@ -236,7 +236,7 @@ export default function DashboardPage() {
       </div>
 
       {/* Recent Mentions - Timeline */}
-      <div className="rounded-xl border border-gray-100 bg-white p-6 shadow-sm dark:border-gray-700 dark:bg-gray-800">
+      <div className="rounded-xl border border-gray-100 bg-white p-6 shadow-sm dark:border-gray-700 dark:bg-gray-800" data-tour-id="recent-mentions">
         <div className="mb-6 flex items-center justify-between">
           <div>
             <h3 className="font-semibold text-gray-900 dark:text-gray-100">Menciones recientes</h3>

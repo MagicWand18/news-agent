@@ -2,6 +2,17 @@
 @tailwind components;
 @tailwind utilities;
 
+/* Variables CSS para React Joyride (dark mode) */
+:root {
+  --joyride-bg: #ffffff;
+  --joyride-text: #1f2937;
+}
+
+.dark {
+  --joyride-bg: #1f2937;
+  --joyride-text: #f3f4f6;
+}
+
 @layer base {
   body {
     @apply bg-gray-50 text-gray-900 transition-colors duration-200;

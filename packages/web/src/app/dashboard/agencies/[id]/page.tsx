@@ -12,6 +12,9 @@ import {
   UserPlus,
   ArrowRightLeft,
   Shield,
+  Pencil,
+  Check,
+  X,
 } from "lucide-react";
 import Link from "next/link";
 
@@ -67,7 +70,16 @@ function AgencyDetailContent({ orgId }: { orgId: string }) {
       setReassigningClient(null);
     },
   });
+  const updateOrg = trpc.organizations.update.useMutation({
+    onSuccess: () => {
+      org.refetch();
+      setIsEditing(false);
+    },
+  });
 
+  const [isEditing, setIsEditing] = useState(false);
+  const [editName, setEditName] = useState("");
+  const [editMaxClients, setEditMaxClients] = useState("");
   const [showUserForm, setShowUserForm] = useState(false);
   const [userFormData, setUserFormData] = useState({
     name: "",
@@ -106,6 +118,30 @@ function AgencyDetailContent({ orgId }: { orgId: string }) {
 
   const { users, clients } = org.data;
 
+  const startEditing = () => {
+    setEditName(org.data?.name || "");
+    setEditMaxClients(org.data?.maxClients !== null && org.data?.maxClients !== undefined ? String(org.data.maxClients) : "");
+    setIsEditing(true);
+  };
+
+  const cancelEditing = () => {
+    setIsEditing(false);
+  };
+
+  const saveEditing = () => {
+    updateOrg.mutate({
+      id: orgId,
+      name: editName,
+      maxClients: editMaxClients === "" ? null : parseInt(editMaxClients, 10),
+    });
+  };
+
+  // Calcular si está cerca del límite
+  const maxClients = org.data?.maxClients;
+  const clientCount = clients.length;
+  const isAtLimit = maxClients !== null && maxClients !== undefined && clientCount >= maxClients;
+  const isNearLimit = maxClients !== null && maxClients !== undefined && clientCount >= maxClients * 0.8;
+
   return (
     <div className="space-y-6">
       {/* Header */}
@@ -116,16 +152,86 @@ function AgencyDetailContent({ orgId }: { orgId: string }) {
         >
           <ArrowLeft className="h-5 w-5" />
         </Link>
-        <div>
+        <div className="flex-1">
           <h2 className="flex items-center gap-2 text-2xl font-bold text-gray-900 dark:text-white">
             <Building2 className="h-6 w-6 text-gray-400" />
             {org.data.name}
           </h2>
           <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">
             {users.length} usuarios · {clients.length} clientes
+            {maxClients !== null && maxClients !== undefined && (
+              <span className={isAtLimit ? "text-red-500" : isNearLimit ? "text-amber-500" : ""}>
+                {" "}(límite: {maxClients})
+              </span>
+            )}
           </p>
         </div>
+        <button
+          onClick={startEditing}
+          className="flex items-center gap-2 rounded-lg border border-gray-300 px-3 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50 dark:border-gray-600 dark:text-gray-300 dark:hover:bg-gray-700"
+        >
+          <Pencil className="h-4 w-4" />
+          Editar
+        </button>
       </div>
+
+      {/* Edit Form */}
+      {isEditing && (
+        <div className="rounded-xl bg-white p-6 shadow-sm dark:bg-gray-800 dark:shadow-gray-900/20">
+          <h3 className="mb-4 font-semibold text-gray-900 dark:text-white">
+            Editar agencia
+          </h3>
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+            <div>
+              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                Nombre de la agencia
+              </label>
+              <input
+                value={editName}
+                onChange={(e) => setEditName(e.target.value)}
+                placeholder="Nombre de la agencia"
+                className="w-full rounded-lg border border-gray-300 bg-white px-3 py-2 text-gray-900 placeholder-gray-400 dark:border-gray-600 dark:bg-gray-700 dark:text-white dark:placeholder-gray-500"
+              />
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                Límite de clientes
+              </label>
+              <input
+                type="number"
+                min="0"
+                value={editMaxClients}
+                onChange={(e) => setEditMaxClients(e.target.value)}
+                placeholder="Sin límite"
+                className="w-full rounded-lg border border-gray-300 bg-white px-3 py-2 text-gray-900 placeholder-gray-400 dark:border-gray-600 dark:bg-gray-700 dark:text-white dark:placeholder-gray-500"
+              />
+              <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">
+                Dejar vacío para sin límite. Actualmente: {clientCount} clientes.
+              </p>
+            </div>
+          </div>
+          <div className="mt-4 flex justify-end gap-2">
+            <button
+              onClick={cancelEditing}
+              className="flex items-center gap-1 rounded-lg border border-gray-300 px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50 dark:border-gray-600 dark:text-gray-300 dark:hover:bg-gray-700"
+            >
+              <X className="h-4 w-4" />
+              Cancelar
+            </button>
+            <button
+              onClick={saveEditing}
+              disabled={updateOrg.isPending || !editName.trim()}
+              className="flex items-center gap-1 rounded-lg bg-brand-600 px-4 py-2 text-sm font-medium text-white hover:bg-brand-700 disabled:opacity-50"
+            >
+              <Check className="h-4 w-4" />
+              {updateOrg.isPending ? "Guardando..." : "Guardar cambios"}
+            </button>
+          </div>
+          {updateOrg.error && (
+            <p className="mt-2 text-sm text-red-600">{updateOrg.error.message}</p>
+          )}
+        </div>
+      )}
 
       {/* Stats */}
       <div className="grid grid-cols-2 gap-4 sm:grid-cols-4">

@@ -10,8 +10,6 @@ import {
   Users,
   Briefcase,
   ChevronRight,
-  Pencil,
-  Trash2,
   BarChart3,
 } from "lucide-react";
 import Link from "next/link";
@@ -49,15 +47,8 @@ function AgenciesContent() {
       setFormData({ name: "" });
     },
   });
-  const deleteOrg = trpc.organizations.delete.useMutation({
-    onSuccess: () => {
-      organizations.refetch();
-    },
-  });
-
   const [showForm, setShowForm] = useState(false);
   const [formData, setFormData] = useState({ name: "" });
-  const [editingOrg, setEditingOrg] = useState<{ id: string; name: string } | null>(null);
 
   return (
     <div className="space-y-6">
@@ -156,18 +147,6 @@ function AgenciesContent() {
         </div>
       )}
 
-      {/* Edit Modal */}
-      {editingOrg && (
-        <EditOrgModal
-          org={editingOrg}
-          onClose={() => setEditingOrg(null)}
-          onSuccess={() => {
-            organizations.refetch();
-            setEditingOrg(null);
-          }}
-        />
-      )}
-
       {/* Organizations List */}
       <div className="rounded-xl bg-white shadow-sm dark:bg-gray-800 dark:shadow-gray-900/20 overflow-hidden">
         <table className="w-full">
@@ -177,7 +156,6 @@ function AgenciesContent() {
               <th className="px-6 py-3 font-medium">Usuarios</th>
               <th className="px-6 py-3 font-medium">Clientes</th>
               <th className="px-6 py-3 font-medium">Creada</th>
-              <th className="px-6 py-3 font-medium">Acciones</th>
             </tr>
           </thead>
           <tbody>
@@ -206,7 +184,15 @@ function AgenciesContent() {
                   <span className="inline-flex items-center gap-1 text-gray-700 dark:text-gray-300">
                     <Briefcase className="h-4 w-4 text-gray-400" />
                     {org._count.clients}
+                    {org.maxClients !== null && (
+                      <span className="text-gray-400">/ {org.maxClients}</span>
+                    )}
                   </span>
+                  {org.maxClients !== null && org._count.clients >= org.maxClients && (
+                    <span className="ml-2 rounded bg-amber-100 px-1.5 py-0.5 text-xs font-medium text-amber-700 dark:bg-amber-900/30 dark:text-amber-400">
+                      Límite
+                    </span>
+                  )}
                 </td>
                 <td className="px-6 py-4 text-gray-500 dark:text-gray-400">
                   {new Date(org.createdAt).toLocaleDateString("es-MX", {
@@ -214,30 +200,6 @@ function AgenciesContent() {
                     month: "short",
                     day: "numeric",
                   })}
-                </td>
-                <td className="px-6 py-4">
-                  <div className="flex items-center gap-2">
-                    <button
-                      onClick={() => setEditingOrg({ id: org.id, name: org.name })}
-                      className="rounded p-1 text-gray-400 hover:bg-gray-100 hover:text-gray-600 dark:hover:bg-gray-700 dark:hover:text-gray-300"
-                      title="Editar"
-                    >
-                      <Pencil className="h-4 w-4" />
-                    </button>
-                    {org._count.users === 0 && org._count.clients === 0 && (
-                      <button
-                        onClick={() => {
-                          if (confirm(`¿Eliminar la agencia "${org.name}"?`)) {
-                            deleteOrg.mutate({ id: org.id });
-                          }
-                        }}
-                        className="rounded p-1 text-gray-400 hover:bg-red-100 hover:text-red-600 dark:hover:bg-red-900/30 dark:hover:text-red-400"
-                        title="Eliminar"
-                      >
-                        <Trash2 className="h-4 w-4" />
-                      </button>
-                    )}
-                  </div>
                 </td>
               </tr>
             ))}
@@ -285,61 +247,3 @@ function StatCard({
   );
 }
 
-/**
- * Modal para editar organización
- */
-function EditOrgModal({
-  org,
-  onClose,
-  onSuccess,
-}: {
-  org: { id: string; name: string };
-  onClose: () => void;
-  onSuccess: () => void;
-}) {
-  const [name, setName] = useState(org.name);
-  const updateOrg = trpc.organizations.update.useMutation({
-    onSuccess,
-  });
-
-  return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50">
-      <div className="w-full max-w-md rounded-xl bg-white p-6 shadow-xl dark:bg-gray-800">
-        <h3 className="mb-4 text-lg font-semibold text-gray-900 dark:text-white">
-          Editar agencia
-        </h3>
-        <form
-          onSubmit={(e) => {
-            e.preventDefault();
-            updateOrg.mutate({ id: org.id, name });
-          }}
-          className="space-y-4"
-        >
-          <input
-            placeholder="Nombre de la agencia"
-            required
-            value={name}
-            onChange={(e) => setName(e.target.value)}
-            className="w-full rounded-lg border border-gray-300 bg-white px-3 py-2 text-gray-900 placeholder-gray-400 dark:border-gray-600 dark:bg-gray-700 dark:text-white dark:placeholder-gray-500"
-          />
-          <div className="flex justify-end gap-2">
-            <button
-              type="button"
-              onClick={onClose}
-              className="rounded-lg border border-gray-300 px-4 py-2 text-gray-700 hover:bg-gray-50 dark:border-gray-600 dark:text-gray-300 dark:hover:bg-gray-700"
-            >
-              Cancelar
-            </button>
-            <button
-              type="submit"
-              disabled={updateOrg.isPending}
-              className="rounded-lg bg-brand-600 px-4 py-2 text-white hover:bg-brand-700 disabled:opacity-50"
-            >
-              {updateOrg.isPending ? "Guardando..." : "Guardar"}
-            </button>
-          </div>
-        </form>
-      </div>
-    </div>
-  );
-}

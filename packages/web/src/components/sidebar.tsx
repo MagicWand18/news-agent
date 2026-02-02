@@ -26,6 +26,22 @@ import { signOut, useSession } from "next-auth/react";
 import { useState } from "react";
 import { useTheme } from "./theme-provider";
 import { NotificationBell } from "./notifications";
+import { TourButton } from "./onboarding";
+
+// Mapeo de href a tour-id para el tour de onboarding
+const tourIdMap: Record<string, string> = {
+  "/dashboard": "nav-dashboard",
+  "/dashboard/agencies": "nav-agencies",
+  "/dashboard/clients": "nav-clients",
+  "/dashboard/mentions": "nav-mentions",
+  "/dashboard/social-mentions": "nav-social",
+  "/dashboard/analytics": "nav-analytics",
+  "/dashboard/intelligence": "nav-intelligence",
+  "/dashboard/sources": "nav-sources",
+  "/dashboard/tasks": "nav-tasks",
+  "/dashboard/team": "nav-team",
+  "/dashboard/settings": "nav-settings",
+};
 
 const navigation = [
   { name: "Dashboard", href: "/dashboard", icon: LayoutDashboard },
@@ -73,6 +89,7 @@ export function Sidebar() {
           <NotificationBell />
           <button
             onClick={toggleTheme}
+            data-tour-id="theme-toggle"
             className="rounded-lg p-1.5 text-gray-300 hover:bg-white/10 transition-colors"
             aria-label={resolvedTheme === "dark" ? "Cambiar a modo claro" : "Cambiar a modo oscuro"}
           >
@@ -91,7 +108,7 @@ export function Sidebar() {
         </div>
       </div>
 
-      <nav className="flex-1 space-y-0.5 px-3 py-4">
+      <nav className="flex-1 space-y-0.5 px-3 py-4" data-tour-id="sidebar">
         {navigation
           .filter((item) => {
             // Super Admin only items
@@ -108,11 +125,13 @@ export function Sidebar() {
             const isActive =
               pathname === item.href ||
               (item.href !== "/dashboard" && pathname.startsWith(item.href));
+            const tourId = tourIdMap[item.href];
             return (
               <Link
                 key={item.name}
                 href={item.href}
                 onClick={() => setMobileOpen(false)}
+                data-tour-id={tourId}
                 className={cn(
                   "flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition-all",
                   isActive
@@ -160,6 +179,7 @@ export function Sidebar() {
           <LogOut className="h-5 w-5" />
           Cerrar sesion
         </button>
+        <TourButton variant="full" className="mt-2 w-full" />
       </div>
     </>
   );

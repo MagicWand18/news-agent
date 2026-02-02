@@ -5,7 +5,8 @@ import { MentionRow } from "@/components/mention-row";
 import { SocialMentionRow, SocialMentionRowSkeleton } from "@/components/social-mention-row";
 import { useParams, useRouter } from "next/navigation";
 import { useState } from "react";
-import { ArrowLeft, Plus, X, BarChart3, Target, TrendingUp, TrendingDown, Minus, Trash2, Settings, Search, Calendar, Loader2, MessageCircle, Building2, Users, User, RefreshCw } from "lucide-react";
+import { ArrowLeft, Plus, X, BarChart3, Target, TrendingUp, TrendingDown, Minus, Trash2, Settings, Search, Calendar, Loader2, MessageCircle, Building2, Users, User, RefreshCw, ArrowRightLeft } from "lucide-react";
+import { useSession } from "next-auth/react";
 import Link from "next/link";
 import {
   BarChart,
@@ -34,10 +35,24 @@ export default function ClientDetailPage() {
   const params = useParams();
   const router = useRouter();
   const id = params.id as string;
+  const { data: session } = useSession();
+  const isSuperAdmin = (session?.user as { isSuperAdmin?: boolean })?.isSuperAdmin === true;
 
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
+  const [showTransferModal, setShowTransferModal] = useState(false);
 
   const client = trpc.clients.getById.useQuery({ id });
+
+  // Solo para Super Admin: lista de organizaciones para transferir
+  const organizations = trpc.organizations.listForSelector.useQuery(undefined, {
+    enabled: isSuperAdmin,
+  });
+  const reassignClient = trpc.organizations.reassignClient.useMutation({
+    onSuccess: () => {
+      client.refetch();
+      setShowTransferModal(false);
+    },
+  });
   const addKeyword = trpc.clients.addKeyword.useMutation({
     onSuccess: () => {
       client.refetch();
@@ -132,6 +147,101 @@ export default function ClientDetailPage() {
               </button>
             </div>
           </div>
+        </div>
+      )}
+
+      {/* Transfer Client Modal - Solo Super Admin */}
+      {showTransferModal && isSuperAdmin && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50">
+          <div className="w-full max-w-md rounded-xl bg-white dark:bg-gray-800 p-6 shadow-xl">
+            <div className="flex items-center justify-between mb-4">
+              <h3 className="text-lg font-semibold text-gray-900 dark:text-white flex items-center gap-2">
+                <ArrowRightLeft className="h-5 w-5 text-purple-600" />
+                Transferir cliente
+              </h3>
+              <button
+                onClick={() => setShowTransferModal(false)}
+                className="text-gray-400 hover:text-gray-600 dark:hover:text-gray-300"
+              >
+                <X className="h-5 w-5" />
+              </button>
+            </div>
+            <p className="text-sm text-gray-500 dark:text-gray-400 mb-4">
+              Mover <strong>{c.name}</strong> a otra organización.
+              {c.org && (
+                <span className="block mt-1">
+                  Actualmente en: <strong>{c.org.name}</strong>
+                </span>
+              )}
+            </p>
+            <div className="space-y-4">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                  Nueva organización
+                </label>
+                <select
+                  id="transfer-org-select"
+                  defaultValue=""
+                  className="w-full rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 px-3 py-2 text-gray-900 dark:text-white"
+                >
+                  <option value="" disabled>
+                    Seleccionar organización...
+                  </option>
+                  {organizations.data
+                    ?.filter((org) => org.id !== c.org?.id)
+                    .map((org) => (
+                      <option key={org.id} value={org.id}>
+                        {org.name}
+                      </option>
+                    ))}
+                </select>
+              </div>
+              {reassignClient.isError && (
+                <p className="text-sm text-red-500">
+                  {reassignClient.error.message || "Error al transferir cliente"}
+                </p>
+              )}
+              <div className="flex justify-end gap-3 pt-2">
+                <button
+                  onClick={() => setShowTransferModal(false)}
+                  className="rounded-lg bg-gray-100 dark:bg-gray-700 px-4 py-2 text-sm font-medium text-gray-700 dark:text-gray-200 hover:bg-gray-200 dark:hover:bg-gray-600"
+                >
+                  Cancelar
+                </button>
+                <button
+                  onClick={() => {
+                    const select = document.getElementById("transfer-org-select") as HTMLSelectElement;
+                    if (select.value) {
+                      reassignClient.mutate({ clientId: id, targetOrgId: select.value });
+                    }
+                  }}
+                  disabled={reassignClient.isPending}
+                  className="rounded-lg bg-purple-600 px-4 py-2 text-sm font-medium text-white hover:bg-purple-700 disabled:opacity-50"
+                >
+                  {reassignClient.isPending ? "Transfiriendo..." : "Transferir"}
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Organización actual - Solo Super Admin */}
+      {isSuperAdmin && c.org && (
+        <div className="flex items-center justify-between rounded-lg bg-purple-50 dark:bg-purple-900/20 border border-purple-200 dark:border-purple-800 px-4 py-3">
+          <div className="flex items-center gap-2">
+            <Building2 className="h-4 w-4 text-purple-600 dark:text-purple-400" />
+            <span className="text-sm text-purple-700 dark:text-purple-300">
+              Organización: <strong>{c.org.name}</strong>
+            </span>
+          </div>
+          <button
+            onClick={() => setShowTransferModal(true)}
+            className="flex items-center gap-1 rounded-lg bg-purple-600 px-3 py-1.5 text-sm font-medium text-white hover:bg-purple-700 transition-colors"
+          >
+            <ArrowRightLeft className="h-4 w-4" />
+            Transferir
+          </button>
         </div>
       )}
 

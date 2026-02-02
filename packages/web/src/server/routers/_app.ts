@@ -10,6 +10,7 @@ import { sourcesRouter } from "./sources";
 import { notificationsRouter } from "./notifications";
 import { socialRouter } from "./social";
 import { organizationsRouter } from "./organizations";
+import { onboardingRouter } from "./onboarding";
 
 export const appRouter = router({
   dashboard: dashboardRouter,
@@ -23,6 +24,7 @@ export const appRouter = router({
   notifications: notificationsRouter,
   social: socialRouter,
   organizations: organizationsRouter,
+  onboarding: onboardingRouter,
 });
 
 export type AppRouter = typeof appRouter;

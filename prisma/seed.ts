@@ -4,21 +4,34 @@ import bcrypt from "bcryptjs";
 const prisma = new PrismaClient();
 
 async function main() {
-  // Create organization
+  // Create organization - Crisalida (agencia de marketing)
   const org = await prisma.organization.create({
-    data: { name: "Agencia PR Demo" },
+    data: { name: "Crisalida" },
   });
 
-  // Create admin user
-  const passwordHash = await bcrypt.hash("admin123", 12);
-  const admin = await prisma.user.create({
+  // Create admin user for Crisalida
+  const crisalidaPasswordHash = await bcrypt.hash("Cris4lid402", 12);
+  await prisma.user.create({
     data: {
-      name: "Admin",
-      email: "admin@mediabot.local",
-      passwordHash,
+      name: "Admin Crisalida",
+      email: "admin@crisalida.com",
+      passwordHash: crisalidaPasswordHash,
       role: "ADMIN",
       orgId: org.id,
-      telegramUserId: "993823557",
+      isSuperAdmin: false,
+    },
+  });
+
+  // Create super admin (ve todas las organizaciones)
+  const superAdminPasswordHash = await bcrypt.hash("6lB5/A1NOVFOkOWG", 12);
+  await prisma.user.create({
+    data: {
+      name: "Super Admin",
+      email: "admin@example.com",
+      passwordHash: superAdminPasswordHash,
+      role: "ADMIN",
+      isSuperAdmin: true,
+      // Sin orgId - puede ver todas las organizaciones
     },
   });
 
@@ -42,7 +55,8 @@ async function main() {
 
   console.log("Seed completado!");
   console.log(`  Org: ${org.name} (${org.id})`);
-  console.log(`  Login: admin@mediabot.local / admin123`);
+  console.log(`  Admin Crisalida: admin@crisalida.com`);
+  console.log(`  Super Admin: admin@example.com (isSuperAdmin: true)`);
   console.log(`  Cliente: ${client.name}`);
 }
 
