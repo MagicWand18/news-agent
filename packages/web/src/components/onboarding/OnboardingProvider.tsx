@@ -160,9 +160,21 @@ export function OnboardingProvider({ children }: OnboardingProviderProps) {
           backgroundColor: "var(--joyride-bg, #fff)",
           color: "var(--joyride-text, #1f2937)",
           boxShadow: "0 25px 50px -12px rgba(0, 0, 0, 0.25)",
+          zIndex: 99999,
+          maxWidth: 320,
+        }),
+        maskWrapper: (base) => ({
+          ...base,
+          zIndex: 99998,
         }),
         maskArea: (base) => ({
           ...base,
+          rx: 8,
+        }),
+        highlightedArea: (base) => ({
+          ...base,
+          stroke: "#3b82f6",
+          strokeWidth: 3,
           rx: 8,
         }),
         badge: (base) => ({

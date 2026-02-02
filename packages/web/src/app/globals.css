@@ -2,7 +2,7 @@
 @tailwind components;
 @tailwind utilities;
 
-/* Variables CSS para React Joyride (dark mode) */
+/* Variables CSS para @reactour/tour (dark mode) */
 :root {
   --joyride-bg: #ffffff;
   --joyride-text: #1f2937;
@@ -11,6 +11,24 @@
 .dark {
   --joyride-bg: #1f2937;
   --joyride-text: #f3f4f6;
+}
+
+/* Reactour - asegurar que el mask y popover estén sobre todo */
+#___reactour {
+  z-index: 99999 !important;
+}
+
+#___reactour svg {
+  z-index: 99998 !important;
+}
+
+/* Asegurar que el highlight se vea correctamente */
+[data-tour-elem="mask-wrapper"] {
+  z-index: 99998 !important;
+}
+
+[data-tour-elem="popover"] {
+  z-index: 99999 !important;
 }
 
 @layer base {
