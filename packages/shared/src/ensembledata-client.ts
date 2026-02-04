@@ -50,22 +50,28 @@ export interface TwitterUserInfo {
   verified?: boolean;
 }
 
-// Instagram Types
+// Instagram Types - Estructura real de EnsembleData API
 export interface InstagramPost {
   id: string;
   shortcode: string;
-  caption?: string;
-  timestamp: number;
+  edge_media_to_caption?: {
+    edges: Array<{ node: { text: string } }>;
+  };
+  taken_at_timestamp?: number;
   owner: {
     id: string;
     username: string;
-    full_name?: string;
-    follower_count?: number;
   };
-  like_count: number;
-  comment_count: number;
+  edge_liked_by?: { count: number };
+  edge_media_preview_like?: { count: number };
+  edge_media_to_comment?: { count: number };
   video_view_count?: number;
   is_video: boolean;
+}
+
+// Wrapper para la respuesta de posts de usuario
+interface InstagramPostWrapper {
+  node: InstagramPost;
 }
 
 export interface InstagramUserInfo {
@@ -290,12 +296,14 @@ class EnsembleDataClient {
    */
   async getInstagramUserPostsById(userId: string, maxResults: number = 12): Promise<SocialPost[]> {
     try {
-      const response = await this.request<{ data: InstagramPost[] }>("/instagram/user/posts", {
+      // La respuesta tiene estructura: { data: { posts: [{ node: InstagramPost }] } }
+      const response = await this.request<{ posts: InstagramPostWrapper[] }>("/instagram/user/posts", {
         user_id: userId,
+        depth: 1, // Requerido por EnsembleData API
       });
 
-      const posts = response.data?.data || [];
-      return posts.slice(0, maxResults).map((post) => this.normalizeInstagramPost(post));
+      const posts = response.data?.posts || [];
+      return posts.slice(0, maxResults).map((wrapper) => this.normalizeInstagramPost(wrapper.node));
     } catch (error) {
       console.error(`[EnsembleData] Error getting posts for user ${userId}:`, error);
       return [];
@@ -310,11 +318,12 @@ class EnsembleDataClient {
     const cleanHashtag = hashtag.replace(/^#/, "");
 
     try {
-      const response = await this.request<{ data: InstagramPost[] }>("/instagram/hashtag/posts", {
+      // Estructura similar a user/posts: { data: { posts: [{ node: InstagramPost }] } }
+      const response = await this.request<{ posts: InstagramPostWrapper[] }>("/instagram/hashtag/posts", {
         name: cleanHashtag,
       });
-      const posts = response.data?.data || [];
-      return posts.slice(0, maxResults).map((post) => this.normalizeInstagramPost(post));
+      const posts = response.data?.posts || [];
+      return posts.slice(0, maxResults).map((wrapper) => this.normalizeInstagramPost(wrapper.node));
     } catch {
       console.log(`[EnsembleData] Instagram hashtag search not available: ${cleanHashtag}`);
       return [];
@@ -349,19 +358,25 @@ class EnsembleDataClient {
   }
 
   private normalizeInstagramPost(post: InstagramPost): SocialPost {
+    // Extraer caption de la estructura anidada
+    const caption = post.edge_media_to_caption?.edges?.[0]?.node?.text || null;
+    // Likes pueden venir en diferentes campos
+    const likes = post.edge_liked_by?.count || post.edge_media_preview_like?.count || 0;
+    const comments = post.edge_media_to_comment?.count || 0;
+
     return {
       platform: "INSTAGRAM",
       postId: post.id,
       postUrl: `https://instagram.com/p/${post.shortcode}`,
-      content: post.caption || null,
+      content: caption,
       authorHandle: post.owner.username,
-      authorName: post.owner.full_name || null,
-      authorFollowers: post.owner.follower_count || null,
-      likes: post.like_count,
-      comments: post.comment_count,
+      authorName: null, // No viene en la respuesta de posts
+      authorFollowers: null, // No viene en la respuesta de posts
+      likes,
+      comments,
       shares: 0, // Instagram no tiene shares públicos
       views: post.video_view_count || null,
-      postedAt: post.timestamp ? new Date(post.timestamp * 1000) : null,
+      postedAt: post.taken_at_timestamp ? new Date(post.taken_at_timestamp * 1000) : null,
     };
   }
 
