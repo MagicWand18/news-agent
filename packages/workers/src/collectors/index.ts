@@ -5,6 +5,7 @@ import { collectNewsdata } from "./newsdata.js";
 import { collectRss } from "./rss.js";
 import { collectGoogle } from "./google.js";
 import { collectSocial, collectSocialForClient } from "./social.js";
+import { collectGnews } from "./gnews.js";
 import type { NormalizedArticle } from "@mediabot/shared";
 
 function withErrorLogging(worker: Worker, name: string) {
@@ -112,6 +113,16 @@ export function startCollectorWorkers(_queues: ReturnType<typeof import("../queu
     },
     { connection, concurrency: 1 }
   ), "Social");
+
+  // Google News RSS Worker (fuentes sin RSS propio)
+  withErrorLogging(new Worker(
+    QUEUE_NAMES.COLLECT_GNEWS,
+    async () => {
+      const articles = await collectGnews();
+      await enqueueArticles(articles, "GNews");
+    },
+    { connection, concurrency: 1 }
+  ), "GNews");
 
   // Ingestion Worker - processes collected articles
   withErrorLogging(new Worker(

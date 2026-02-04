@@ -386,6 +386,24 @@ enum RequestStatus {
   INTEGRATED
 }
 
+// Sprint: Google News RSS para fuentes sin feed propio
+model NoRssSource {
+  id         String     @id @default(cuid())
+  name       String
+  domain     String     @unique  // eluniversal.com.mx
+  tier       Int        @default(1) // 1=nacional, 2=estatal
+  type       SourceType @default(NATIONAL)
+  state      String?    // NULL para nacionales
+  active     Boolean    @default(true)
+  lastFetch  DateTime?
+  errorCount Int        @default(0)
+  createdAt  DateTime   @default(now())
+  updatedAt  DateTime   @updatedAt
+
+  @@index([active])
+  @@index([type, state])
+}
+
 // Sprint 9: Sistema de múltiples destinatarios de Telegram
 
 model TelegramRecipient {

@@ -31,6 +31,8 @@ export const QUEUE_NAMES = {
   GROUNDING_EXECUTE: "grounding-execute",
   // Social comments extraction
   EXTRACT_COMMENTS: "extract-social-comments",
+  // Google News RSS para fuentes sin feed propio
+  COLLECT_GNEWS: "collect-gnews",
 } as const;
 
 export function setupQueues() {
@@ -59,6 +61,8 @@ export function setupQueues() {
     groundingExecute: new Queue(QUEUE_NAMES.GROUNDING_EXECUTE, { connection }),
     // Social comments extraction
     extractComments: new Queue(QUEUE_NAMES.EXTRACT_COMMENTS, { connection }),
+    // Google News RSS para fuentes sin feed propio
+    collectGnews: new Queue(QUEUE_NAMES.COLLECT_GNEWS, { connection }),
   };
 
   // Schedule repeating jobs using cron patterns from config
@@ -156,6 +160,15 @@ export function setupQueues() {
     { name: "weekly-grounding" }
   );
   console.log(`📅 Grounding Weekly cron: ${groundingWeeklyCron}`);
+
+  // Google News RSS collector (default: 6:00 AM daily, before digest)
+  const gnewsCron = process.env.COLLECTOR_GNEWS_CRON || "0 6 * * *";
+  queues.collectGnews.upsertJobScheduler(
+    "gnews-cron",
+    { pattern: gnewsCron },
+    { name: "collect-gnews" }
+  );
+  console.log(`📅 GNews cron: ${gnewsCron}`);
 
   return {
     ...queues,

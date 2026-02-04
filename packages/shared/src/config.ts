@@ -49,6 +49,7 @@ export const config = {
     rss: optionalEnv("COLLECTOR_RSS_CRON", "*/10 * * * *"),
     google: optionalEnv("COLLECTOR_GOOGLE_CRON", "0 */2 * * *"),
     social: optionalEnv("COLLECTOR_SOCIAL_CRON", "0 */4 * * *"), // Cada 4 horas
+    gnews: optionalEnv("COLLECTOR_GNEWS_CRON", "0 6 * * *"), // 6 AM diario
     digest: optionalEnv("DIGEST_CRON", "0 8 * * *"),
   },
   // Worker configuration
@@ -86,6 +87,20 @@ export const config = {
     instagramMaxComments: optionalEnvInt("SOCIAL_INSTAGRAM_MAX_COMMENTS", 30),
     viralLikesThreshold: optionalEnvInt("SOCIAL_VIRAL_LIKES_THRESHOLD", 1000),
     viralCommentsThreshold: optionalEnvInt("SOCIAL_VIRAL_COMMENTS_THRESHOLD", 100),
+  },
+  // RSS collector configuration
+  rss: {
+    timeout: optionalEnvInt("RSS_TIMEOUT", 15000),
+    maxRedirects: optionalEnvInt("RSS_MAX_REDIRECTS", 3),
+    errorThreshold: optionalEnvInt("RSS_ERROR_THRESHOLD", 10),
+    retryAttempts: optionalEnvInt("RSS_RETRY_ATTEMPTS", 2),
+    retryDelayMs: optionalEnvInt("RSS_RETRY_DELAY_MS", 2000),
+  },
+  // Google News RSS collector configuration (fuentes sin feed propio)
+  gnews: {
+    timeout: optionalEnvInt("GNEWS_TIMEOUT", 15000),
+    rateLimitMs: optionalEnvInt("GNEWS_RATE_LIMIT_MS", 500),
+    errorThreshold: optionalEnvInt("GNEWS_ERROR_THRESHOLD", 10),
   },
   rssFeeds: [
     // Mexico

@@ -1,0 +1,298 @@
+import Parser from "rss-parser";
+import type { NormalizedArticle } from "@mediabot/shared";
+import { prisma } from "@mediabot/shared";
+
+// Configuración del collector Google News RSS
+const GNEWS_CONFIG = {
+  baseUrl: "https://news.google.com/rss/search",
+  timeout: parseInt(process.env.GNEWS_TIMEOUT || "15000", 10),
+  rateLimitMs: parseInt(process.env.GNEWS_RATE_LIMIT_MS || "500", 10),
+  errorThreshold: parseInt(process.env.GNEWS_ERROR_THRESHOLD || "10", 10),
+  userAgent: "Mozilla/5.0 (compatible; MediaBot/1.0)",
+};
+
+const parser = new Parser({
+  timeout: GNEWS_CONFIG.timeout,
+  headers: {
+    "User-Agent": GNEWS_CONFIG.userAgent,
+    Accept: "application/rss+xml, application/xml, text/xml, */*",
+  },
+});
+
+/**
+ * Extrae la URL real del redirect de Google News.
+ * Google News envuelve las URLs en su propio dominio.
+ */
+function extractRealUrl(googleUrl: string): string {
+  try {
+    const url = new URL(googleUrl);
+
+    // Formato nuevo: https://news.google.com/rss/articles/...?url=https://...
+    const articleUrl = url.searchParams.get("url");
+    if (articleUrl) return articleUrl;
+
+    // Intentar decodificar base64 del path si existe
+    // Formato: /rss/articles/CBMi...
+    const pathMatch = googleUrl.match(/\/articles\/([^?]+)/);
+    if (pathMatch) {
+      try {
+        // Google usa base64url encoding
+        const encoded = pathMatch[1];
+        // El contenido base64 puede tener un prefijo que indica el tipo
+        // Intentamos extraer la URL directamente
+        const decoded = Buffer.from(encoded, "base64url").toString("utf-8");
+        // Buscar URL en el contenido decodificado
+        const urlMatch = decoded.match(/https?:\/\/[^\s"'<>]+/);
+        if (urlMatch) return urlMatch[0];
+      } catch {
+        // Si falla el decode, intentar con base64 normal
+        try {
+          const decoded = Buffer.from(pathMatch[1], "base64").toString("utf-8");
+          const urlMatch = decoded.match(/https?:\/\/[^\s"'<>]+/);
+          if (urlMatch) return urlMatch[0];
+        } catch {
+          // Ignorar errores de decodificación
+        }
+      }
+    }
+  } catch {
+    // Ignorar errores de parsing
+  }
+
+  // Si no podemos extraer la URL real, devolver la original
+  return googleUrl;
+}
+
+/**
+ * Sigue el redirect de Google News para obtener la URL final.
+ * Alternativa cuando extractRealUrl no funciona.
+ */
+async function followRedirect(googleUrl: string): Promise<string> {
+  try {
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 5000);
+
+    const response = await fetch(googleUrl, {
+      method: "HEAD",
+      redirect: "follow",
+      headers: { "User-Agent": GNEWS_CONFIG.userAgent },
+      signal: controller.signal,
+    });
+
+    clearTimeout(timeoutId);
+
+    // La URL final después de seguir redirects
+    return response.url || googleUrl;
+  } catch {
+    return googleUrl;
+  }
+}
+
+/**
+ * Obtiene la URL real de un artículo de Google News.
+ * Primero intenta extraerla del URL, luego sigue el redirect si es necesario.
+ */
+async function getRealArticleUrl(googleUrl: string): Promise<string> {
+  // Primero intentar extraer sin hacer request
+  const extracted = extractRealUrl(googleUrl);
+
+  // Si la URL extraída sigue siendo de Google News, seguir el redirect
+  if (extracted.includes("news.google.com")) {
+    return followRedirect(googleUrl);
+  }
+
+  return extracted;
+}
+
+/**
+ * Actualiza el estado de una fuente NoRssSource.
+ */
+async function updateSourceStatus(
+  sourceId: string,
+  success: boolean
+): Promise<void> {
+  try {
+    if (success) {
+      await prisma.noRssSource.update({
+        where: { id: sourceId },
+        data: {
+          lastFetch: new Date(),
+          errorCount: 0,
+        },
+      });
+    } else {
+      await prisma.noRssSource.update({
+        where: { id: sourceId },
+        data: {
+          errorCount: { increment: 1 },
+        },
+      });
+    }
+  } catch {
+    // Ignorar errores de actualización
+  }
+}
+
+/**
+ * Desactiva fuentes con demasiados errores consecutivos.
+ */
+async function deactivateFailingSources(): Promise<void> {
+  try {
+    const result = await prisma.noRssSource.updateMany({
+      where: {
+        errorCount: { gte: GNEWS_CONFIG.errorThreshold },
+        active: true,
+      },
+      data: { active: false },
+    });
+
+    if (result.count > 0) {
+      console.log(
+        `⚠️ GNews: ${result.count} fuente(s) desactivada(s) por errores consecutivos`
+      );
+    }
+  } catch {
+    // Ignorar
+  }
+}
+
+/**
+ * Collector principal: obtiene artículos de fuentes sin RSS usando Google News RSS.
+ *
+ * Para cada dominio configurado en NoRssSource, consulta:
+ * https://news.google.com/rss/search?q=site:{domain}&hl=es-419&gl=MX&ceid=MX:es-419
+ *
+ * Esto devuelve los artículos más recientes indexados por Google News para ese sitio.
+ */
+export async function collectGnews(): Promise<NormalizedArticle[]> {
+  // Obtener fuentes activas sin RSS
+  const sources = await prisma.noRssSource.findMany({
+    where: { active: true },
+    orderBy: [{ tier: "asc" }, { name: "asc" }],
+  });
+
+  if (sources.length === 0) {
+    console.log("📰 GNews: No hay fuentes configuradas");
+    return [];
+  }
+
+  console.log(`📰 GNews: Procesando ${sources.length} fuentes`);
+
+  const articles: NormalizedArticle[] = [];
+  let sourcesOk = 0;
+  let totalItems = 0;
+  let urlsResolved = 0;
+
+  for (const source of sources) {
+    try {
+      // Construir URL de Google News RSS para el dominio
+      const url = `${GNEWS_CONFIG.baseUrl}?q=site:${source.domain}&hl=es-419&gl=MX&ceid=MX:es-419`;
+
+      const feed = await parser.parseURL(url);
+      const items = feed.items || [];
+
+      if (items.length === 0) {
+        console.log(`  ⚠️ [${source.name}] Sin artículos en Google News`);
+        // No contar como error, simplemente no hay noticias recientes
+        await updateSourceStatus(source.id, true);
+        sourcesOk++;
+        continue;
+      }
+
+      for (const item of items) {
+        if (!item.link || !item.title) continue;
+
+        // Extraer URL real del artículo
+        const realUrl = await getRealArticleUrl(item.link);
+
+        // Verificar que la URL pertenece al dominio esperado
+        // (Google News a veces incluye artículos de otros sitios relacionados)
+        const urlDomain = new URL(realUrl).hostname.replace("www.", "");
+        const sourceDomain = source.domain.replace("www.", "");
+
+        if (!urlDomain.includes(sourceDomain) && !sourceDomain.includes(urlDomain)) {
+          // URL de otro dominio, saltar
+          continue;
+        }
+
+        if (realUrl !== item.link) {
+          urlsResolved++;
+        }
+
+        articles.push({
+          url: realUrl,
+          title: item.title,
+          source: source.name,
+          content: item.contentSnippet || undefined,
+          publishedAt: item.pubDate ? new Date(item.pubDate) : undefined,
+        });
+        totalItems++;
+      }
+
+      // Actualizar estado exitoso
+      await updateSourceStatus(source.id, true);
+      sourcesOk++;
+    } catch (error) {
+      const msg = error instanceof Error ? error.message : String(error);
+      console.error(`  ❌ [${source.name}]: ${msg.slice(0, 80)}`);
+      await updateSourceStatus(source.id, false);
+    }
+
+    // Rate limiting entre fuentes
+    await new Promise((resolve) =>
+      setTimeout(resolve, GNEWS_CONFIG.rateLimitMs)
+    );
+  }
+
+  // Desactivar fuentes que fallan repetidamente
+  await deactivateFailingSources();
+
+  console.log(
+    `📰 GNews: ${sourcesOk}/${sources.length} fuentes OK, ${totalItems} artículos (${urlsResolved} URLs resueltas)`
+  );
+
+  return articles;
+}
+
+/**
+ * Obtiene estadísticas de las fuentes NoRssSource (Google News).
+ */
+export async function getGnewsStats(): Promise<{
+  total: number;
+  active: number;
+  byType: Record<string, number>;
+  byTier: Record<number, number>;
+  failing: number;
+}> {
+  try {
+    const [total, active, byType, byTier, failing] = await Promise.all([
+      prisma.noRssSource.count(),
+      prisma.noRssSource.count({ where: { active: true } }),
+      prisma.noRssSource.groupBy({
+        by: ["type"],
+        _count: { id: true },
+      }),
+      prisma.noRssSource.groupBy({
+        by: ["tier"],
+        _count: { id: true },
+      }),
+      prisma.noRssSource.count({ where: { errorCount: { gte: 3 } } }),
+    ]);
+
+    return {
+      total,
+      active,
+      byType: Object.fromEntries(byType.map((t) => [t.type, t._count.id])),
+      byTier: Object.fromEntries(byTier.map((t) => [t.tier, t._count.id])),
+      failing,
+    };
+  } catch {
+    return {
+      total: 0,
+      active: 0,
+      byType: {},
+      byTier: {},
+      failing: 0,
+    };
+  }
+}
