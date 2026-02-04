@@ -202,25 +202,30 @@ export async function collectGnews(): Promise<NormalizedArticle[]> {
       for (const item of items) {
         if (!item.link || !item.title) continue;
 
-        // Extraer URL real del artículo
-        const realUrl = await getRealArticleUrl(item.link);
+        // Intentar extraer URL real del artículo (sin hacer requests HTTP)
+        const realUrl = extractRealUrl(item.link);
 
-        // Verificar que la URL pertenece al dominio esperado
-        // (Google News a veces incluye artículos de otros sitios relacionados)
-        const urlDomain = new URL(realUrl).hostname.replace("www.", "");
-        const sourceDomain = source.domain.replace("www.", "");
-
-        if (!urlDomain.includes(sourceDomain) && !sourceDomain.includes(urlDomain)) {
-          // URL de otro dominio, saltar
-          continue;
-        }
-
-        if (realUrl !== item.link) {
+        // Si pudimos extraer la URL real, verificar dominio
+        // Si no, confiar en Google News (ya filtramos por site:domain)
+        if (!realUrl.includes("news.google.com")) {
+          try {
+            const urlDomain = new URL(realUrl).hostname.replace("www.", "");
+            const sourceDomain = source.domain.replace("www.", "");
+            // Verificar que la URL pertenece al dominio esperado
+            if (!urlDomain.includes(sourceDomain) && !sourceDomain.includes(urlDomain)) {
+              continue; // URL de otro dominio, saltar
+            }
+          } catch {
+            // URL inválida, usar la de Google
+          }
           urlsResolved++;
         }
 
+        // Usar URL real si la tenemos, sino la de Google News (sigue funcionando)
+        const finalUrl = realUrl.includes("news.google.com") ? item.link : realUrl;
+
         articles.push({
-          url: realUrl,
+          url: finalUrl,
           title: item.title,
           source: source.name,
           content: item.contentSnippet || undefined,
