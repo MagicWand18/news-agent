@@ -39,7 +39,89 @@ const HashtagSuggestionSchema = z.object({
   ).default([]),
 });
 
+// Queue names (importado inline para evitar dependencia circular)
+const EXTRACT_COMMENTS_QUEUE = "extract-social-comments";
+
 export const socialRouter = router({
+  /**
+   * Extrae comentarios de un post social (Instagram o TikTok).
+   * Encola un job de extracción y retorna inmediatamente.
+   */
+  extractComments: protectedProcedure
+    .input(
+      z.object({
+        mentionId: z.string(),
+      })
+    )
+    .mutation(async ({ input, ctx }) => {
+      // Buscar la mención
+      const whereClause = ctx.user.isSuperAdmin
+        ? { id: input.mentionId }
+        : { id: input.mentionId, client: { orgId: ctx.user.orgId } };
+
+      const mention = await prisma.socialMention.findFirst({
+        where: whereClause,
+        select: {
+          id: true,
+          platform: true,
+          postUrl: true,
+          commentsExtractedAt: true,
+          client: { select: { name: true } },
+        },
+      });
+
+      if (!mention) {
+        throw new TRPCError({ code: "NOT_FOUND", message: "Mención no encontrada" });
+      }
+
+      // Verificar plataforma soportada
+      if (mention.platform === "TWITTER") {
+        throw new TRPCError({
+          code: "BAD_REQUEST",
+          message: "La extracción de comentarios no está disponible para Twitter",
+        });
+      }
+
+      // Verificar si ya se extrajeron recientemente
+      if (mention.commentsExtractedAt) {
+        const hourAgo = new Date(Date.now() - 60 * 60 * 1000);
+        if (mention.commentsExtractedAt > hourAgo) {
+          throw new TRPCError({
+            code: "TOO_MANY_REQUESTS",
+            message: "Los comentarios ya fueron extraídos hace menos de 1 hora. Intente más tarde.",
+          });
+        }
+      }
+
+      // Encolar extracción
+      try {
+        const { getQueue } = await import("@mediabot/shared");
+        const extractQueue = getQueue(EXTRACT_COMMENTS_QUEUE);
+        await extractQueue.add(
+          "extract-comments",
+          { mentionId: input.mentionId },
+          {
+            jobId: `extract-comments-${input.mentionId}-${Date.now()}`,
+            attempts: 3,
+            backoff: { type: "exponential", delay: 5000 },
+          }
+        );
+
+        return {
+          success: true,
+          message: `Extracción de comentarios iniciada para el post de ${mention.platform}. Los resultados aparecerán en unos momentos.`,
+          queued: true,
+        };
+      } catch (error) {
+        console.error("[Social] Queue error:", error instanceof Error ? error.message : error);
+        throw new TRPCError({
+          code: "INTERNAL_SERVER_ERROR",
+          message: "Error al iniciar extracción. Intente nuevamente.",
+        });
+      }
+    }),
+
+
   /**
    * Sugiere hashtags y cuentas basados en el cliente.
    * Usa IA para generar sugerencias relevantes.

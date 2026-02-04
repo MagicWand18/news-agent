@@ -8,7 +8,8 @@
 import { Worker } from "bullmq";
 import { connection, QUEUE_NAMES, getQueue } from "../queues.js";
 import { prisma, config } from "@mediabot/shared";
-import { analyzeSocialMention } from "./ai.js";
+import { analyzeSocialMention, analyzeCommentsSentiment } from "./ai.js";
+import type { SocialComment } from "@mediabot/shared";
 import type { Sentiment, Urgency } from "@prisma/client";
 
 // Influencers con alto alcance (umbral de seguidores)
@@ -21,7 +22,7 @@ export function startSocialAnalysisWorker() {
   const worker = new Worker(
     QUEUE_NAMES.ANALYZE_SOCIAL,
     async (job) => {
-      const { mentionId } = job.data as { mentionId: string };
+      const { mentionId, hasComments } = job.data as { mentionId: string; hasComments?: boolean };
 
       const mention = await prisma.socialMention.findUnique({
         where: { id: mentionId },
@@ -30,7 +31,15 @@ export function startSocialAnalysisWorker() {
         },
       });
 
-      if (!mention || mention.analyzed) return;
+      if (!mention) return;
+
+      // Si es análisis de comentarios, procesar diferente
+      if (hasComments && mention.commentsData && !mention.commentsAnalyzed) {
+        return await analyzeCommentsJob(mention, notifyQueue);
+      }
+
+      // Análisis normal del post (si ya está analizado, omitir)
+      if (mention.analyzed) return;
 
       console.log(`[SocialAnalysis] Analyzing mention ${mentionId} (${mention.platform})`);
 
@@ -180,4 +189,87 @@ export async function enqueuePendingSocialAnalysis(): Promise<number> {
 
   console.log(`[SocialAnalysis] Enqueued ${pendingMentions.length} mentions for analysis`);
   return pendingMentions.length;
+}
+
+/**
+ * Analiza los comentarios extraídos de una mención.
+ * Se ejecuta después de la extracción de comentarios.
+ */
+async function analyzeCommentsJob(
+  mention: {
+    id: string;
+    platform: string;
+    content: string | null;
+    commentsData: unknown;
+    client: { name: string; description: string | null };
+    likes: number;
+    comments: number;
+  },
+  notifyQueue: ReturnType<typeof getQueue>
+) {
+  console.log(`[SocialAnalysis] Analyzing comments for mention ${mention.id}`);
+
+  // Parsear comentarios del JSON
+  const comments = mention.commentsData as SocialComment[];
+  if (!comments || comments.length === 0) {
+    console.log(`[SocialAnalysis] No comments to analyze for mention ${mention.id}`);
+    return;
+  }
+
+  // Ejecutar análisis de sentimiento de comentarios
+  const analysis = await analyzeCommentsSentiment({
+    platform: mention.platform,
+    postContent: mention.content,
+    comments: comments.map((c) => ({
+      text: c.text,
+      likes: c.likes,
+      authorHandle: c.authorHandle,
+    })),
+    clientName: mention.client.name,
+    clientDescription: mention.client.description || undefined,
+  });
+
+  // Actualizar mención con resultados
+  const updatedSummary = mention.content
+    ? `[Análisis de comentarios] ${analysis.publicPerception}`
+    : analysis.publicPerception;
+
+  await prisma.socialMention.update({
+    where: { id: mention.id },
+    data: {
+      commentsSentiment: analysis.overallSentiment as Sentiment,
+      commentsAnalyzed: true,
+      // Actualizar aiSummary para incluir percepción pública de comentarios
+      aiSummary: updatedSummary,
+    },
+  });
+
+  console.log(
+    `[SocialAnalysis] Comments analyzed for ${mention.id}: ${analysis.overallSentiment}, risk: ${analysis.riskLevel}`
+  );
+
+  // Si el riesgo es HIGH, enviar notificación de alerta
+  if (analysis.riskLevel === "HIGH") {
+    await notifyQueue.add(
+      "social-comments-alert",
+      {
+        type: "social-comments",
+        socialMentionId: mention.id,
+        platform: mention.platform,
+        riskLevel: analysis.riskLevel,
+        publicPerception: analysis.publicPerception,
+        topConcerns: analysis.topConcerns,
+      },
+      {
+        priority: 1, // Alta prioridad para alertas de riesgo
+      }
+    );
+    console.log(`[SocialAnalysis] HIGH risk alert enqueued for mention ${mention.id}`);
+  }
+
+  return {
+    sentiment: analysis.overallSentiment,
+    riskLevel: analysis.riskLevel,
+    commentsAnalyzed: comments.length,
+  };
 }

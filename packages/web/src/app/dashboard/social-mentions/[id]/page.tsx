@@ -1,5 +1,6 @@
 "use client";
 
+import { useState } from "react";
 import { trpc } from "@/lib/trpc";
 import { cn } from "@/lib/cn";
 import { sentimentConfig } from "@/lib/mention-config";
@@ -17,6 +18,10 @@ import {
   Hash,
   AtSign,
   Search,
+  Download,
+  Loader2,
+  ThumbsUp,
+  AlertTriangle,
 } from "lucide-react";
 
 // Iconos de plataformas
@@ -62,11 +67,38 @@ function formatNumber(num: number): string {
   return num.toLocaleString();
 }
 
+// Tipo para comentarios extraídos
+interface ExtractedComment {
+  commentId: string;
+  text: string;
+  authorHandle: string;
+  authorName: string | null;
+  likes: number;
+  replies: number;
+  postedAt: string | null;
+}
+
 export default function SocialMentionDetailPage() {
   const params = useParams();
   const id = params.id as string;
+  const [extractionMessage, setExtractionMessage] = useState<string | null>(null);
 
-  const { data: mention, isLoading } = trpc.social.getSocialMentionById.useQuery({ id });
+  const { data: mention, isLoading, refetch } = trpc.social.getSocialMentionById.useQuery({ id });
+  const extractCommentsMutation = trpc.social.extractComments.useMutation({
+    onSuccess: (data) => {
+      setExtractionMessage(data.message);
+      // Refrescar datos después de unos segundos para ver los comentarios
+      setTimeout(() => refetch(), 5000);
+    },
+    onError: (error) => {
+      setExtractionMessage(error.message);
+    },
+  });
+
+  const handleExtractComments = () => {
+    setExtractionMessage(null);
+    extractCommentsMutation.mutate({ mentionId: id });
+  };
 
   if (isLoading) {
     return (
@@ -145,17 +177,56 @@ export default function SocialMentionDetailPage() {
             </div>
           </div>
 
-          {/* Botón ver post */}
-          <a
-            href={mention.postUrl}
-            target="_blank"
-            rel="noopener noreferrer"
-            className="inline-flex items-center gap-1.5 rounded-lg bg-brand-50 dark:bg-brand-900/30 px-4 py-2 text-sm font-medium text-brand-700 dark:text-brand-300 transition-colors hover:bg-brand-100 dark:hover:bg-brand-900/50"
-          >
-            <ExternalLink className="h-4 w-4" />
-            Ver post original
-          </a>
+          {/* Botones de acción */}
+          <div className="flex flex-col gap-2">
+            <a
+              href={mention.postUrl}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="inline-flex items-center gap-1.5 rounded-lg bg-brand-50 dark:bg-brand-900/30 px-4 py-2 text-sm font-medium text-brand-700 dark:text-brand-300 transition-colors hover:bg-brand-100 dark:hover:bg-brand-900/50"
+            >
+              <ExternalLink className="h-4 w-4" />
+              Ver post original
+            </a>
+            {/* Botón extraer comentarios (solo Instagram y TikTok) */}
+            {mention.platform !== "TWITTER" && (
+              <button
+                onClick={handleExtractComments}
+                disabled={extractCommentsMutation.isPending}
+                className={cn(
+                  "inline-flex items-center gap-1.5 rounded-lg px-4 py-2 text-sm font-medium transition-colors",
+                  extractCommentsMutation.isPending
+                    ? "bg-gray-100 dark:bg-gray-700 text-gray-400 cursor-not-allowed"
+                    : "bg-purple-50 dark:bg-purple-900/30 text-purple-700 dark:text-purple-300 hover:bg-purple-100 dark:hover:bg-purple-900/50"
+                )}
+              >
+                {extractCommentsMutation.isPending ? (
+                  <>
+                    <Loader2 className="h-4 w-4 animate-spin" />
+                    Extrayendo...
+                  </>
+                ) : (
+                  <>
+                    <Download className="h-4 w-4" />
+                    Extraer comentarios
+                  </>
+                )}
+              </button>
+            )}
+          </div>
         </div>
+
+        {/* Mensaje de extracción */}
+        {extractionMessage && (
+          <div className={cn(
+            "mt-4 rounded-lg px-4 py-3 text-sm",
+            extractCommentsMutation.isError
+              ? "bg-red-50 dark:bg-red-900/20 text-red-700 dark:text-red-300"
+              : "bg-green-50 dark:bg-green-900/20 text-green-700 dark:text-green-300"
+          )}>
+            {extractionMessage}
+          </div>
+        )}
 
         {/* Badges */}
         <div className="mt-4 flex flex-wrap items-center gap-3">
@@ -218,6 +289,17 @@ export default function SocialMentionDetailPage() {
         </div>
       )}
 
+      {/* Sección de comentarios extraídos */}
+      {mention.commentsData && (mention.commentsData as ExtractedComment[]).length > 0 && (
+        <CommentsSection
+          comments={mention.commentsData as ExtractedComment[]}
+          commentsCount={mention.commentsCount || 0}
+          commentsSentiment={mention.commentsSentiment}
+          commentsExtractedAt={mention.commentsExtractedAt}
+          commentsAnalyzed={mention.commentsAnalyzed}
+        />
+      )}
+
       {/* Info adicional */}
       <div className="rounded-xl bg-white dark:bg-gray-800 p-6 shadow-sm dark:shadow-gray-900/20">
         <h3 className="text-lg font-semibold text-gray-900 dark:text-white">Informacion adicional</h3>
@@ -272,6 +354,146 @@ function MetricCard({
           <p className="text-sm text-gray-500 dark:text-gray-400">{label}</p>
         </div>
       </div>
+    </div>
+  );
+}
+
+/**
+ * Sección de comentarios extraídos con análisis de sentimiento.
+ */
+function CommentsSection({
+  comments,
+  commentsCount,
+  commentsSentiment,
+  commentsExtractedAt,
+  commentsAnalyzed,
+}: {
+  comments: ExtractedComment[];
+  commentsCount: number;
+  commentsSentiment: string | null;
+  commentsExtractedAt: Date | string | null;
+  commentsAnalyzed: boolean;
+}) {
+  const [showAll, setShowAll] = useState(false);
+  const displayComments = showAll ? comments : comments.slice(0, 5);
+
+  // Configuración de sentimiento de comentarios
+  const commentsSentimentConfig = commentsSentiment
+    ? sentimentConfig[commentsSentiment] || sentimentConfig.NEUTRAL
+    : null;
+
+  return (
+    <div className="rounded-xl bg-white dark:bg-gray-800 p-6 shadow-sm dark:shadow-gray-900/20">
+      <div className="flex items-center justify-between">
+        <div className="flex items-center gap-3">
+          <h3 className="text-lg font-semibold text-gray-900 dark:text-white">
+            Comentarios extraidos
+          </h3>
+          <span className="rounded-full bg-purple-100 dark:bg-purple-900/30 px-2.5 py-0.5 text-sm font-medium text-purple-700 dark:text-purple-300">
+            {commentsCount} comentarios
+          </span>
+        </div>
+        {commentsExtractedAt && (
+          <span className="text-sm text-gray-500 dark:text-gray-400">
+            Extraidos: {new Date(commentsExtractedAt).toLocaleDateString("es-ES", {
+              day: "2-digit",
+              month: "short",
+              hour: "2-digit",
+              minute: "2-digit",
+            })}
+          </span>
+        )}
+      </div>
+
+      {/* Sentimiento de comentarios */}
+      {commentsSentimentConfig && commentsAnalyzed && (
+        <div className="mt-4 flex items-center gap-3">
+          <span className="text-sm font-medium text-gray-700 dark:text-gray-300">
+            Sentimiento publico:
+          </span>
+          <span
+            className={cn(
+              "inline-flex items-center gap-1.5 rounded-full px-3 py-1 text-sm font-medium",
+              commentsSentimentConfig.bg,
+              commentsSentimentConfig.text
+            )}
+          >
+            <span className={cn("h-2 w-2 rounded-full", commentsSentimentConfig.dot)} />
+            {commentsSentimentConfig.label}
+          </span>
+          {commentsSentiment === "NEGATIVE" && (
+            <span className="inline-flex items-center gap-1 text-sm text-amber-600 dark:text-amber-400">
+              <AlertTriangle className="h-4 w-4" />
+              Requiere atencion
+            </span>
+          )}
+        </div>
+      )}
+
+      {!commentsAnalyzed && (
+        <div className="mt-4 flex items-center gap-2 text-sm text-gray-500 dark:text-gray-400">
+          <Loader2 className="h-4 w-4 animate-spin" />
+          Analizando sentimiento de comentarios...
+        </div>
+      )}
+
+      {/* Lista de comentarios */}
+      <div className="mt-4 space-y-3">
+        {displayComments.map((comment, index) => (
+          <div
+            key={comment.commentId || index}
+            className="rounded-lg bg-gray-50 dark:bg-gray-900/50 p-4"
+          >
+            <div className="flex items-start justify-between gap-3">
+              <div className="min-w-0 flex-1">
+                <div className="flex items-center gap-2">
+                  <span className="font-medium text-gray-900 dark:text-white">
+                    @{comment.authorHandle}
+                  </span>
+                  {comment.authorName && (
+                    <span className="text-sm text-gray-500 dark:text-gray-400">
+                      {comment.authorName}
+                    </span>
+                  )}
+                </div>
+                <p className="mt-1 text-gray-700 dark:text-gray-300 whitespace-pre-wrap">
+                  {comment.text}
+                </p>
+                <div className="mt-2 flex items-center gap-4 text-sm text-gray-500 dark:text-gray-400">
+                  <span className="inline-flex items-center gap-1">
+                    <ThumbsUp className="h-3.5 w-3.5" />
+                    {formatNumber(comment.likes)}
+                  </span>
+                  {comment.replies > 0 && (
+                    <span className="inline-flex items-center gap-1">
+                      <MessageCircle className="h-3.5 w-3.5" />
+                      {comment.replies}
+                    </span>
+                  )}
+                  {comment.postedAt && (
+                    <span>
+                      {new Date(comment.postedAt).toLocaleDateString("es-ES", {
+                        day: "2-digit",
+                        month: "short",
+                      })}
+                    </span>
+                  )}
+                </div>
+              </div>
+            </div>
+          </div>
+        ))}
+      </div>
+
+      {/* Ver más/menos */}
+      {comments.length > 5 && (
+        <button
+          onClick={() => setShowAll(!showAll)}
+          className="mt-4 text-sm font-medium text-brand-600 dark:text-brand-400 hover:text-brand-700 dark:hover:text-brand-300"
+        >
+          {showAll ? "Ver menos" : `Ver todos (${comments.length})`}
+        </button>
+      )}
     </div>
   );
 }

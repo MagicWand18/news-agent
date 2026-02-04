@@ -14,6 +14,7 @@ import {
   startLowMentionsWorker,
   startWeeklyGroundingWorker,
 } from "./grounding/index.js";
+import { startCommentsExtractionWorker } from "./collectors/comments-worker.js";
 
 async function main() {
   console.log("🔄 Starting MediaBot workers...");
@@ -36,6 +37,9 @@ async function main() {
   startGroundingWorker();
   startLowMentionsWorker();
   startWeeklyGroundingWorker();
+
+  // Social comments extraction worker
+  startCommentsExtractionWorker();
 
   console.log("✅ All workers started");
 

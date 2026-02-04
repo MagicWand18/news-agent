@@ -659,6 +659,127 @@ Valores de engagementLevel:
   }
 }
 
+// ==================== SOCIAL COMMENTS SENTIMENT ANALYSIS ====================
+
+export interface CommentsAnalysisResult {
+  overallSentiment: "POSITIVE" | "NEGATIVE" | "NEUTRAL" | "MIXED";
+  sentimentBreakdown: {
+    positive: number;
+    negative: number;
+    neutral: number;
+  };
+  keyThemes: string[];
+  publicPerception: string;
+  riskLevel: "HIGH" | "MEDIUM" | "LOW";
+  topConcerns: string[];
+  recommendedAction: string;
+}
+
+/**
+ * Analiza el sentimiento de los comentarios de un post social.
+ * Se enfoca en la PERCEPCIÓN PÚBLICA, no en el contenido del post original.
+ *
+ * @param params - Parámetros del análisis
+ * @returns Resultado del análisis de comentarios
+ */
+export async function analyzeCommentsSentiment(params: {
+  platform: string;
+  postContent: string | null;
+  comments: Array<{ text: string; likes: number; authorHandle: string }>;
+  clientName: string;
+  clientDescription?: string;
+}): Promise<CommentsAnalysisResult> {
+  // Limitar comentarios para el prompt (los más relevantes por likes)
+  const sortedComments = [...params.comments]
+    .sort((a, b) => b.likes - a.likes)
+    .slice(0, 30);
+
+  const commentsText = sortedComments
+    .map((c, i) => `${i + 1}. @${c.authorHandle} (${c.likes} likes): "${c.text}"`)
+    .join("\n");
+
+  const model = getGeminiModel();
+
+  const prompt = `Analiza los comentarios de este post de ${params.platform} para entender la PERCEPCION PUBLICA hacia el cliente.
+
+CLIENTE: ${params.clientName}
+Descripcion: ${params.clientDescription || "No disponible"}
+
+POST ORIGINAL:
+"${params.postContent || "(sin texto)"}"
+
+COMENTARIOS DEL PUBLICO (${params.comments.length} total, mostrando los ${sortedComments.length} mas relevantes):
+${commentsText}
+
+IMPORTANTE: Analiza lo que OPINA EL PUBLICO sobre el cliente, no el sentimiento del post original.
+Identifica:
+- Sentimiento general de los comentarios hacia el cliente
+- Temas recurrentes o preocupaciones
+- Nivel de riesgo reputacional basado en los comentarios
+- Si hay comentarios negativos virales (muchos likes en comentarios negativos)
+
+Responde UNICAMENTE con JSON valido, sin markdown ni texto adicional:
+{
+  "overallSentiment": "NEUTRAL",
+  "sentimentBreakdown": {"positive": 40, "negative": 30, "neutral": 30},
+  "keyThemes": ["tema1", "tema2", "tema3"],
+  "publicPerception": "Resumen de 1-2 oraciones sobre como el publico percibe al cliente en estos comentarios",
+  "riskLevel": "MEDIUM",
+  "topConcerns": ["preocupacion1", "preocupacion2"],
+  "recommendedAction": "Accion especifica sugerida para el equipo de PR"
+}
+
+Valores de overallSentiment: POSITIVE, NEGATIVE, NEUTRAL, MIXED
+sentimentBreakdown: porcentajes que suman 100
+Valores de riskLevel:
+- HIGH: Comentarios mayoritariamente negativos, potencial crisis
+- MEDIUM: Comentarios mixtos, requiere monitoreo
+- LOW: Comentarios positivos o neutrales`;
+
+  try {
+    const result = await model.generateContent({
+      contents: [{ role: "user", parts: [{ text: prompt }] }],
+      generationConfig: { maxOutputTokens: 1024, temperature: 0.3 },
+    });
+
+    const rawText = result.response.text();
+    console.log("[AI] analyzeCommentsSentiment response:", rawText.slice(0, 300));
+
+    const cleaned = cleanJsonResponse(rawText);
+    const parsed = JSON.parse(cleaned) as CommentsAnalysisResult;
+
+    // Validar y normalizar
+    if (!["POSITIVE", "NEGATIVE", "NEUTRAL", "MIXED"].includes(parsed.overallSentiment)) {
+      parsed.overallSentiment = "NEUTRAL";
+    }
+    if (!["HIGH", "MEDIUM", "LOW"].includes(parsed.riskLevel)) {
+      parsed.riskLevel = "MEDIUM";
+    }
+
+    // Normalizar breakdown
+    const total = parsed.sentimentBreakdown.positive + parsed.sentimentBreakdown.negative + parsed.sentimentBreakdown.neutral;
+    if (total !== 100 && total > 0) {
+      const factor = 100 / total;
+      parsed.sentimentBreakdown.positive = Math.round(parsed.sentimentBreakdown.positive * factor);
+      parsed.sentimentBreakdown.negative = Math.round(parsed.sentimentBreakdown.negative * factor);
+      parsed.sentimentBreakdown.neutral = 100 - parsed.sentimentBreakdown.positive - parsed.sentimentBreakdown.negative;
+    }
+
+    return parsed;
+  } catch (error) {
+    console.error("[AI] Failed to parse analyzeCommentsSentiment response:", error);
+    return {
+      overallSentiment: "NEUTRAL",
+      sentimentBreakdown: { positive: 33, negative: 33, neutral: 34 },
+      keyThemes: [],
+      publicPerception: "Analisis automatico no disponible",
+      riskLevel: "MEDIUM",
+      topConcerns: [],
+      recommendedAction: "Revisar comentarios manualmente",
+    };
+  }
+}
+
 // ==================== SPRINT 8: ONBOARDING MEJORADO ====================
 
 export interface EnhancedOnboardingResult {

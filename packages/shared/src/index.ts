@@ -17,6 +17,7 @@ export {
   EnsembleDataClient,
   type SocialPlatform,
   type SocialPost,
+  type SocialComment,
   type TwitterUserInfo,
   type InstagramUserInfo,
   type TikTokUserInfo,

@@ -509,6 +509,13 @@ model SocialMention {
   createdAt      DateTime       @default(now())
   updatedAt      DateTime       @updatedAt
 
+  // Comments extraction (Sprint: Social Comments)
+  commentsData        Json?       // Array de comentarios extraídos [{commentId, text, authorHandle, likes, postedAt}]
+  commentsCount       Int?        // Cantidad de comentarios extraídos
+  commentsExtractedAt DateTime?   // Timestamp de extracción de comentarios
+  commentsSentiment   Sentiment?  // Sentimiento agregado de los comentarios
+  commentsAnalyzed    Boolean     @default(false) // Si los comentarios fueron analizados
+
   @@unique([platform, postId])
   @@index([clientId, createdAt])
   @@index([clientId, platform, createdAt])

@@ -29,6 +29,8 @@ export const QUEUE_NAMES = {
   GROUNDING_CHECK: "grounding-check",
   GROUNDING_WEEKLY: "grounding-weekly",
   GROUNDING_EXECUTE: "grounding-execute",
+  // Social comments extraction
+  EXTRACT_COMMENTS: "extract-social-comments",
 } as const;
 
 export function setupQueues() {
@@ -55,6 +57,8 @@ export function setupQueues() {
     groundingCheck: new Queue(QUEUE_NAMES.GROUNDING_CHECK, { connection }),
     groundingWeekly: new Queue(QUEUE_NAMES.GROUNDING_WEEKLY, { connection }),
     groundingExecute: new Queue(QUEUE_NAMES.GROUNDING_EXECUTE, { connection }),
+    // Social comments extraction
+    extractComments: new Queue(QUEUE_NAMES.EXTRACT_COMMENTS, { connection }),
   };
 
   // Schedule repeating jobs using cron patterns from config

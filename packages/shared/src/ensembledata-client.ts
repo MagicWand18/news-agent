@@ -115,6 +115,41 @@ export interface TikTokUserInfo {
   verified: boolean;
 }
 
+// Comment Types for extraction
+export interface TikTokComment {
+  cid: string;
+  text: string;
+  create_time: number;
+  digg_count: number;
+  reply_comment_total?: number;
+  user: {
+    unique_id: string;
+    nickname: string;
+  };
+}
+
+export interface InstagramComment {
+  pk: string;
+  text: string;
+  created_at: number;
+  comment_like_count: number;
+  user: {
+    username: string;
+    full_name?: string;
+  };
+}
+
+// Normalized comment structure
+export interface SocialComment {
+  commentId: string;
+  text: string;
+  authorHandle: string;
+  authorName: string | null;
+  likes: number;
+  replies: number;
+  postedAt: Date | null;
+}
+
 // Unified Response
 export interface SocialPost {
   platform: SocialPlatform;
@@ -470,6 +505,144 @@ class EnsembleDataClient {
       shares: post.stats.shareCount,
       views: post.stats.playCount,
       postedAt: post.createTime ? new Date(post.createTime * 1000) : null,
+    };
+  }
+
+  // ==================== COMMENTS EXTRACTION ====================
+
+  /**
+   * Extrae comentarios de un post de TikTok.
+   * Endpoint: /tt/post/comments
+   * Costo: 1 unit por request (30 comentarios)
+   *
+   * @param postId - ID del post de TikTok
+   * @param maxComments - Máximo de comentarios a extraer (default: 60, max: 2 requests)
+   * @returns Array de comentarios normalizados
+   */
+  async getTikTokPostComments(postId: string, maxComments: number = 60): Promise<SocialComment[]> {
+    const allComments: SocialComment[] = [];
+    let cursor: number | undefined;
+    const commentsPerRequest = 30;
+    const maxRequests = Math.ceil(maxComments / commentsPerRequest);
+
+    for (let i = 0; i < maxRequests && allComments.length < maxComments; i++) {
+      try {
+        const params: Record<string, string | number | boolean> = {
+          aweme_id: postId,
+        };
+        if (cursor !== undefined) {
+          params.cursor = cursor;
+        }
+
+        const response = await this.request<{
+          comments: TikTokComment[];
+          cursor?: number;
+          has_more?: boolean;
+        }>("/tt/post/comments", params);
+
+        const comments = response.data?.comments || [];
+        if (comments.length === 0) break;
+
+        for (const comment of comments) {
+          if (allComments.length >= maxComments) break;
+          allComments.push(this.normalizeTikTokComment(comment));
+        }
+
+        // Verificar si hay más comentarios
+        if (!response.data?.has_more || !response.data?.cursor) break;
+        cursor = response.data.cursor;
+
+        // Pequeño delay entre requests para evitar rate limiting
+        if (i < maxRequests - 1) {
+          await new Promise((resolve) => setTimeout(resolve, 500));
+        }
+      } catch (error) {
+        console.error(`[EnsembleData] Error getting TikTok comments (request ${i + 1}):`, error);
+        break;
+      }
+    }
+
+    console.log(`[EnsembleData] Extracted ${allComments.length} TikTok comments for post ${postId}`);
+    return allComments;
+  }
+
+  /**
+   * Extrae comentarios de un post de Instagram.
+   * Endpoint: /instagram/post/comments
+   * Costo: 4 units por request (10 comentarios)
+   *
+   * @param shortcode - Shortcode del post de Instagram (ej: "CxYz123AbC")
+   * @param maxComments - Máximo de comentarios a extraer (default: 30, max: 3 requests)
+   * @returns Array de comentarios normalizados
+   */
+  async getInstagramPostComments(shortcode: string, maxComments: number = 30): Promise<SocialComment[]> {
+    const allComments: SocialComment[] = [];
+    let endCursor: string | undefined;
+    const commentsPerRequest = 10;
+    const maxRequests = Math.ceil(maxComments / commentsPerRequest);
+
+    for (let i = 0; i < maxRequests && allComments.length < maxComments; i++) {
+      try {
+        const params: Record<string, string | number | boolean> = {
+          code: shortcode,
+        };
+        if (endCursor) {
+          params.end_cursor = endCursor;
+        }
+
+        const response = await this.request<{
+          comments: InstagramComment[];
+          end_cursor?: string;
+          has_next_page?: boolean;
+        }>("/instagram/post/comments", params);
+
+        const comments = response.data?.comments || [];
+        if (comments.length === 0) break;
+
+        for (const comment of comments) {
+          if (allComments.length >= maxComments) break;
+          allComments.push(this.normalizeInstagramComment(comment));
+        }
+
+        // Verificar si hay más comentarios
+        if (!response.data?.has_next_page || !response.data?.end_cursor) break;
+        endCursor = response.data.end_cursor;
+
+        // Pequeño delay entre requests para evitar rate limiting
+        if (i < maxRequests - 1) {
+          await new Promise((resolve) => setTimeout(resolve, 500));
+        }
+      } catch (error) {
+        console.error(`[EnsembleData] Error getting Instagram comments (request ${i + 1}):`, error);
+        break;
+      }
+    }
+
+    console.log(`[EnsembleData] Extracted ${allComments.length} Instagram comments for post ${shortcode}`);
+    return allComments;
+  }
+
+  private normalizeTikTokComment(comment: TikTokComment): SocialComment {
+    return {
+      commentId: comment.cid,
+      text: comment.text,
+      authorHandle: comment.user.unique_id,
+      authorName: comment.user.nickname,
+      likes: comment.digg_count,
+      replies: comment.reply_comment_total || 0,
+      postedAt: comment.create_time ? new Date(comment.create_time * 1000) : null,
+    };
+  }
+
+  private normalizeInstagramComment(comment: InstagramComment): SocialComment {
+    return {
+      commentId: comment.pk,
+      text: comment.text,
+      authorHandle: comment.user.username,
+      authorName: comment.user.full_name || null,
+      likes: comment.comment_like_count,
+      replies: 0, // Instagram no incluye replies en este endpoint
+      postedAt: comment.created_at ? new Date(comment.created_at * 1000) : null,
     };
   }
 
