@@ -99,7 +99,14 @@ export const clientsRouter = router({
     )
     .mutation(async ({ input, ctx }) => {
       // Determinar orgId: Super Admin puede especificar, usuario normal usa el suyo
-      const targetOrgId = getEffectiveOrgId(ctx.user, input.orgId) || ctx.user.orgId;
+      let targetOrgId = getEffectiveOrgId(ctx.user, input.orgId) || ctx.user.orgId;
+
+      // Super Admin sin org asignada: usar primera org disponible
+      if (!targetOrgId) {
+        const firstOrg = await prisma.organization.findFirst({ select: { id: true }, orderBy: { createdAt: "asc" } });
+        targetOrgId = firstOrg?.id || null;
+      }
+
       if (!targetOrgId) {
         throw new TRPCError({
           code: "BAD_REQUEST",
@@ -693,7 +700,14 @@ IMPORTANTE: Genera 8-12 keywords variados basados en las noticias.`;
       const cleanHashtags = (input.socialHashtags || []).map((h) => h.replace(/^#/, ""));
 
       // Determinar orgId: Super Admin puede especificar, usuario normal usa el suyo
-      const targetOrgId = getEffectiveOrgId(ctx.user, input.orgId) || ctx.user.orgId;
+      let targetOrgId = getEffectiveOrgId(ctx.user, input.orgId) || ctx.user.orgId;
+
+      // Super Admin sin org asignada: usar primera org disponible
+      if (!targetOrgId) {
+        const firstOrg = await prisma.organization.findFirst({ select: { id: true }, orderBy: { createdAt: "asc" } });
+        targetOrgId = firstOrg?.id || null;
+      }
+
       if (!targetOrgId) {
         throw new TRPCError({
           code: "BAD_REQUEST",

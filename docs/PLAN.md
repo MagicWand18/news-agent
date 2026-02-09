@@ -78,9 +78,9 @@ MediaBot es un sistema de monitoreo de medios que permite a agencias de comunica
 
 | Feature | Prioridad | Descripcion |
 |---------|-----------|-------------|
-| Integracion Twitter/X | Media | API de Twitter para menciones |
-| Integracion YouTube | Media | Deteccion de menciones en videos |
-| Mas fuentes RSS | Baja | Agregar mas feeds de noticias |
+| ~~Integracion Twitter/X~~ | ~~Media~~ | ✅ Implementado via EnsembleData (Sprint 10) |
+| Integracion YouTube | Baja | Deteccion de menciones en videos |
+| ~~Mas fuentes RSS~~ | ~~Baja~~ | ✅ 300+ feeds mexicanos (Sprint 8) |
 
 ## Problemas Conocidos
 
@@ -623,7 +623,54 @@ Crear notificación cuando:
 
 ---
 
-## Sprint 11+ (Backlog)
+## Sprint 10: Social Media Monitoring (Completado - 2026-01-30)
+
+Sistema completo de monitoreo de redes sociales:
+
+### Implementado
+| Feature | Estado | Archivo(s) |
+|---------|--------|------------|
+| Modelos SocialAccount/SocialMention | OK | `prisma/schema.prisma` |
+| Colector Social (EnsembleData) | OK | `packages/workers/src/collectors/social.ts` |
+| Social Worker (análisis AI) | OK | `packages/workers/src/analysis/social-worker.ts` |
+| API tRPC social | OK | `packages/web/src/server/routers/social.ts` |
+| Página /dashboard/social-mentions | OK | `packages/web/src/app/dashboard/social-mentions/page.tsx` |
+| Detalle de mención social | OK | `packages/web/src/app/dashboard/social-mentions/[id]/page.tsx` |
+| Configuración por cliente | OK | Sección en detalle de cliente |
+
+### Plataformas Soportadas
+- **Twitter/X**: Búsqueda por handle, hashtag, keywords
+- **Instagram**: Monitoreo de cuentas y hashtags
+- **TikTok**: Detección de menciones en videos
+
+### Métricas Capturadas
+- Likes, comentarios, shares, views
+- Seguidores del autor
+- Engagement rate calculado
+
+---
+
+## Sprint 11: Gestión de Agencias (En progreso)
+
+Sistema multi-tenant para gestionar múltiples agencias:
+
+### Implementado
+| Feature | Estado | Archivo(s) |
+|---------|--------|------------|
+| Página /dashboard/agencies | OK | `packages/web/src/app/dashboard/agencies/page.tsx` |
+| Detalle de agencia | OK | `packages/web/src/app/dashboard/agencies/[id]/page.tsx` |
+| Router organizations | OK | `packages/web/src/server/routers/organizations.ts` |
+| Super Admin role | OK | Campo `isSuperAdmin` en User |
+| Límites por agencia | OK | Campo `maxClients` en Organization |
+
+### Pendiente
+- [ ] Dashboard ejecutivo para Super Admin
+- [ ] Métricas agregadas multi-agencia
+- [ ] Billing y facturación
+
+---
+
+## Sprint 12+ (Backlog)
 
 1. **YouTube Data API**: Cuota gratuita de 10,000 units/día
 2. **Google Alerts RSS**: Alternativa sin costo a Google CSE
@@ -633,7 +680,7 @@ Crear notificación cuando:
 6. **White-label**: Dashboard personalizable por cliente
 7. **Multi-idioma**: i18n para expansión internacional
 
-**Nota**: Twitter/X API descartada por costo prohibitivo ($5000+/mes Enterprise tier).
+**Nota**: Twitter/X ahora soportado via EnsembleData API (costo razonable vs $5000+/mes de API oficial).
 
 ## Contacto
 

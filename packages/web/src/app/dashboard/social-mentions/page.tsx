@@ -321,6 +321,8 @@ function SocialMentionsPageContent() {
             clientName={mention.client.name}
             postedAt={mention.postedAt}
             createdAt={mention.createdAt}
+            commentsAnalyzed={mention.commentsAnalyzed}
+            commentsSentiment={mention.commentsSentiment}
           />
         ))}
         {mentions.data?.mentions.length === 0 && (

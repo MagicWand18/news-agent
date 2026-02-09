@@ -234,6 +234,7 @@ export default function SocialMentionDetailPage() {
             <PlatformIcon className="h-4 w-4" />
             {plat.label}
           </span>
+          {/* Sentimiento del post (basado en análisis IA del texto) */}
           {mention.sentiment && (
             <span
               className={cn(
@@ -244,6 +245,24 @@ export default function SocialMentionDetailPage() {
             >
               <span className={cn("h-2 w-2 rounded-full", sent.dot)} />
               {sent.label}
+            </span>
+          )}
+          {/* Emoción pública (basada en comentarios) */}
+          {mention.commentsAnalyzed && mention.commentsSentiment ? (
+            <span
+              className={cn(
+                "inline-flex items-center gap-1.5 rounded-full px-3 py-1 text-sm font-medium",
+                (sentimentConfig[mention.commentsSentiment] || sentimentConfig.NEUTRAL).bg,
+                (sentimentConfig[mention.commentsSentiment] || sentimentConfig.NEUTRAL).text,
+              )}
+            >
+              <MessageCircle className="h-3.5 w-3.5" />
+              Emocion: {(sentimentConfig[mention.commentsSentiment] || sentimentConfig.NEUTRAL).label}
+            </span>
+          ) : (
+            <span className="inline-flex items-center gap-1.5 rounded-full bg-gray-100 dark:bg-gray-700 px-3 py-1 text-sm font-medium text-gray-500 dark:text-gray-400">
+              <MessageCircle className="h-3.5 w-3.5" />
+              Emocion: N/A
             </span>
           )}
           {mention.relevance !== null && (
@@ -279,15 +298,62 @@ export default function SocialMentionDetailPage() {
       )}
 
       {/* Análisis IA */}
-      {mention.aiSummary && (
-        <div className="rounded-xl bg-white dark:bg-gray-800 p-6 shadow-sm dark:shadow-gray-900/20">
-          <h3 className="text-lg font-semibold text-gray-900 dark:text-white">Analisis IA</h3>
+      <div className="rounded-xl bg-white dark:bg-gray-800 p-6 shadow-sm dark:shadow-gray-900/20">
+        <h3 className="text-lg font-semibold text-gray-900 dark:text-white">Analisis IA</h3>
+
+        {mention.aiSummary ? (
           <div className="mt-3">
             <p className="text-sm font-medium text-gray-500 dark:text-gray-400">Resumen</p>
-            <p className="mt-1 text-gray-700 dark:text-gray-300">{mention.aiSummary}</p>
+            <p className="mt-1 text-gray-700 dark:text-gray-300 whitespace-pre-line">{mention.aiSummary}</p>
+          </div>
+        ) : (
+          <p className="mt-3 text-sm text-gray-400 dark:text-gray-500 italic">
+            Analisis pendiente. Se procesará automaticamente.
+          </p>
+        )}
+
+        {/* Detalle de sentimientos */}
+        <div className="mt-4 grid gap-4 sm:grid-cols-2">
+          <div className="rounded-lg bg-gray-50 dark:bg-gray-900/50 p-4">
+            <p className="text-sm font-medium text-gray-500 dark:text-gray-400">Sentimiento del post</p>
+            {mention.sentiment ? (
+              <div className="mt-2 flex items-center gap-2">
+                <span className={cn("inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-xs font-medium", sent.bg, sent.text)}>
+                  <span className={cn("h-1.5 w-1.5 rounded-full", sent.dot)} />
+                  {sent.label}
+                </span>
+                <span className="text-xs text-gray-500 dark:text-gray-400">
+                  Basado en el contenido del texto
+                </span>
+              </div>
+            ) : (
+              <p className="mt-2 text-sm text-gray-400">Pendiente de analisis</p>
+            )}
+          </div>
+          <div className="rounded-lg bg-gray-50 dark:bg-gray-900/50 p-4">
+            <p className="text-sm font-medium text-gray-500 dark:text-gray-400">Emocion publica (comentarios)</p>
+            {mention.commentsAnalyzed && mention.commentsSentiment ? (
+              <div className="mt-2 flex items-center gap-2">
+                <span className={cn(
+                  "inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-xs font-medium",
+                  (sentimentConfig[mention.commentsSentiment] || sentimentConfig.NEUTRAL).bg,
+                  (sentimentConfig[mention.commentsSentiment] || sentimentConfig.NEUTRAL).text,
+                )}>
+                  <span className={cn("h-1.5 w-1.5 rounded-full", (sentimentConfig[mention.commentsSentiment] || sentimentConfig.NEUTRAL).dot)} />
+                  {(sentimentConfig[mention.commentsSentiment] || sentimentConfig.NEUTRAL).label}
+                </span>
+                <span className="text-xs text-gray-500 dark:text-gray-400">
+                  Promedio de {mention.commentsCount || 0} comentarios
+                </span>
+              </div>
+            ) : (
+              <p className="mt-2 text-sm text-gray-400">
+                N/A — {mention.commentsData ? "Analisis en proceso" : "Extrae comentarios para analizar emocion"}
+              </p>
+            )}
           </div>
         </div>
-      )}
+      </div>
 
       {/* Sección de comentarios extraídos */}
       {mention.commentsData && (mention.commentsData as ExtractedComment[]).length > 0 && (

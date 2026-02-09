@@ -7,12 +7,12 @@
 │                              FUENTES DE DATOS                                │
 ├─────────────────────────────────────────────────────────────────────────────┤
 │                                                                             │
-│   ┌─────────┐  ┌─────────┐  ┌─────────┐  ┌─────────┐                       │
-│   │   RSS   │  │NewsData │  │  GDELT  │  │ Google  │                       │
-│   │ 9 feeds │  │   API   │  │   API   │  │   CSE   │                       │
-│   └────┬────┘  └────┬────┘  └────┬────┘  └────┬────┘                       │
-│        │            │            │            │                             │
-│        └────────────┴─────┬──────┴────────────┘                             │
+│   ┌─────────┐  ┌─────────┐  ┌─────────┐  ┌─────────┐  ┌─────────┐          │
+│   │   RSS   │  │NewsData │  │  GDELT  │  │ Google  │  │ Social  │          │
+│   │300+ DB  │  │   API   │  │   API   │  │   CSE   │  │  Media  │          │
+│   └────┬────┘  └────┬────┘  └────┬────┘  └────┬────┘  └────┬────┘          │
+│        │            │            │            │            │                │
+│        └────────────┴─────┬──────┴────────────┴────────────┘                │
 │                           ▼                                                 │
 │                  ┌─────────────────┐                                        │
 │                  │    COLECTORES   │                                        │
@@ -59,6 +59,7 @@ Cada colector normaliza articulos al tipo `NormalizedArticle`:
 | `newsdata.ts` | NewsData.io | 30 min | API de noticias con filtro pais |
 | `gdelt.ts` | GDELT | 15 min | Base de datos global de eventos |
 | `google.ts` | Google CSE | 2 horas | Busqueda personalizada |
+| `social.ts` | EnsembleData | 30 min | Twitter, Instagram, TikTok |
 
 ### 2. Ingestion (`packages/workers/src/collectors/ingest.ts`)
 
@@ -310,6 +311,10 @@ Genera borradores de comunicados de prensa on-demand:
 | `EmergingTopicNotification` | Registro de notificaciones de temas emergentes |
 | `RssSource` | Fuente RSS configurable (300+ medios mexicanos) |
 | `SourceRequest` | Solicitud de inclusion de nueva fuente |
+| `TelegramRecipient` | Múltiples destinatarios de Telegram por cliente |
+| `Notification` | Notificaciones in-app para usuarios |
+| `SocialAccount` | Cuentas de redes sociales a monitorear |
+| `SocialMention` | Menciones detectadas en redes sociales |
 
 ## Sistema de Colas (BullMQ)
 
@@ -339,6 +344,12 @@ Genera borradores de comunicados de prensa on-demand:
 │   grounding-check  : Verificar menciones bajas (7:00 AM)        │
 │   grounding-weekly : Grounding semanal programado (6:00 AM)     │
 │   grounding-execute: Ejecutar búsqueda con Gemini               │
+│                                                                 │
+│   SOCIAL MEDIA QUEUES                                           │
+│   ───────────────────                                           │
+│   collect-social   : */30 * * * *  (cada 30 min)                │
+│   analyze-social   : Analizar menciones sociales con AI         │
+│   notify-social    : Notificar menciones relevantes             │
 │                                                                 │
 └─────────────────────────────────────────────────────────────────┘
 ```

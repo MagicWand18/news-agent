@@ -48,7 +48,7 @@ export const config = {
     newsdata: optionalEnv("COLLECTOR_NEWSDATA_CRON", "*/30 * * * *"),
     rss: optionalEnv("COLLECTOR_RSS_CRON", "*/10 * * * *"),
     google: optionalEnv("COLLECTOR_GOOGLE_CRON", "0 */2 * * *"),
-    social: optionalEnv("COLLECTOR_SOCIAL_CRON", "0 */4 * * *"), // Cada 4 horas
+    // social: deshabilitado - recolección solo manual desde el dashboard
     gnews: optionalEnv("COLLECTOR_GNEWS_CRON", "0 6 * * *"), // 6 AM diario
     digest: optionalEnv("DIGEST_CRON", "0 8 * * *"),
   },
@@ -87,6 +87,14 @@ export const config = {
     instagramMaxComments: optionalEnvInt("SOCIAL_INSTAGRAM_MAX_COMMENTS", 30),
     viralLikesThreshold: optionalEnvInt("SOCIAL_VIRAL_LIKES_THRESHOLD", 1000),
     viralCommentsThreshold: optionalEnvInt("SOCIAL_VIRAL_COMMENTS_THRESHOLD", 100),
+  },
+  // Watchdog: alerta cuando no se crean menciones en un periodo
+  watchdog: {
+    enabled: optionalEnv("WATCHDOG_ENABLED", "true") === "true",
+    adminChatId: optionalEnv("WATCHDOG_ADMIN_CHAT_ID", ""),
+    thresholdHours: optionalEnvInt("WATCHDOG_THRESHOLD_HOURS", 12),
+    checkIntervalCron: optionalEnv("WATCHDOG_CHECK_CRON", "0 * * * *"),
+    alertCooldownHours: optionalEnvInt("WATCHDOG_ALERT_COOLDOWN_HOURS", 24),
   },
   // RSS collector configuration
   rss: {

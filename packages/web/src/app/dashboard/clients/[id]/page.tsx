@@ -338,6 +338,9 @@ export default function ClientDetailPage() {
       {/* Telegram Recipients */}
       <TelegramRecipientsSection clientId={id} clientName={c.name} />
 
+      {/* Social Accounts Management */}
+      <SocialAccountsSection clientId={id} />
+
       {/* Social Stats Section */}
       <SocialStatsSection clientId={id} />
 
@@ -1350,13 +1353,6 @@ function ManualGroundingButton({
   );
 }
 
-// Colores de plataformas sociales para gráficas
-const SOCIAL_PLATFORM_COLORS: Record<string, string> = {
-  TWITTER: "#000000",
-  INSTAGRAM: "#E4405F",
-  TIKTOK: "#000000",
-};
-
 // Tipos de plataformas sociales
 type SocialPlatform = "TWITTER" | "INSTAGRAM" | "TIKTOK";
 
@@ -1365,6 +1361,274 @@ const PLATFORMS: { value: SocialPlatform; label: string; icon: string }[] = [
   { value: "INSTAGRAM", label: "Instagram", icon: "📷" },
   { value: "TIKTOK", label: "TikTok", icon: "🎵" },
 ];
+
+/**
+ * Sección para gestionar cuentas de redes sociales y hashtags de un cliente.
+ */
+function SocialAccountsSection({ clientId }: { clientId: string }) {
+  const [showAddForm, setShowAddForm] = useState(false);
+  const [newAccount, setNewAccount] = useState<{
+    platform: SocialPlatform;
+    handle: string;
+    label: string;
+    isOwned: boolean;
+  }>({ platform: "TWITTER", handle: "", label: "", isOwned: false });
+  const [newHashtag, setNewHashtag] = useState("");
+  const utils = trpc.useUtils();
+
+  const socialData = trpc.social.getSocialAccounts.useQuery(
+    { clientId },
+    { refetchOnWindowFocus: false }
+  );
+
+  const addAccount = trpc.social.addSocialAccount.useMutation({
+    onSuccess: () => {
+      utils.social.getSocialAccounts.invalidate({ clientId });
+      setNewAccount({ platform: "TWITTER", handle: "", label: "", isOwned: false });
+      setShowAddForm(false);
+    },
+  });
+
+  const removeAccount = trpc.social.removeSocialAccount.useMutation({
+    onSuccess: () => utils.social.getSocialAccounts.invalidate({ clientId }),
+  });
+
+  const updateConfig = trpc.social.updateSocialConfig.useMutation({
+    onSuccess: () => utils.social.getSocialAccounts.invalidate({ clientId }),
+  });
+
+  const handleAddHashtag = () => {
+    if (!newHashtag.trim() || !socialData.data) return;
+    const current = (socialData.data.socialHashtags as string[]) || [];
+    const clean = newHashtag.replace(/^#/, "").trim();
+    if (current.includes(clean)) return;
+    updateConfig.mutate({ clientId, socialHashtags: [...current, clean] });
+    setNewHashtag("");
+  };
+
+  const handleRemoveHashtag = (tag: string) => {
+    if (!socialData.data) return;
+    const current = (socialData.data.socialHashtags as string[]) || [];
+    updateConfig.mutate({ clientId, socialHashtags: current.filter((h) => h !== tag) });
+  };
+
+  const handleToggleMonitoring = () => {
+    if (!socialData.data) return;
+    updateConfig.mutate({
+      clientId,
+      socialMonitoringEnabled: !socialData.data.socialMonitoringEnabled,
+    });
+  };
+
+  if (socialData.isLoading) {
+    return (
+      <div className="rounded-xl bg-white dark:bg-gray-800 p-6 shadow-sm dark:shadow-gray-900/20">
+        <div className="h-6 w-48 animate-pulse rounded bg-gray-200 dark:bg-gray-700" />
+        <div className="mt-4 h-20 animate-pulse rounded bg-gray-100 dark:bg-gray-700" />
+      </div>
+    );
+  }
+
+  const accounts = socialData.data?.accounts.filter((a) => a.active) || [];
+  const hashtags = (socialData.data?.socialHashtags as string[]) || [];
+  const monitoringEnabled = socialData.data?.socialMonitoringEnabled ?? false;
+
+  const platformLabels: Record<string, string> = {
+    TWITTER: "Twitter/X",
+    INSTAGRAM: "Instagram",
+    TIKTOK: "TikTok",
+  };
+
+  return (
+    <div className="rounded-xl bg-white dark:bg-gray-800 p-6 shadow-sm dark:shadow-gray-900/20" data-tour-id="client-social-accounts">
+      <div className="flex items-center justify-between mb-4">
+        <div className="flex items-center gap-3">
+          <h3 className="font-semibold text-gray-900 dark:text-white flex items-center gap-2">
+            <Settings className="h-5 w-5 text-purple-600" />
+            Cuentas Sociales
+          </h3>
+          <button
+            onClick={handleToggleMonitoring}
+            className={`rounded-full px-3 py-1 text-xs font-medium transition-colors ${
+              monitoringEnabled
+                ? "bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400"
+                : "bg-gray-100 text-gray-500 dark:bg-gray-700 dark:text-gray-400"
+            }`}
+          >
+            {monitoringEnabled ? "Monitoreo activo" : "Monitoreo inactivo"}
+          </button>
+        </div>
+        <button
+          onClick={() => setShowAddForm(!showAddForm)}
+          className="flex items-center gap-1.5 rounded-lg bg-purple-600 px-3 py-1.5 text-sm font-medium text-white hover:bg-purple-700 transition-colors"
+        >
+          <Plus className="h-4 w-4" />
+          Agregar cuenta
+        </button>
+      </div>
+
+      {/* Formulario para agregar cuenta */}
+      {showAddForm && (
+        <div className="mb-4 rounded-lg border border-purple-200 dark:border-purple-800 bg-purple-50 dark:bg-purple-900/20 p-4">
+          <div className="grid gap-3 sm:grid-cols-4">
+            <div>
+              <label className="block text-xs font-medium text-gray-600 dark:text-gray-400 mb-1">Plataforma</label>
+              <select
+                value={newAccount.platform}
+                onChange={(e) => setNewAccount({ ...newAccount, platform: e.target.value as SocialPlatform })}
+                className="w-full rounded-lg border border-gray-200 dark:border-gray-600 bg-white dark:bg-gray-700 px-3 py-2 text-sm text-gray-900 dark:text-white"
+              >
+                {PLATFORMS.map((p) => (
+                  <option key={p.value} value={p.value}>{p.label}</option>
+                ))}
+              </select>
+            </div>
+            <div>
+              <label className="block text-xs font-medium text-gray-600 dark:text-gray-400 mb-1">Handle</label>
+              <input
+                type="text"
+                value={newAccount.handle}
+                onChange={(e) => setNewAccount({ ...newAccount, handle: e.target.value })}
+                placeholder="@usuario"
+                className="w-full rounded-lg border border-gray-200 dark:border-gray-600 bg-white dark:bg-gray-700 px-3 py-2 text-sm text-gray-900 dark:text-white placeholder:text-gray-400"
+              />
+            </div>
+            <div>
+              <label className="block text-xs font-medium text-gray-600 dark:text-gray-400 mb-1">Etiqueta</label>
+              <input
+                type="text"
+                value={newAccount.label}
+                onChange={(e) => setNewAccount({ ...newAccount, label: e.target.value })}
+                placeholder="Cuenta oficial, Competidor..."
+                className="w-full rounded-lg border border-gray-200 dark:border-gray-600 bg-white dark:bg-gray-700 px-3 py-2 text-sm text-gray-900 dark:text-white placeholder:text-gray-400"
+              />
+            </div>
+            <div className="flex items-end gap-2">
+              <label className="flex items-center gap-2 cursor-pointer">
+                <input
+                  type="checkbox"
+                  checked={newAccount.isOwned}
+                  onChange={(e) => setNewAccount({ ...newAccount, isOwned: e.target.checked })}
+                  className="rounded border-gray-300 dark:border-gray-600 text-purple-600 focus:ring-purple-500"
+                />
+                <span className="text-xs text-gray-600 dark:text-gray-400">Propia</span>
+              </label>
+              <button
+                onClick={() => {
+                  if (newAccount.handle.trim()) {
+                    addAccount.mutate({
+                      clientId,
+                      platform: newAccount.platform,
+                      handle: newAccount.handle,
+                      label: newAccount.label || undefined,
+                      isOwned: newAccount.isOwned,
+                    });
+                  }
+                }}
+                disabled={addAccount.isPending || !newAccount.handle.trim()}
+                className="rounded-lg bg-purple-600 px-4 py-2 text-sm font-medium text-white hover:bg-purple-700 disabled:opacity-50 transition-colors"
+              >
+                {addAccount.isPending ? (
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                ) : (
+                  "Agregar"
+                )}
+              </button>
+            </div>
+          </div>
+          {addAccount.isError && (
+            <p className="mt-2 text-sm text-red-600 dark:text-red-400">{addAccount.error.message}</p>
+          )}
+        </div>
+      )}
+
+      {/* Lista de cuentas */}
+      {accounts.length > 0 ? (
+        <div className="space-y-2">
+          {accounts.map((account) => (
+            <div
+              key={account.id}
+              className="flex items-center justify-between rounded-lg bg-gray-50 dark:bg-gray-900/50 px-4 py-3"
+            >
+              <div className="flex items-center gap-3">
+                <span className="rounded-md bg-gray-200 dark:bg-gray-700 px-2 py-1 text-xs font-medium text-gray-600 dark:text-gray-300">
+                  {platformLabels[account.platform] || account.platform}
+                </span>
+                <span className="font-medium text-gray-900 dark:text-white">@{account.handle}</span>
+                {account.label && (
+                  <span className="text-sm text-gray-500 dark:text-gray-400">{account.label}</span>
+                )}
+                {account.isOwned && (
+                  <span className="rounded-full bg-blue-100 dark:bg-blue-900/30 px-2 py-0.5 text-xs text-blue-700 dark:text-blue-400">
+                    Propia
+                  </span>
+                )}
+              </div>
+              <button
+                onClick={() => removeAccount.mutate({ id: account.id })}
+                disabled={removeAccount.isPending}
+                className="text-gray-400 hover:text-red-500 dark:hover:text-red-400 transition-colors"
+              >
+                <X className="h-4 w-4" />
+              </button>
+            </div>
+          ))}
+        </div>
+      ) : (
+        <p className="text-sm text-gray-400 dark:text-gray-500 text-center py-4">
+          Sin cuentas configuradas. Agrega cuentas para monitorear redes sociales.
+        </p>
+      )}
+
+      {/* Hashtags */}
+      <div className="mt-4 border-t border-gray-200 dark:border-gray-700 pt-4">
+        <p className="text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Hashtags monitoreados</p>
+        <div className="flex flex-wrap gap-2">
+          {hashtags.map((tag) => (
+            <span
+              key={tag}
+              className="flex items-center gap-1 rounded-full bg-purple-100 dark:bg-purple-900/30 px-3 py-1 text-sm text-purple-700 dark:text-purple-300"
+            >
+              #{tag}
+              <button
+                onClick={() => handleRemoveHashtag(tag)}
+                className="ml-1 text-purple-400 hover:text-purple-700 dark:hover:text-purple-200"
+              >
+                <X className="h-3 w-3" />
+              </button>
+            </span>
+          ))}
+          <form
+            onSubmit={(e) => { e.preventDefault(); handleAddHashtag(); }}
+            className="flex items-center gap-1"
+          >
+            <input
+              type="text"
+              value={newHashtag}
+              onChange={(e) => setNewHashtag(e.target.value)}
+              placeholder="Agregar hashtag..."
+              className="w-32 rounded-lg border border-gray-200 dark:border-gray-600 bg-white dark:bg-gray-700 px-2 py-1 text-sm text-gray-900 dark:text-white placeholder:text-gray-400"
+            />
+            <button
+              type="submit"
+              disabled={!newHashtag.trim() || updateConfig.isPending}
+              className="rounded-lg bg-purple-100 dark:bg-purple-900/30 p-1.5 text-purple-600 dark:text-purple-400 hover:bg-purple-200 dark:hover:bg-purple-900/50 disabled:opacity-50 transition-colors"
+            >
+              <Plus className="h-4 w-4" />
+            </button>
+          </form>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// Colores de plataformas sociales para gráficas
+const SOCIAL_PLATFORM_COLORS: Record<string, string> = {
+  TWITTER: "#000000",
+  INSTAGRAM: "#E4405F",
+  TIKTOK: "#000000",
+};
 
 /**
  * Sección de estadísticas de redes sociales con gráficas.
@@ -1794,6 +2058,8 @@ function SocialMentionsSection({ clientId, clientName }: { clientId: string; cli
               clientName={clientName}
               postedAt={mention.postedAt}
               createdAt={mention.createdAt}
+              commentsAnalyzed={mention.commentsAnalyzed}
+              commentsSentiment={mention.commentsSentiment}
             />
           ))}
           {hasMore && (

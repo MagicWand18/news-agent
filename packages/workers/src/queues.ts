@@ -33,6 +33,8 @@ export const QUEUE_NAMES = {
   EXTRACT_COMMENTS: "extract-social-comments",
   // Google News RSS para fuentes sin feed propio
   COLLECT_GNEWS: "collect-gnews",
+  // Watchdog de menciones
+  WATCHDOG_MENTIONS: "watchdog-mentions",
 } as const;
 
 export function setupQueues() {
@@ -63,6 +65,8 @@ export function setupQueues() {
     extractComments: new Queue(QUEUE_NAMES.EXTRACT_COMMENTS, { connection }),
     // Google News RSS para fuentes sin feed propio
     collectGnews: new Queue(QUEUE_NAMES.COLLECT_GNEWS, { connection }),
+    // Watchdog de menciones
+    watchdogMentions: new Queue(QUEUE_NAMES.WATCHDOG_MENTIONS, { connection }),
   };
 
   // Schedule repeating jobs using cron patterns from config
@@ -100,13 +104,7 @@ export function setupQueues() {
   );
   console.log(`📅 Google CSE cron: ${config.crons.google}`);
 
-  // Social Media collector (default: every 4 hours)
-  queues.collectSocial.upsertJobScheduler(
-    "social-cron",
-    { pattern: config.crons.social },
-    { name: "collect-social" }
-  );
-  console.log(`📅 Social Media cron: ${config.crons.social}`);
+  // Social Media: cron deshabilitado, recolección solo manual desde dashboard
 
   // Daily digest (default: 8:00 AM)
   queues.digest.upsertJobScheduler(
@@ -169,6 +167,16 @@ export function setupQueues() {
     { name: "collect-gnews" }
   );
   console.log(`📅 GNews cron: ${gnewsCron}`);
+
+  // Watchdog de menciones (default: cada hora, solo si está habilitado)
+  if (config.watchdog.enabled) {
+    queues.watchdogMentions.upsertJobScheduler(
+      "watchdog-mentions-cron",
+      { pattern: config.watchdog.checkIntervalCron },
+      { name: "watchdog-mentions" }
+    );
+    console.log(`📅 Watchdog cron: ${config.watchdog.checkIntervalCron}`);
+  }
 
   return {
     ...queues,

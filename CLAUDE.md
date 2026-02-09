@@ -6,7 +6,7 @@ MediaBot is a media monitoring platform for PR agencies. It monitors news source
 
 ## Tech Stack
 
-- **Frontend**: Next.js 14, React, TailwindCSS, Recharts, tRPC
+- **Frontend**: Next.js 15, React, TailwindCSS, Recharts, tRPC
 - **Backend**: Node.js, tRPC, Prisma ORM
 - **Database**: PostgreSQL
 - **Queue**: Redis + BullMQ
@@ -19,14 +19,15 @@ MediaBot is a media monitoring platform for PR agencies. It monitors news source
 ```
 /
 ├── packages/
-│   ├── web/          # Next.js frontend + tRPC API
-│   ├── workers/      # Background jobs (collectors, analysis, notifications)
-│   ├── bot/          # Telegram bot
-│   └── shared/       # Shared code (prisma, config, types)
-├── prisma/           # Database schema
+│   ├── web/          # Next.js frontend + tRPC API (17 dashboard pages)
+│   ├── workers/      # Background jobs (5 collectors, analysis, notifications, social)
+│   ├── bot/          # Telegram bot (Grammy)
+│   └── shared/       # Shared code (prisma, config, types, ai-client)
+├── prisma/           # Database schema (20 models)
 ├── deploy/           # Deployment scripts
+├── docs/             # Documentation (architecture, plan, guides)
 └── tests/            # Test files
-    └── e2e/          # End-to-end tests
+    └── e2e/          # End-to-end tests (Playwright)
 ```
 
 ## Key Files
@@ -36,7 +37,8 @@ MediaBot is a media monitoring platform for PR agencies. It monitors news source
 | `prisma/schema.prisma` | Database models |
 | `packages/web/src/server/routers/` | tRPC API endpoints |
 | `packages/web/src/app/dashboard/` | Dashboard pages |
-| `packages/workers/src/queues.ts` | Job queues and cron schedules |
+| `packages/workers/src/queues.ts` | Job queues and cron schedules (19+ colas) |
+| `packages/workers/src/collectors/social.ts` | Social media collector (EnsembleData) |
 | `deploy/remote-deploy.sh` | Production deployment script |
 
 ## Commands

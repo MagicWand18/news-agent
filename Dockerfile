@@ -40,6 +40,7 @@ CMD ["npm", "run", "start", "-w", "packages/web"]
 
 # ── Stage 4: Workers runtime ────────────────────────
 FROM base AS workers
+RUN apt-get update -qq && apt-get install -y curl && rm -rf /var/lib/apt/lists/*
 ENV NODE_ENV=production
 CMD ["npx", "tsx", "packages/workers/src/index.ts"]
 

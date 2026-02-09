@@ -7,10 +7,10 @@ Guía para desarrolladores que trabajan en el proyecto MediaBot.
 ### Requisitos
 
 - Node.js 18+
-- pnpm 8+
+- npm 9+ (usa npm workspaces)
 - Docker y Docker Compose
-- PostgreSQL 15 (vía Docker)
-- Redis (vía Docker)
+- PostgreSQL 16 (vía Docker)
+- Redis 7 (vía Docker)
 
 ### Instalación
 
@@ -20,7 +20,7 @@ git clone <repo-url>
 cd news-agent
 
 # 2. Instalar dependencias
-pnpm install
+npm install
 
 # 3. Copiar variables de entorno
 cp .env.example .env
@@ -36,7 +36,7 @@ npx prisma generate
 npx prisma db push
 
 # 7. Iniciar en desarrollo
-pnpm dev
+npm run dev
 ```
 
 ### Variables de Entorno Requeridas
@@ -392,13 +392,13 @@ ssh -i ~/.ssh/newsaibot-telegram-ssh root@159.65.97.78 \
 
 ```bash
 # Todos los tests
-pnpm test
+npm test
 
 # Con cobertura
-pnpm test -- --coverage
+npm test -- --coverage
 
 # Test específico
-pnpm test -- grounding-service.test.ts
+npm test -- grounding-service.test.ts
 ```
 
 ### Test E2E

@@ -59,6 +59,8 @@ interface SocialMentionRowProps {
   clientName: string;
   postedAt: Date | null;
   createdAt: Date;
+  commentsAnalyzed?: boolean;
+  commentsSentiment?: string | null;
 }
 
 function formatNumber(num: number): string {
@@ -100,6 +102,8 @@ export function SocialMentionRow({
   clientName,
   postedAt,
   createdAt,
+  commentsAnalyzed,
+  commentsSentiment,
 }: SocialMentionRowProps) {
   const plat = platformConfig[platform] || platformConfig.TWITTER;
   const PlatformIcon = plat.icon;
@@ -186,7 +190,7 @@ export function SocialMentionRow({
           </div>
         </div>
 
-        {/* Badges de sentimiento y relevancia */}
+        {/* Badges de sentimiento, emoción y relevancia */}
         <div className="flex flex-shrink-0 flex-col items-end gap-2">
           {sentiment && (
             <span
@@ -198,6 +202,24 @@ export function SocialMentionRow({
             >
               <span className={cn("h-1.5 w-1.5 rounded-full", sent.dot)} />
               {sent.label}
+            </span>
+          )}
+          {/* Emoción pública basada en comentarios */}
+          {commentsAnalyzed && commentsSentiment ? (
+            <span
+              className={cn(
+                "inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-xs font-medium",
+                (sentimentConfig[commentsSentiment] || sentimentConfig.NEUTRAL).bg,
+                (sentimentConfig[commentsSentiment] || sentimentConfig.NEUTRAL).text,
+              )}
+            >
+              <MessageCircle className="h-3 w-3" />
+              {(sentimentConfig[commentsSentiment] || sentimentConfig.NEUTRAL).label}
+            </span>
+          ) : (
+            <span className="inline-flex items-center gap-1.5 rounded-full bg-gray-100 dark:bg-gray-700 px-2.5 py-1 text-xs font-medium text-gray-400 dark:text-gray-500">
+              <MessageCircle className="h-3 w-3" />
+              N/A
             </span>
           )}
           {relevance !== null && (

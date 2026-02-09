@@ -15,9 +15,15 @@ import {
   startWeeklyGroundingWorker,
 } from "./grounding/index.js";
 import { startCommentsExtractionWorker } from "./collectors/comments-worker.js";
+import { startWatchdogWorker } from "./workers/watchdog.js";
+import { startHealthServer, stopHealthServer } from "./health.js";
+import { config } from "@mediabot/shared";
 
 async function main() {
   console.log("🔄 Starting MediaBot workers...");
+
+  // Health server para Docker healthcheck (antes de queues para detectar fallos de inicio)
+  await startHealthServer();
 
   const queues = setupQueues();
 
@@ -41,11 +47,17 @@ async function main() {
   // Social comments extraction worker
   startCommentsExtractionWorker();
 
+  // Watchdog de menciones (solo si está habilitado)
+  if (config.watchdog.enabled) {
+    startWatchdogWorker();
+  }
+
   console.log("✅ All workers started");
 
   // Graceful shutdown
   const shutdown = async () => {
     console.log("⏹️ Shutting down workers...");
+    await stopHealthServer();
     await queues.close();
     process.exit(0);
   };

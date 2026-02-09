@@ -105,6 +105,8 @@ npm run dev:bot
 | `GOOGLE_CSE_API_KEY` | - | API key de Google Custom Search |
 | `GOOGLE_CSE_CX` | - | ID del Custom Search Engine |
 | `NEWSDATA_API_KEY` | - | API key de NewsData.io |
+| `GOOGLE_API_KEY` | - | API key de Google Gemini (grounding) |
+| `ENSEMBLEDATA_TOKEN` | - | Token de EnsembleData (social media) |
 
 ### Opcionales - Configuracion de Crons
 
@@ -183,6 +185,7 @@ npm run dev:bot        # Solo bot
 | NewsData | 30 min | API de noticias con filtro por pais |
 | GDELT | 15 min | Base de datos global de eventos |
 | Google CSE | 2 horas | Busqueda personalizada de Google |
+| Social Media | 30 min | Twitter, Instagram, TikTok via EnsembleData API |
 
 ## Gestion de Fuentes RSS (Sprint 8)
 
@@ -336,6 +339,38 @@ Dashboard avanzado de inteligencia de medios en `/dashboard/intelligence`:
 - UI de configuración en detalle de cliente
 - Búsqueda manual on-demand
 - Rate limiting para proteger API de Gemini (5 jobs/min)
+
+## Social Media Monitoring (Sprint 10)
+
+Sistema completo de monitoreo de redes sociales integrado al dashboard.
+
+### Plataformas Soportadas
+- **Twitter/X**: Búsqueda por handle, hashtag y keywords
+- **Instagram**: Monitoreo de cuentas y hashtags
+- **TikTok**: Detección de menciones en videos
+
+### Funcionalidades
+- **Colector Social**: Recolecta menciones cada 30 minutos via EnsembleData API
+- **Análisis AI**: Sentimiento y relevancia de menciones sociales
+- **Dashboard dedicado**: `/dashboard/social-mentions` con filtros avanzados
+- **Métricas de engagement**: Likes, comentarios, shares, views
+- **Detalle de mención**: Vista completa con métricas y contexto
+
+### Configuración por Cliente
+- Cuentas a monitorear (propias y competidores)
+- Hashtags relevantes
+- Keywords de búsqueda
+
+## Gestión de Agencias (Sprint 11)
+
+Sistema multi-tenant completo para gestionar múltiples agencias.
+
+### Funcionalidades
+- **Dashboard de agencias**: `/dashboard/agencies` con lista y estadísticas
+- **Detalle de agencia**: `/dashboard/agencies/[id]` con clientes y usuarios
+- **Super Admin**: Puede ver y gestionar todas las organizaciones
+- **Límites configurables**: Máximo de clientes por agencia
+- **Roles diferenciados**: ADMIN, SUPERVISOR, ANALYST por organización
 
 ## Troubleshooting
 
