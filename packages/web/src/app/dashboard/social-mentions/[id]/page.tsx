@@ -83,6 +83,8 @@ export default function SocialMentionDetailPage() {
   const id = params.id as string;
   const [extractionMessage, setExtractionMessage] = useState<string | null>(null);
   const [isPolling, setIsPolling] = useState(false);
+  const [showExtractOptions, setShowExtractOptions] = useState(false);
+  const [selectedMaxComments, setSelectedMaxComments] = useState(30);
   const pollingRef = useRef<NodeJS.Timeout | null>(null);
 
   // Limpiar polling al desmontar
@@ -122,7 +124,8 @@ export default function SocialMentionDetailPage() {
 
   const handleExtractComments = () => {
     setExtractionMessage(null);
-    extractCommentsMutation.mutate({ mentionId: id });
+    setShowExtractOptions(false);
+    extractCommentsMutation.mutate({ mentionId: id, maxComments: selectedMaxComments });
   };
 
   if (isLoading) {
@@ -215,28 +218,55 @@ export default function SocialMentionDetailPage() {
             </a>
             {/* Botón extraer comentarios (solo Instagram y TikTok) */}
             {mention.platform !== "TWITTER" && (
-              <button
-                onClick={handleExtractComments}
-                disabled={extractCommentsMutation.isPending || isPolling}
-                className={cn(
-                  "inline-flex items-center gap-1.5 rounded-lg px-4 py-2 text-sm font-medium transition-colors",
-                  extractCommentsMutation.isPending || isPolling
-                    ? "bg-gray-100 dark:bg-gray-700 text-gray-400 cursor-not-allowed"
-                    : "bg-purple-50 dark:bg-purple-900/30 text-purple-700 dark:text-purple-300 hover:bg-purple-100 dark:hover:bg-purple-900/50"
-                )}
-              >
+              <div className="relative">
                 {extractCommentsMutation.isPending || isPolling ? (
-                  <>
+                  <button
+                    disabled
+                    className="inline-flex items-center gap-1.5 rounded-lg px-4 py-2 text-sm font-medium bg-gray-100 dark:bg-gray-700 text-gray-400 cursor-not-allowed"
+                  >
                     <Loader2 className="h-4 w-4 animate-spin" />
                     {isPolling ? "Esperando..." : "Extrayendo..."}
-                  </>
+                  </button>
+                ) : showExtractOptions ? (
+                  <div className="rounded-lg border border-purple-200 dark:border-purple-800 bg-white dark:bg-gray-800 p-3 shadow-lg min-w-[200px]">
+                    <p className="text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                      Comentarios a extraer
+                    </p>
+                    <select
+                      value={selectedMaxComments}
+                      onChange={(e) => setSelectedMaxComments(Number(e.target.value))}
+                      className="w-full rounded-md border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 px-3 py-1.5 text-sm text-gray-700 dark:text-gray-200"
+                    >
+                      <option value={10}>10 comentarios</option>
+                      <option value={30}>30 comentarios</option>
+                      <option value={60}>60 comentarios</option>
+                      <option value={100}>100 comentarios</option>
+                    </select>
+                    <div className="mt-2 flex gap-2">
+                      <button
+                        onClick={() => setShowExtractOptions(false)}
+                        className="flex-1 rounded-md px-3 py-1.5 text-sm text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-700"
+                      >
+                        Cancelar
+                      </button>
+                      <button
+                        onClick={handleExtractComments}
+                        className="flex-1 rounded-md bg-purple-600 px-3 py-1.5 text-sm font-medium text-white hover:bg-purple-700"
+                      >
+                        Extraer
+                      </button>
+                    </div>
+                  </div>
                 ) : (
-                  <>
+                  <button
+                    onClick={() => setShowExtractOptions(true)}
+                    className="inline-flex items-center gap-1.5 rounded-lg px-4 py-2 text-sm font-medium transition-colors bg-purple-50 dark:bg-purple-900/30 text-purple-700 dark:text-purple-300 hover:bg-purple-100 dark:hover:bg-purple-900/50"
+                  >
                     <Download className="h-4 w-4" />
                     Extraer comentarios
-                  </>
+                  </button>
                 )}
-              </button>
+              </div>
             )}
           </div>
         </div>

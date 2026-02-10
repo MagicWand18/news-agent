@@ -51,6 +51,7 @@ export const socialRouter = router({
     .input(
       z.object({
         mentionId: z.string(),
+        maxComments: z.number().min(5).max(100).optional(),
       })
     )
     .mutation(async ({ input, ctx }) => {
@@ -99,7 +100,7 @@ export const socialRouter = router({
         const extractQueue = getQueue(EXTRACT_COMMENTS_QUEUE);
         await extractQueue.add(
           "extract-comments",
-          { mentionId: input.mentionId },
+          { mentionId: input.mentionId, maxComments: input.maxComments },
           {
             jobId: `extract-comments-${input.mentionId}-${Date.now()}`,
             attempts: 3,

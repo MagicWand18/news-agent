@@ -13,6 +13,7 @@ import type { SocialComment } from "@mediabot/shared";
 
 interface ExtractCommentsJobData {
   mentionId: string;
+  maxComments?: number;
 }
 
 /**
@@ -39,7 +40,7 @@ export function startCommentsExtractionWorker() {
   const worker = new Worker(
     QUEUE_NAMES.EXTRACT_COMMENTS,
     async (job) => {
-      const { mentionId } = job.data as ExtractCommentsJobData;
+      const { mentionId, maxComments } = job.data as ExtractCommentsJobData;
 
       // Verificar si la feature está habilitada
       if (!config.socialComments.enabled) {
@@ -83,7 +84,7 @@ export function startCommentsExtractionWorker() {
             const videoId = extractTikTokVideoId(mention.postUrl) || mention.postId;
             comments = await client.getTikTokPostComments(
               videoId,
-              config.socialComments.tiktokMaxComments
+              maxComments || config.socialComments.tiktokMaxComments
             );
             break;
           }
@@ -97,7 +98,7 @@ export function startCommentsExtractionWorker() {
             }
             comments = await client.getInstagramPostComments(
               shortcode,
-              config.socialComments.instagramMaxComments
+              maxComments || config.socialComments.instagramMaxComments
             );
             break;
           }

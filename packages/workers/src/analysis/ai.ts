@@ -688,6 +688,15 @@ export async function analyzeCommentsSentiment(params: {
   comments: Array<{ text: string; likes: number; authorHandle: string }>;
   clientName: string;
   clientDescription?: string;
+  clientIndustry?: string;
+  authorHandle?: string;
+  authorFollowers?: number;
+  engagement?: {
+    likes: number;
+    comments: number;
+    shares: number;
+    views?: number;
+  };
 }): Promise<CommentsAnalysisResult> {
   // Limitar comentarios para el prompt (los más relevantes por likes)
   const sortedComments = [...params.comments]
@@ -700,41 +709,64 @@ export async function analyzeCommentsSentiment(params: {
 
   const model = getGeminiModel();
 
-  const prompt = `Analiza los comentarios de este post de ${params.platform} para entender la PERCEPCION PUBLICA hacia el cliente.
+  // Construir contexto de engagement si está disponible
+  const engagementText = params.engagement
+    ? `\nMETRICAS DEL POST:\n- Likes: ${params.engagement.likes.toLocaleString()}\n- Comentarios: ${params.engagement.comments.toLocaleString()}\n- Compartidos: ${params.engagement.shares.toLocaleString()}${params.engagement.views ? `\n- Vistas: ${params.engagement.views.toLocaleString()}` : ""}`
+    : "";
+
+  const authorText = params.authorHandle
+    ? `\nAUTOR: @${params.authorHandle}${params.authorFollowers ? ` (${params.authorFollowers.toLocaleString()} seguidores)` : ""}`
+    : "";
+
+  const platformLabel = params.platform === "TIKTOK" ? "TikTok" : params.platform === "INSTAGRAM" ? "Instagram" : params.platform;
+
+  const prompt = `Eres un analista de relaciones publicas especializado en redes sociales. Analiza los comentarios de este post de ${platformLabel} para entender la PERCEPCION PUBLICA hacia el cliente.
 
 CLIENTE: ${params.clientName}
-Descripcion: ${params.clientDescription || "No disponible"}
+Descripcion del cliente: ${params.clientDescription || "No disponible"}
+Giro/Industria: ${params.clientIndustry || "No especificada"}
 
-POST ORIGINAL:
+RED SOCIAL: ${platformLabel}
+${authorText}
+${engagementText}
+
+CONTENIDO/COPY DEL POST:
 "${params.postContent || "(sin texto)"}"
 
-COMENTARIOS DEL PUBLICO (${params.comments.length} total, mostrando los ${sortedComments.length} mas relevantes):
+COMENTARIOS DEL PUBLICO (${params.comments.length} total, mostrando los ${sortedComments.length} con mas likes):
 ${commentsText}
 
-IMPORTANTE: Analiza lo que OPINA EL PUBLICO sobre el cliente, no el sentimiento del post original.
-Identifica:
-- Sentimiento general de los comentarios hacia el cliente
-- Temas recurrentes o preocupaciones
-- Nivel de riesgo reputacional basado en los comentarios
-- Si hay comentarios negativos virales (muchos likes en comentarios negativos)
+CONTEXTO PARA EL ANALISIS:
+- El cliente "${params.clientName}" es monitoreado por una agencia de PR
+- Necesitamos entender como el publico percibe al cliente en relacion a este post
+- Considera el ratio de engagement (likes, comentarios, compartidos, vistas) para evaluar el alcance
+- Presta atencion a comentarios negativos con muchos likes (potencialmente virales)
+- Identifica si los comentarios mencionan directa o indirectamente al cliente
+
+Analiza:
+1. Sentimiento general de los comentarios HACIA EL CLIENTE (no del post en si)
+2. Temas recurrentes, preocupaciones o elogios
+3. Nivel de riesgo reputacional considerando el alcance del post y tono de comentarios
+4. Comentarios negativos virales (muchos likes en comentarios criticos)
+5. Oportunidades de comunicacion o respuesta para el equipo de PR
 
 Responde UNICAMENTE con JSON valido, sin markdown ni texto adicional:
 {
   "overallSentiment": "NEUTRAL",
   "sentimentBreakdown": {"positive": 40, "negative": 30, "neutral": 30},
   "keyThemes": ["tema1", "tema2", "tema3"],
-  "publicPerception": "Resumen de 1-2 oraciones sobre como el publico percibe al cliente en estos comentarios",
+  "publicPerception": "Resumen claro y accionable de 2-3 oraciones sobre como el publico percibe al cliente basado en estos comentarios, incluyendo el contexto del post y las metricas de engagement",
   "riskLevel": "MEDIUM",
   "topConcerns": ["preocupacion1", "preocupacion2"],
-  "recommendedAction": "Accion especifica sugerida para el equipo de PR"
+  "recommendedAction": "Accion especifica y practica sugerida para el equipo de PR"
 }
 
 Valores de overallSentiment: POSITIVE, NEGATIVE, NEUTRAL, MIXED
 sentimentBreakdown: porcentajes que suman 100
 Valores de riskLevel:
-- HIGH: Comentarios mayoritariamente negativos, potencial crisis
-- MEDIUM: Comentarios mixtos, requiere monitoreo
-- LOW: Comentarios positivos o neutrales`;
+- HIGH: Comentarios mayoritariamente negativos con alto alcance, potencial crisis
+- MEDIUM: Comentarios mixtos o negativos con alcance moderado, requiere monitoreo
+- LOW: Comentarios positivos o neutrales, sin riesgo reputacional`;
 
   try {
     const result = await model.generateContent({

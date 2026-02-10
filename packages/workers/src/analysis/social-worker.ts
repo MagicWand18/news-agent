@@ -201,9 +201,13 @@ async function analyzeCommentsJob(
     platform: string;
     content: string | null;
     commentsData: unknown;
-    client: { name: string; description: string | null };
+    client: { name: string; description: string | null; industry: string | null };
+    authorHandle: string;
+    authorFollowers: number | null;
     likes: number;
     comments: number;
+    shares: number;
+    views: number | null;
   },
   notifyQueue: ReturnType<typeof getQueue>
 ) {
@@ -216,7 +220,7 @@ async function analyzeCommentsJob(
     return;
   }
 
-  // Ejecutar análisis de sentimiento de comentarios
+  // Ejecutar análisis de sentimiento de comentarios con contexto completo
   const analysis = await analyzeCommentsSentiment({
     platform: mention.platform,
     postContent: mention.content,
@@ -227,12 +231,19 @@ async function analyzeCommentsJob(
     })),
     clientName: mention.client.name,
     clientDescription: mention.client.description || undefined,
+    clientIndustry: mention.client.industry || undefined,
+    authorHandle: mention.authorHandle,
+    authorFollowers: mention.authorFollowers || undefined,
+    engagement: {
+      likes: mention.likes,
+      comments: mention.comments,
+      shares: mention.shares,
+      views: mention.views || undefined,
+    },
   });
 
-  // Actualizar mención con resultados
-  const updatedSummary = mention.content
-    ? `[Análisis de comentarios] ${analysis.publicPerception}`
-    : analysis.publicPerception;
+  // Actualizar mención con percepción pública de los comentarios
+  const updatedSummary = analysis.publicPerception;
 
   await prisma.socialMention.update({
     where: { id: mention.id },
