@@ -16,7 +16,7 @@ import { TRPCError } from "@trpc/server";
 import { router, protectedProcedure, getEffectiveOrgId } from "../trpc";
 import { prisma, getEnsembleDataClient } from "@mediabot/shared";
 
-const SocialPlatformEnum = z.enum(["TWITTER", "INSTAGRAM", "TIKTOK"]);
+const SocialPlatformEnum = z.enum(["TWITTER", "INSTAGRAM", "TIKTOK", "YOUTUBE"]);
 
 /**
  * Schema Zod para validar respuesta de suggestHashtags.
@@ -25,14 +25,14 @@ const HashtagSuggestionSchema = z.object({
   hashtags: z.array(
     z.object({
       hashtag: z.string(),
-      platform: z.enum(["TWITTER", "INSTAGRAM", "TIKTOK", "ALL"]).default("ALL"),
+      platform: z.enum(["TWITTER", "INSTAGRAM", "TIKTOK", "YOUTUBE", "ALL"]).default("ALL"),
       confidence: z.number().min(0).max(1).default(0.7),
       reason: z.string().optional(),
     })
   ).default([]),
   suggestedAccounts: z.array(
     z.object({
-      platform: z.enum(["TWITTER", "INSTAGRAM", "TIKTOK"]).default("TWITTER"),
+      platform: z.enum(["TWITTER", "INSTAGRAM", "TIKTOK", "YOUTUBE"]).default("TWITTER"),
       handle: z.string(),
       reason: z.string().optional(),
     })
@@ -769,6 +769,7 @@ Genera:
         collectHashtags: z.boolean().default(true),
         collectHandles: z.boolean().default(true),
         maxPostsPerSource: z.number().min(1).max(50).optional(),
+        maxAgeDays: z.number().min(1).max(90).optional(),
       })
     )
     .mutation(async ({ input, ctx }) => {
@@ -818,6 +819,7 @@ Genera:
             collectHashtags: input.collectHashtags,
             collectHandles: input.collectHandles,
             maxPostsPerSource: input.maxPostsPerSource,
+            maxAgeDays: input.maxAgeDays,
           },
           {
             attempts: 2,

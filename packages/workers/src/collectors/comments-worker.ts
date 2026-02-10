@@ -34,6 +34,15 @@ function extractTikTokVideoId(postUrl: string): string | null {
   return match ? match[1] : null;
 }
 
+/**
+ * Extrae el ID del video de una URL de YouTube.
+ * Formatos: https://youtube.com/watch?v=ID o https://youtu.be/ID
+ */
+function extractYouTubeVideoId(postUrl: string): string | null {
+  const match = postUrl.match(/(?:youtube\.com\/watch\?v=|youtu\.be\/)([A-Za-z0-9_-]+)/);
+  return match ? match[1] : null;
+}
+
 export function startCommentsExtractionWorker() {
   const analyzeQueue = getQueue(QUEUE_NAMES.ANALYZE_SOCIAL);
 
@@ -94,6 +103,15 @@ export function startCommentsExtractionWorker() {
             comments = await client.getInstagramPostComments(
               mention.postId,
               maxComments || config.socialComments.instagramMaxComments
+            );
+            break;
+          }
+
+          case "YOUTUBE": {
+            const videoId = extractYouTubeVideoId(mention.postUrl) || mention.postId;
+            comments = await client.getYouTubeVideoComments(
+              videoId,
+              maxComments || config.socialComments.youtubeMaxComments
             );
             break;
           }

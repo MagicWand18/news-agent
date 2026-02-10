@@ -80,11 +80,16 @@ export const config = {
     rssIntervalMs: 10 * 60 * 1000,
     googleIntervalMs: 2 * 60 * 60 * 1000,
   },
+  // Social collection: filtro temporal para evitar datos viejos
+  social: {
+    maxAgeDays: optionalEnvInt("SOCIAL_MAX_AGE_DAYS", 7),
+  },
   // Social comments extraction configuration
   socialComments: {
     enabled: optionalEnv("SOCIAL_COMMENTS_ENABLED", "true") === "true",
     tiktokMaxComments: optionalEnvInt("SOCIAL_TIKTOK_MAX_COMMENTS", 60),
     instagramMaxComments: optionalEnvInt("SOCIAL_INSTAGRAM_MAX_COMMENTS", 30),
+    youtubeMaxComments: optionalEnvInt("SOCIAL_YOUTUBE_MAX_COMMENTS", 30),
     viralLikesThreshold: optionalEnvInt("SOCIAL_VIRAL_LIKES_THRESHOLD", 1000),
     viralCommentsThreshold: optionalEnvInt("SOCIAL_VIRAL_COMMENTS_THRESHOLD", 100),
   },

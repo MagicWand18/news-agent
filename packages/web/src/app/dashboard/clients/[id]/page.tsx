@@ -1432,12 +1432,13 @@ function ManualGroundingButton({
 }
 
 // Tipos de plataformas sociales
-type SocialPlatform = "TWITTER" | "INSTAGRAM" | "TIKTOK";
+type SocialPlatform = "TWITTER" | "INSTAGRAM" | "TIKTOK" | "YOUTUBE";
 
 const PLATFORMS: { value: SocialPlatform; label: string; icon: string }[] = [
   { value: "TWITTER", label: "Twitter/X", icon: "𝕏" },
   { value: "INSTAGRAM", label: "Instagram", icon: "📷" },
   { value: "TIKTOK", label: "TikTok", icon: "🎵" },
+  { value: "YOUTUBE", label: "YouTube", icon: "▶" },
 ];
 
 /**
@@ -1515,6 +1516,7 @@ function SocialAccountsSection({ clientId }: { clientId: string }) {
     TWITTER: "Twitter/X",
     INSTAGRAM: "Instagram",
     TIKTOK: "TikTok",
+    YOUTUBE: "YouTube",
   };
 
   return (
@@ -1706,6 +1708,7 @@ const SOCIAL_PLATFORM_COLORS: Record<string, string> = {
   TWITTER: "#000000",
   INSTAGRAM: "#E4405F",
   TIKTOK: "#000000",
+  YOUTUBE: "#FF0000",
 };
 
 /**
@@ -1714,7 +1717,7 @@ const SOCIAL_PLATFORM_COLORS: Record<string, string> = {
 function SocialStatsSection({ clientId }: { clientId: string }) {
   const [days, setDays] = useState(7);
   const [showOptions, setShowOptions] = useState(false);
-  const [selectedPlatforms, setSelectedPlatforms] = useState<SocialPlatform[]>(["TWITTER", "INSTAGRAM", "TIKTOK"]);
+  const [selectedPlatforms, setSelectedPlatforms] = useState<SocialPlatform[]>(["TWITTER", "INSTAGRAM", "TIKTOK", "YOUTUBE"]);
   const [collectHandles, setCollectHandles] = useState(true);
   const [collectHashtags, setCollectHashtags] = useState(true);
   const [maxPostsPerSource, setMaxPostsPerSource] = useState(20);
@@ -1751,13 +1754,14 @@ function SocialStatsSection({ clientId }: { clientId: string }) {
   };
 
   const handleCollect = () => {
-    const platforms = selectedPlatforms.length === 3 ? undefined : selectedPlatforms;
+    const platforms = selectedPlatforms.length === PLATFORMS.length ? undefined : selectedPlatforms;
     triggerCollection.mutate({
       clientId,
       platforms,
       collectHandles,
       collectHashtags,
       maxPostsPerSource,
+      maxAgeDays: days,
     });
   };
 
@@ -1801,6 +1805,7 @@ function SocialStatsSection({ clientId }: { clientId: string }) {
     TWITTER: "Twitter/X",
     INSTAGRAM: "Instagram",
     TIKTOK: "TikTok",
+    YOUTUBE: "YouTube",
   };
 
   return (

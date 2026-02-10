@@ -12,7 +12,7 @@ import { config } from "./config";
 
 // ==================== TIPOS ====================
 
-export type SocialPlatform = "TWITTER" | "INSTAGRAM" | "TIKTOK";
+export type SocialPlatform = "TWITTER" | "INSTAGRAM" | "TIKTOK" | "YOUTUBE";
 
 export interface EnsembleDataConfig {
   token: string;
@@ -139,6 +139,37 @@ export interface InstagramComment {
   };
 }
 
+// YouTube Types
+export interface YouTubeVideo {
+  videoId: string;
+  title: string;
+  description: string;
+  publishedTime: string;
+  viewCount: number;
+  likeCount: number;
+  commentCount: number;
+  channelId: string;
+  channelTitle: string;
+}
+
+export interface YouTubeChannelInfo {
+  channelId: string;
+  title: string;
+  subscriberCount: number;
+  videoCount: number;
+  description: string;
+}
+
+export interface YouTubeComment {
+  commentId: string;
+  text: string;
+  authorDisplayName: string;
+  authorChannelUrl: string;
+  likeCount: number;
+  publishedAt: string;
+  totalReplyCount: number;
+}
+
 // Normalized comment structure
 export interface SocialComment {
   commentId: string;
@@ -169,6 +200,28 @@ export interface SocialPost {
 export interface EnsembleDataResponse<T> {
   data: T;
   units_charged: number;
+}
+
+// ==================== HELPERS ====================
+
+/**
+ * Calcula un Unix timestamp restando N días desde ahora.
+ */
+function daysAgoTimestamp(days: number): number {
+  return Math.floor((Date.now() - days * 24 * 60 * 60 * 1000) / 1000);
+}
+
+/**
+ * Filtra posts que sean más antiguos que maxAgeDays.
+ * Necesario porque las APIs devuelven bloques completos que pueden
+ * incluir posts fuera del rango solicitado.
+ */
+function filterOldPosts(posts: SocialPost[], maxAgeDays: number): SocialPost[] {
+  const cutoff = new Date(Date.now() - maxAgeDays * 24 * 60 * 60 * 1000);
+  return posts.filter((p) => {
+    if (!p.postedAt) return true; // Mantener si no tiene fecha
+    return p.postedAt >= cutoff;
+  });
 }
 
 // ==================== CLIENTE ====================
@@ -252,30 +305,41 @@ class EnsembleDataClient {
    * Obtiene tweets recientes de un usuario por username.
    * Primero obtiene el ID del usuario, luego sus tweets.
    * Endpoint: /twitter/user/tweets requiere id numérico
+   *
+   * @param maxAgeDays - Filtra tweets más viejos que N días (post-fetch, la API no soporta filtro nativo)
    */
-  async getTwitterUserTweets(username: string, maxResults: number = 20): Promise<SocialPost[]> {
-    // Primero obtener el ID del usuario
+  async getTwitterUserTweets(username: string, maxResults: number = 20, maxAgeDays?: number): Promise<SocialPost[]> {
     const userInfo = await this.getTwitterUser(username);
     if (!userInfo?.id) {
       console.log(`[EnsembleData] Could not get Twitter user ID for: ${username}`);
       return [];
     }
-    return this.getTwitterUserTweetsById(userInfo.id, maxResults);
+    return this.getTwitterUserTweetsById(userInfo.id, maxResults, maxAgeDays);
   }
 
   /**
    * Obtiene tweets recientes de un usuario por ID numérico.
    * Endpoint: /twitter/user/tweets con parámetro id=
+   * Nota: La API no tiene filtro de fecha nativo, se filtra post-fetch.
    */
-  async getTwitterUserTweetsById(userId: string, maxResults: number = 20): Promise<SocialPost[]> {
+  async getTwitterUserTweetsById(userId: string, maxResults: number = 20, maxAgeDays?: number): Promise<SocialPost[]> {
     try {
       const response = await this.request<{ data: TwitterSearchResult[] }>("/twitter/user/tweets", {
         id: userId,
       });
 
-      // La respuesta viene como array de objetos con estructura especial de Twitter
       const tweets = response.data?.data || [];
-      return tweets.slice(0, maxResults).map((tweet) => this.normalizeTwitterPost(tweet));
+      let posts = tweets.slice(0, maxResults).map((tweet) => this.normalizeTwitterPost(tweet));
+
+      if (maxAgeDays) {
+        const before = posts.length;
+        posts = filterOldPosts(posts, maxAgeDays);
+        if (before !== posts.length) {
+          console.log(`[EnsembleData] Twitter: filtrados ${before - posts.length} tweets antiguos (>${maxAgeDays}d)`);
+        }
+      }
+
+      return posts;
     } catch (error) {
       console.error(`[EnsembleData] Error getting tweets for user ${userId}:`, error);
       return [];
@@ -320,31 +384,50 @@ class EnsembleDataClient {
    * Obtiene posts de un usuario de Instagram por username.
    * Primero obtiene el ID del usuario, luego sus posts.
    * Endpoint: /instagram/user/posts requiere user_id=
+   *
+   * @param maxAgeDays - Usa oldest_timestamp para no traer posts más viejos que N días
    */
-  async getInstagramUserPosts(username: string, maxResults: number = 12): Promise<SocialPost[]> {
-    // Primero obtener el ID del usuario
+  async getInstagramUserPosts(username: string, maxResults: number = 12, maxAgeDays?: number): Promise<SocialPost[]> {
     const userInfo = await this.getInstagramUser(username);
     if (!userInfo?.id) {
       console.log(`[EnsembleData] Could not get Instagram user ID for: ${username}`);
       return [];
     }
-    return this.getInstagramUserPostsById(userInfo.id, maxResults);
+    return this.getInstagramUserPostsById(userInfo.id, maxResults, maxAgeDays);
   }
 
   /**
    * Obtiene posts de un usuario de Instagram por ID numérico.
-   * Endpoint: /instagram/user/posts con parámetro user_id=
+   * Endpoint: /instagram/user/posts con parámetro user_id= y oldest_timestamp=
+   * Nota: oldest_timestamp indica cuándo dejar de buscar, pero el último bloque
+   * puede incluir posts fuera del rango. Se filtra post-fetch.
    */
-  async getInstagramUserPostsById(userId: string, maxResults: number = 12): Promise<SocialPost[]> {
+  async getInstagramUserPostsById(userId: string, maxResults: number = 12, maxAgeDays?: number): Promise<SocialPost[]> {
     try {
-      // La respuesta tiene estructura: { data: { posts: [{ node: InstagramPost }] } }
-      const response = await this.request<{ posts: InstagramPostWrapper[] }>("/instagram/user/posts", {
+      const params: Record<string, string | number | boolean> = {
         user_id: userId,
-        depth: 1, // Requerido por EnsembleData API
-      });
+        depth: 1,
+      };
 
-      const posts = response.data?.posts || [];
-      return posts.slice(0, maxResults).map((wrapper) => this.normalizeInstagramPost(wrapper.node));
+      if (maxAgeDays) {
+        params.oldest_timestamp = daysAgoTimestamp(maxAgeDays);
+      }
+
+      const response = await this.request<{ posts: InstagramPostWrapper[] }>("/instagram/user/posts", params);
+
+      const rawPosts = response.data?.posts || [];
+      let posts = rawPosts.slice(0, maxResults).map((wrapper) => this.normalizeInstagramPost(wrapper.node));
+
+      // Filtro post-fetch: la API puede devolver posts fuera del rango en el último bloque
+      if (maxAgeDays) {
+        const before = posts.length;
+        posts = filterOldPosts(posts, maxAgeDays);
+        if (before !== posts.length) {
+          console.log(`[EnsembleData] Instagram: filtrados ${before - posts.length} posts antiguos (>${maxAgeDays}d)`);
+        }
+      }
+
+      return posts;
     } catch (error) {
       console.error(`[EnsembleData] Error getting posts for user ${userId}:`, error);
       return [];
@@ -354,17 +437,27 @@ class EnsembleDataClient {
   /**
    * Busca posts por hashtag en Instagram.
    * Endpoint: /instagram/hashtag/posts con parámetro name=
+   * Nota: Este endpoint no tiene filtro de fecha nativo, se filtra post-fetch.
    */
-  async searchInstagramHashtag(hashtag: string, maxResults: number = 20): Promise<SocialPost[]> {
+  async searchInstagramHashtag(hashtag: string, maxResults: number = 20, maxAgeDays?: number): Promise<SocialPost[]> {
     const cleanHashtag = hashtag.replace(/^#/, "");
 
     try {
-      // Estructura similar a user/posts: { data: { posts: [{ node: InstagramPost }] } }
       const response = await this.request<{ posts: InstagramPostWrapper[] }>("/instagram/hashtag/posts", {
         name: cleanHashtag,
       });
-      const posts = response.data?.posts || [];
-      return posts.slice(0, maxResults).map((wrapper) => this.normalizeInstagramPost(wrapper.node));
+      const rawPosts = response.data?.posts || [];
+      let posts = rawPosts.slice(0, maxResults).map((wrapper) => this.normalizeInstagramPost(wrapper.node));
+
+      if (maxAgeDays) {
+        const before = posts.length;
+        posts = filterOldPosts(posts, maxAgeDays);
+        if (before !== posts.length) {
+          console.log(`[EnsembleData] IG hashtag #${cleanHashtag}: filtrados ${before - posts.length} posts antiguos (>${maxAgeDays}d)`);
+        }
+      }
+
+      return posts;
     } catch {
       console.log(`[EnsembleData] Instagram hashtag search not available: ${cleanHashtag}`);
       return [];
@@ -425,19 +518,38 @@ class EnsembleDataClient {
 
   /**
    * Obtiene posts de un usuario de TikTok.
-   * Endpoint: /tt/user/posts con parámetro username=
+   * Endpoint: /tt/user/posts con parámetro username= y oldest_createtime=
+   *
+   * @param maxAgeDays - Usa oldest_createtime para detener la búsqueda en posts más viejos que N días.
+   *   Nota: el último bloque puede incluir posts fuera del rango, se filtra post-fetch.
    */
-  async getTikTokUserPosts(username: string, maxResults: number = 20): Promise<SocialPost[]> {
+  async getTikTokUserPosts(username: string, maxResults: number = 20, maxAgeDays?: number): Promise<SocialPost[]> {
     try {
-      const response = await this.request<Record<string, unknown>>("/tt/user/posts", {
+      const params: Record<string, string | number | boolean> = {
         username,
         depth: "1",
-      });
+      };
+
+      if (maxAgeDays) {
+        params.oldest_createtime = daysAgoTimestamp(maxAgeDays);
+      }
+
+      const response = await this.request<Record<string, unknown>>("/tt/user/posts", params);
 
       const rawData = response.data as Record<string, unknown>;
       console.log(`[EnsembleData] TikTok user posts keys:`, Object.keys(rawData || {}));
-      const posts = ((rawData?.data || rawData?.aweme_list || (Array.isArray(rawData) ? rawData : [])) as TikTokPost[]);
-      return posts.slice(0, maxResults).map((post) => this.normalizeTikTokPost(post));
+      const rawPosts = ((rawData?.data || rawData?.aweme_list || (Array.isArray(rawData) ? rawData : [])) as TikTokPost[]);
+      let posts = rawPosts.slice(0, maxResults).map((post) => this.normalizeTikTokPost(post));
+
+      if (maxAgeDays) {
+        const before = posts.length;
+        posts = filterOldPosts(posts, maxAgeDays);
+        if (before !== posts.length) {
+          console.log(`[EnsembleData] TikTok @${username}: filtrados ${before - posts.length} posts antiguos (>${maxAgeDays}d)`);
+        }
+      }
+
+      return posts;
     } catch (error) {
       console.error(`[EnsembleData] Error getting TikTok posts for ${username}:`, error);
       return [];
@@ -446,21 +558,39 @@ class EnsembleDataClient {
 
   /**
    * Busca posts por hashtag en TikTok.
-   * Endpoint: /tt/hashtag/posts con parámetro name=
+   * Usa /tt/hashtag/recent-posts con parámetro days= para filtrar por fecha.
+   * Fallback a /tt/hashtag/posts si no se especifica maxAgeDays.
    */
-  async searchTikTokHashtag(hashtag: string, maxResults: number = 20): Promise<SocialPost[]> {
+  async searchTikTokHashtag(hashtag: string, maxResults: number = 20, maxAgeDays?: number): Promise<SocialPost[]> {
     const cleanHashtag = hashtag.replace(/^#/, "");
 
     try {
-      const response = await this.request<Record<string, unknown>>("/tt/hashtag/posts", {
-        name: cleanHashtag,
-        depth: "1",
-      });
+      let rawData: Record<string, unknown>;
 
-      const rawData = response.data as Record<string, unknown>;
+      if (maxAgeDays) {
+        // Endpoint con filtro temporal nativo
+        const response = await this.request<Record<string, unknown>>("/tt/hashtag/recent-posts", {
+          name: cleanHashtag,
+          days: maxAgeDays,
+        });
+        rawData = response.data as Record<string, unknown>;
+      } else {
+        const response = await this.request<Record<string, unknown>>("/tt/hashtag/posts", {
+          name: cleanHashtag,
+        });
+        rawData = response.data as Record<string, unknown>;
+      }
+
       console.log(`[EnsembleData] TikTok hashtag posts keys:`, Object.keys(rawData || {}));
-      const posts = ((rawData?.data || rawData?.aweme_list || (Array.isArray(rawData) ? rawData : [])) as TikTokPost[]);
-      return posts.slice(0, maxResults).map((post) => this.normalizeTikTokPost(post));
+      const rawPosts = ((rawData?.data || rawData?.aweme_list || (Array.isArray(rawData) ? rawData : [])) as TikTokPost[]);
+      let posts = rawPosts.slice(0, maxResults).map((post) => this.normalizeTikTokPost(post));
+
+      // Filtrado post-fetch de seguridad
+      if (maxAgeDays) {
+        posts = filterOldPosts(posts, maxAgeDays);
+      }
+
+      return posts;
     } catch (error) {
       console.error(`[EnsembleData] Error searching TikTok hashtag ${cleanHashtag}:`, error);
       return [];
@@ -470,22 +600,48 @@ class EnsembleDataClient {
   /**
    * Busca posts por keyword en TikTok.
    * Endpoint: /tt/keyword/search con parámetros name= y period=
+   * period acepta: "0" (hoy), "1", "7", "30", "90", "180"
+   *
+   * @param maxAgeDays - Se mapea al period más cercano soportado por la API
    */
-  async searchTikTok(query: string, maxResults: number = 20): Promise<SocialPost[]> {
+  async searchTikTok(query: string, maxResults: number = 20, maxAgeDays?: number): Promise<SocialPost[]> {
     try {
+      // Mapear maxAgeDays al period más cercano soportado
+      const period = maxAgeDays ? this.mapDaysToPeriod(maxAgeDays) : "7";
+
       const response = await this.request<Record<string, unknown>>("/tt/keyword/search", {
         name: query,
-        period: "7", // Últimos 7 días
+        period,
       });
 
       const rawData = response.data as Record<string, unknown>;
       console.log(`[EnsembleData] TikTok keyword search keys:`, Object.keys(rawData || {}));
-      const posts = ((rawData?.data || rawData?.aweme_list || (Array.isArray(rawData) ? rawData : [])) as TikTokPost[]);
-      return posts.slice(0, maxResults).map((post) => this.normalizeTikTokPost(post));
+      const rawPosts = ((rawData?.data || rawData?.aweme_list || (Array.isArray(rawData) ? rawData : [])) as TikTokPost[]);
+      let posts = rawPosts.slice(0, maxResults).map((post) => this.normalizeTikTokPost(post));
+
+      // Filtrado post-fetch para exactitud (period es aproximado)
+      if (maxAgeDays) {
+        posts = filterOldPosts(posts, maxAgeDays);
+      }
+
+      return posts;
     } catch (error) {
       console.error(`[EnsembleData] Error searching TikTok keyword ${query}:`, error);
       return [];
     }
+  }
+
+  /**
+   * Mapea días a los valores de period soportados por la API de TikTok.
+   * Valores válidos: "0" (hoy), "1", "7", "30", "90", "180"
+   */
+  private mapDaysToPeriod(days: number): string {
+    if (days <= 0) return "0";
+    if (days <= 1) return "1";
+    if (days <= 7) return "7";
+    if (days <= 30) return "30";
+    if (days <= 90) return "90";
+    return "180";
   }
 
   /**
@@ -525,6 +681,224 @@ class EnsembleDataClient {
       shares: stats.shareCount || stats.share_count || stats.shares || 0,
       views: stats.playCount || stats.play_count || stats.views || null,
       postedAt: createTime ? new Date(createTime * 1000) : null,
+    };
+  }
+
+  // ==================== YOUTUBE ====================
+
+  /**
+   * Obtiene el channelId de YouTube a partir de un username.
+   * Endpoint: /youtube/channel/username-to-id
+   */
+  async getYouTubeChannelIdFromUsername(username: string): Promise<string | null> {
+    try {
+      const response = await this.request<Record<string, unknown>>("/youtube/channel/username-to-id", {
+        username,
+      });
+      const data = response.data as Record<string, unknown>;
+      return (data?.channel_id || data?.channelId || null) as string | null;
+    } catch {
+      return null;
+    }
+  }
+
+  /**
+   * Obtiene información detallada de un canal de YouTube.
+   * Endpoint: /youtube/channel/detailed-info
+   */
+  async getYouTubeChannelInfo(channelId: string): Promise<YouTubeChannelInfo | null> {
+    try {
+      const response = await this.request<Record<string, unknown>>("/youtube/channel/detailed-info", {
+        channel_id: channelId,
+        from_url: false,
+      });
+      const data = response.data as Record<string, unknown>;
+      if (!data) return null;
+
+      // Extraer datos del snippet y statistics
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const snippet = (data.snippet || data) as any;
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const statistics = (data.statistics || data) as any;
+
+      return {
+        channelId: (data.id || channelId) as string,
+        title: snippet.title || "",
+        subscriberCount: Number(statistics.subscriberCount || statistics.subscriber_count || 0),
+        videoCount: Number(statistics.videoCount || statistics.video_count || 0),
+        description: snippet.description || "",
+      };
+    } catch {
+      return null;
+    }
+  }
+
+  /**
+   * Obtiene videos de un canal de YouTube.
+   * Endpoint: /youtube/channel/videos
+   * No tiene filtro de fecha nativo → filtrado post-fetch.
+   */
+  async getYouTubeChannelVideos(channelId: string, maxResults: number = 20, maxAgeDays?: number): Promise<SocialPost[]> {
+    try {
+      const response = await this.request<Record<string, unknown>>("/youtube/channel/videos", {
+        channel_id: channelId,
+        depth: 1,
+      });
+
+      const rawData = response.data as Record<string, unknown>;
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const rawVideos = ((rawData?.videos || rawData?.data || (Array.isArray(rawData) ? rawData : [])) as any[]);
+      let posts = rawVideos.slice(0, maxResults).map((video) => this.normalizeYouTubePost(video));
+
+      if (maxAgeDays) {
+        const before = posts.length;
+        posts = filterOldPosts(posts, maxAgeDays);
+        if (before !== posts.length) {
+          console.log(`[EnsembleData] YouTube channel ${channelId}: filtrados ${before - posts.length} videos antiguos (>${maxAgeDays}d)`);
+        }
+      }
+
+      return posts;
+    } catch (error) {
+      console.error(`[EnsembleData] Error getting YouTube videos for channel ${channelId}:`, error);
+      return [];
+    }
+  }
+
+  /**
+   * Busca videos en YouTube por keyword.
+   * Endpoint: /youtube/keyword/search
+   * Usa `period` nativo para filtro temporal + filtrado post-fetch.
+   */
+  async searchYouTube(keyword: string, maxResults: number = 20, maxAgeDays?: number): Promise<SocialPost[]> {
+    try {
+      const period = maxAgeDays ? this.mapDaysToYouTubePeriod(maxAgeDays) : "month";
+
+      const response = await this.request<Record<string, unknown>>("/youtube/keyword/search", {
+        keyword,
+        depth: 1,
+        period,
+        sorting: "relevance",
+      });
+
+      const rawData = response.data as Record<string, unknown>;
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const rawVideos = ((rawData?.videos || rawData?.data || (Array.isArray(rawData) ? rawData : [])) as any[]);
+      let posts = rawVideos.slice(0, maxResults).map((video) => this.normalizeYouTubePost(video));
+
+      // Filtrado post-fetch para exactitud
+      if (maxAgeDays) {
+        posts = filterOldPosts(posts, maxAgeDays);
+      }
+
+      return posts;
+    } catch (error) {
+      console.error(`[EnsembleData] Error searching YouTube keyword ${keyword}:`, error);
+      return [];
+    }
+  }
+
+  /**
+   * Obtiene comentarios de un video de YouTube.
+   * Endpoint: /youtube/video/comments
+   */
+  async getYouTubeVideoComments(videoId: string, maxComments: number = 30): Promise<SocialComment[]> {
+    const allComments: SocialComment[] = [];
+    let cursor: string | undefined;
+    const maxRequests = Math.ceil(maxComments / 20);
+
+    for (let i = 0; i < maxRequests && allComments.length < maxComments; i++) {
+      try {
+        const params: Record<string, string | number | boolean> = {
+          id: videoId,
+        };
+        if (cursor) {
+          params.cursor = cursor;
+        }
+
+        const response = await this.request<Record<string, unknown>>("/youtube/video/comments", params);
+        const data = response.data as Record<string, unknown>;
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        const comments = ((data?.comments || data?.data || (Array.isArray(data) ? data : [])) as any[]);
+        if (comments.length === 0) break;
+
+        for (const comment of comments) {
+          if (allComments.length >= maxComments) break;
+          allComments.push(this.normalizeYouTubeComment(comment));
+        }
+
+        // Verificar si hay más comentarios
+        const nextCursor = data?.next_cursor || data?.nextCursor;
+        if (!nextCursor) break;
+        cursor = String(nextCursor);
+
+        if (i < maxRequests - 1) {
+          await new Promise((resolve) => setTimeout(resolve, 500));
+        }
+      } catch (error) {
+        console.error(`[EnsembleData] Error getting YouTube comments (request ${i + 1}):`, error);
+        break;
+      }
+    }
+
+    console.log(`[EnsembleData] Extracted ${allComments.length} YouTube comments for video ${videoId}`);
+    return allComments;
+  }
+
+  /**
+   * Mapea días a los valores de period soportados por YouTube search.
+   * Valores válidos: "hour", "today", "week", "month", "year"
+   */
+  private mapDaysToYouTubePeriod(days: number): string {
+    if (days <= 1) return "today";
+    if (days <= 7) return "week";
+    if (days <= 30) return "month";
+    return "year";
+  }
+
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  private normalizeYouTubePost(video: any): SocialPost {
+    const videoId = video.videoId || video.video_id || video.id?.videoId || video.id || "";
+    const snippet = video.snippet || video;
+    const statistics = video.statistics || video;
+    const channelTitle = snippet.channelTitle || snippet.channel_title || snippet.author || "unknown";
+    const channelId = snippet.channelId || snippet.channel_id || "";
+
+    // Parsear fecha: puede ser ISO string o timestamp
+    let postedAt: Date | null = null;
+    const publishedTime = snippet.publishedAt || snippet.published_at || snippet.publishedTime || video.publishedTime;
+    if (publishedTime) {
+      const d = new Date(publishedTime);
+      if (!isNaN(d.getTime())) postedAt = d;
+    }
+
+    return {
+      platform: "YOUTUBE",
+      postId: String(videoId),
+      postUrl: `https://youtube.com/watch?v=${videoId}`,
+      content: snippet.title || snippet.description || null,
+      authorHandle: channelId || channelTitle,
+      authorName: channelTitle,
+      authorFollowers: null,
+      likes: Number(statistics.likeCount || statistics.like_count || video.likeCount || 0),
+      comments: Number(statistics.commentCount || statistics.comment_count || video.commentCount || 0),
+      shares: 0, // YouTube no expone shares
+      views: Number(statistics.viewCount || statistics.view_count || video.viewCount || null) || null,
+      postedAt,
+    };
+  }
+
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  private normalizeYouTubeComment(comment: any): SocialComment {
+    const snippet = comment.snippet?.topLevelComment?.snippet || comment.snippet || comment;
+    return {
+      commentId: comment.id || comment.commentId || "",
+      text: snippet.textDisplay || snippet.textOriginal || snippet.text || "",
+      authorHandle: snippet.authorChannelUrl || snippet.authorDisplayName || "",
+      authorName: snippet.authorDisplayName || snippet.author || null,
+      likes: Number(snippet.likeCount || snippet.like_count || 0),
+      replies: Number(comment.snippet?.totalReplyCount || comment.totalReplyCount || 0),
+      postedAt: snippet.publishedAt ? new Date(snippet.publishedAt) : null,
     };
   }
 
@@ -695,6 +1069,12 @@ class EnsembleDataClient {
           return user
             ? { valid: true, platformUserId: user.id }
             : { valid: false, error: "Usuario no encontrado" };
+        }
+        case "YOUTUBE": {
+          const channelId = await this.getYouTubeChannelIdFromUsername(cleanHandle);
+          return channelId
+            ? { valid: true, platformUserId: channelId }
+            : { valid: false, error: "Canal no encontrado" };
         }
         default:
           return { valid: false, error: "Plataforma no soportada" };

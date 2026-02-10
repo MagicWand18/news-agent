@@ -57,7 +57,7 @@ interface ArticleResult {
   isHistorical?: boolean;
 }
 
-type SocialPlatform = "TWITTER" | "INSTAGRAM" | "TIKTOK";
+type SocialPlatform = "TWITTER" | "INSTAGRAM" | "TIKTOK" | "YOUTUBE";
 
 interface SocialAccountInput {
   platform: SocialPlatform;
@@ -892,6 +892,7 @@ export default function NewClientWizardPage() {
                       <option value="TWITTER">Twitter/X</option>
                       <option value="INSTAGRAM">Instagram</option>
                       <option value="TIKTOK">TikTok</option>
+                      <option value="YOUTUBE">YouTube</option>
                     </select>
                     <input
                       type="text"

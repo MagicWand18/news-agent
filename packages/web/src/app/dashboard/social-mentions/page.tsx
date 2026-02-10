@@ -11,6 +11,7 @@ const PLATFORM_OPTIONS = [
   { value: "TWITTER", label: "Twitter" },
   { value: "INSTAGRAM", label: "Instagram" },
   { value: "TIKTOK", label: "TikTok" },
+  { value: "YOUTUBE", label: "YouTube" },
 ];
 
 const SENTIMENT_OPTIONS = [
@@ -243,6 +244,12 @@ function SocialMentionsPageContent() {
             value={stats.data.byPlatform.TIKTOK || 0}
             icon={<span className="text-sm font-bold">TT</span>}
             color="bg-black dark:bg-gray-700"
+          />
+          <StatCard
+            label="YouTube"
+            value={stats.data.byPlatform.YOUTUBE || 0}
+            icon={<span className="text-sm font-bold">YT</span>}
+            color="bg-red-600"
           />
         </div>
       )}

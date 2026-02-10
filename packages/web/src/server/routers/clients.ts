@@ -693,7 +693,7 @@ IMPORTANTE: Genera 8-12 keywords variados basados en las noticias.`;
         socialHashtags: z.array(z.string()).optional(),
         socialAccounts: z.array(
           z.object({
-            platform: z.enum(["TWITTER", "INSTAGRAM", "TIKTOK"]),
+            platform: z.enum(["TWITTER", "INSTAGRAM", "TIKTOK", "YOUTUBE"]),
             handle: z.string(),
             label: z.string().optional(),
             isOwned: z.boolean().default(false),

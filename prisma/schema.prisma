@@ -462,6 +462,7 @@ enum SocialPlatform {
   TWITTER
   INSTAGRAM
   TIKTOK
+  YOUTUBE
 }
 
 enum SocialSourceType {

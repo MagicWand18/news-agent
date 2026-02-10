@@ -13,6 +13,7 @@
 import {
   prisma,
   getEnsembleDataClient,
+  config,
   type SocialPost,
 } from "@mediabot/shared";
 import type { SocialPlatform as PrismaSocialPlatform } from "@prisma/client";
@@ -22,6 +23,9 @@ const API_DELAY_MS = 500;
 
 // Máximo de posts a recolectar por fuente
 const MAX_POSTS_PER_SOURCE = 20;
+
+// Máxima antigüedad de posts a recolectar (en días)
+const MAX_AGE_DAYS = config.social.maxAgeDays;
 
 interface CollectionStats {
   clientsProcessed: number;
@@ -181,16 +185,26 @@ async function collectFromHandle(
   client: ReturnType<typeof getEnsembleDataClient>,
   platform: PrismaSocialPlatform,
   handle: string,
-  _platformUserId: string | null, // No usado por EnsembleData, mantenido para compatibilidad
-  maxPosts: number = MAX_POSTS_PER_SOURCE
+  _platformUserId: string | null,
+  maxPosts: number = MAX_POSTS_PER_SOURCE,
+  maxAgeDays: number = MAX_AGE_DAYS
 ): Promise<SocialPost[]> {
   switch (platform) {
     case "TWITTER":
-      return client.getTwitterUserTweets(handle, maxPosts);
+      return client.getTwitterUserTweets(handle, maxPosts, maxAgeDays);
     case "INSTAGRAM":
-      return client.getInstagramUserPosts(handle, maxPosts);
+      return client.getInstagramUserPosts(handle, maxPosts, maxAgeDays);
     case "TIKTOK":
-      return client.getTikTokUserPosts(handle, maxPosts);
+      return client.getTikTokUserPosts(handle, maxPosts, maxAgeDays);
+    case "YOUTUBE": {
+      // Resolver username → channelId
+      const channelId = await client.getYouTubeChannelIdFromUsername(handle);
+      if (!channelId) {
+        console.log(`[Social] YouTube channel not found for username: ${handle}`);
+        return [];
+      }
+      return client.getYouTubeChannelVideos(channelId, maxPosts, maxAgeDays);
+    }
     default:
       return [];
   }
@@ -203,7 +217,8 @@ async function collectFromHashtag(
   client: ReturnType<typeof getEnsembleDataClient>,
   hashtag: string,
   platforms?: PrismaSocialPlatform[],
-  maxPosts: number = MAX_POSTS_PER_SOURCE
+  maxPosts: number = MAX_POSTS_PER_SOURCE,
+  maxAgeDays: number = MAX_AGE_DAYS
 ): Promise<SocialPost[]> {
   const posts: SocialPost[] = [];
   const shouldCollect = (p: PrismaSocialPlatform) => !platforms || platforms.includes(p);
@@ -211,7 +226,7 @@ async function collectFromHashtag(
   // Instagram
   if (shouldCollect("INSTAGRAM")) {
     try {
-      const igPosts = await client.searchInstagramHashtag(hashtag, maxPosts);
+      const igPosts = await client.searchInstagramHashtag(hashtag, maxPosts, maxAgeDays);
       posts.push(...igPosts);
     } catch (error) {
       console.error(`  [Instagram hashtag error]:`, error instanceof Error ? error.message : error);
@@ -222,7 +237,7 @@ async function collectFromHashtag(
   // TikTok
   if (shouldCollect("TIKTOK")) {
     try {
-      const ttPosts = await client.searchTikTokHashtag(hashtag, maxPosts);
+      const ttPosts = await client.searchTikTokHashtag(hashtag, maxPosts, maxAgeDays);
       posts.push(...ttPosts);
     } catch (error) {
       console.error(`  [TikTok hashtag error]:`, error instanceof Error ? error.message : error);
@@ -237,11 +252,12 @@ async function collectFromHashtag(
  */
 async function collectFromKeyword(
   client: ReturnType<typeof getEnsembleDataClient>,
-  keyword: string
+  keyword: string,
+  maxAgeDays: number = MAX_AGE_DAYS
 ): Promise<SocialPost[]> {
   const posts: SocialPost[] = [];
 
-  // Twitter search
+  // Twitter search (no soporta keyword search en EnsembleData)
   try {
     const tweets = await client.searchTwitter(keyword, MAX_POSTS_PER_SOURCE);
     posts.push(...tweets);
@@ -253,10 +269,20 @@ async function collectFromKeyword(
 
   // TikTok search
   try {
-    const ttPosts = await client.searchTikTok(keyword, MAX_POSTS_PER_SOURCE);
+    const ttPosts = await client.searchTikTok(keyword, MAX_POSTS_PER_SOURCE, maxAgeDays);
     posts.push(...ttPosts);
   } catch (error) {
     console.error(`  [TikTok search error]:`, error instanceof Error ? error.message : error);
+  }
+
+  await delay(API_DELAY_MS);
+
+  // YouTube search
+  try {
+    const ytPosts = await client.searchYouTube(keyword, MAX_POSTS_PER_SOURCE, maxAgeDays);
+    posts.push(...ytPosts);
+  } catch (error) {
+    console.error(`  [YouTube search error]:`, error instanceof Error ? error.message : error);
   }
 
   return posts;
@@ -348,6 +374,7 @@ export interface CollectSocialOptions {
   collectHandles?: boolean; // Default: true
   collectHashtags?: boolean; // Default: true
   maxPostsPerSource?: number; // Default: MAX_POSTS_PER_SOURCE (20)
+  maxAgeDays?: number; // Default: MAX_AGE_DAYS de config
 }
 
 /**
@@ -367,6 +394,7 @@ export async function collectSocialForClient(
     collectHandles = true,
     collectHashtags = true,
     maxPostsPerSource: maxPosts = MAX_POSTS_PER_SOURCE,
+    maxAgeDays = MAX_AGE_DAYS,
   } = options;
 
   const apiClient = getEnsembleDataClient();
@@ -400,7 +428,7 @@ export async function collectSocialForClient(
     for (const account of accountsToProcess) {
       await delay(API_DELAY_MS);
       try {
-        const posts = await collectFromHandle(apiClient, account.platform, account.handle, null, maxPosts);
+        const posts = await collectFromHandle(apiClient, account.platform, account.handle, null, maxPosts, maxAgeDays);
         const newPosts = await savePosts(posts, clientId, "HANDLE", account.handle);
         postsCollected += posts.length;
         postsNew += newPosts;
@@ -417,7 +445,7 @@ export async function collectSocialForClient(
     for (const hashtag of clientData.socialHashtags || []) {
       await delay(API_DELAY_MS);
       try {
-        const posts = await collectFromHashtag(apiClient, hashtag, platforms, maxPosts);
+        const posts = await collectFromHashtag(apiClient, hashtag, platforms, maxPosts, maxAgeDays);
         const newPosts = await savePosts(posts, clientId, "HASHTAG", hashtag);
         postsCollected += posts.length;
         postsNew += newPosts;

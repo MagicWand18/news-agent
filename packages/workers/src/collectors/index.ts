@@ -89,13 +89,15 @@ export function startCollectorWorkers(_queues: ReturnType<typeof import("../queu
         collectHandles,
         collectHashtags,
         maxPostsPerSource,
+        maxAgeDays,
       } = job.data as {
         clientId?: string;
         manual?: boolean;
-        platforms?: ("TWITTER" | "INSTAGRAM" | "TIKTOK")[];
+        platforms?: ("TWITTER" | "INSTAGRAM" | "TIKTOK" | "YOUTUBE")[];
         collectHandles?: boolean;
         collectHashtags?: boolean;
         maxPostsPerSource?: number;
+        maxAgeDays?: number;
       } || {};
 
       if (clientId) {
@@ -106,6 +108,7 @@ export function startCollectorWorkers(_queues: ReturnType<typeof import("../queu
           collectHandles,
           collectHashtags,
           maxPostsPerSource,
+          maxAgeDays,
         });
         console.log(`📱 Social: ${stats.postsNew} new posts, ${stats.errors} errors`);
       } else {
