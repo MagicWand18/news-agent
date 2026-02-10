@@ -127,6 +127,14 @@ export function Sidebar() {
                 <Moon className="h-4 w-4" />
               )}
             </button>
+            {/* Collapse toggle - solo desktop */}
+            <button
+              onClick={toggle}
+              className="hidden rounded-lg p-1.5 text-gray-300 hover:bg-white/10 transition-colors lg:block"
+            >
+              <ChevronLeft className="h-4 w-4" />
+            </button>
+            {/* Close mobile sidebar */}
             <button
               onClick={() => setMobileOpen(false)}
               className="rounded-lg p-1 text-gray-300 hover:bg-white/10 lg:hidden"
@@ -137,17 +145,15 @@ export function Sidebar() {
         )}
       </div>
 
-      {/* Boton de toggle (solo visible en desktop) */}
-      <button
-        onClick={toggle}
-        className="mx-3 mb-2 hidden items-center justify-center rounded-lg p-1.5 text-gray-300 hover:bg-white/10 transition-colors lg:flex"
-      >
-        {isCollapsed ? <ChevronRight className="h-4 w-4" /> : <ChevronLeft className="h-4 w-4" />}
-      </button>
-
-      {/* Notificaciones y tema cuando esta colapsado */}
+      {/* Notificaciones, tema y expand cuando esta colapsado */}
       {isCollapsed && (
         <div className="flex flex-col items-center gap-1 px-1 mb-2">
+          <button
+            onClick={toggle}
+            className="rounded-lg p-1.5 text-gray-300 hover:bg-white/10 transition-colors"
+          >
+            <ChevronRight className="h-4 w-4" />
+          </button>
           <NotificationBell />
           <button
             onClick={toggleTheme}

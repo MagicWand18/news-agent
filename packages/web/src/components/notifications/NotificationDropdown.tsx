@@ -4,7 +4,7 @@ import { useEffect, useRef } from "react";
 import { useRouter } from "next/navigation";
 import { trpc } from "@/lib/trpc";
 import { NotificationItem } from "./NotificationItem";
-import { Loader2, Inbox, CheckCheck } from "lucide-react";
+import { Loader2, Inbox, CheckCheck, X } from "lucide-react";
 
 interface NotificationDropdownProps {
   isOpen: boolean;
@@ -41,12 +41,14 @@ export function NotificationDropdown({
     },
   });
 
-  // Cerrar al hacer click fuera
+  // Cerrar al hacer click fuera (incluye el contenedor padre con el botón bell)
   useEffect(() => {
     function handleClickOutside(event: MouseEvent) {
+      const parentContainer = dropdownRef.current?.closest("[data-tour-id='notification-bell']");
       if (
         dropdownRef.current &&
-        !dropdownRef.current.contains(event.target as Node)
+        !dropdownRef.current.contains(event.target as Node) &&
+        (!parentContainer || !parentContainer.contains(event.target as Node))
       ) {
         onClose();
       }
@@ -113,16 +115,25 @@ export function NotificationDropdown({
         <h3 className="font-semibold text-gray-900 dark:text-white">
           Notificaciones
         </h3>
-        {hasUnread && (
+        <div className="flex items-center gap-2">
+          {hasUnread && (
+            <button
+              onClick={() => markAllAsRead.mutate()}
+              disabled={markAllAsRead.isPending}
+              className="flex items-center gap-1 text-xs text-blue-600 hover:text-blue-700 dark:text-blue-400 dark:hover:text-blue-300"
+            >
+              <CheckCheck className="h-3.5 w-3.5" />
+              Marcar todas
+            </button>
+          )}
           <button
-            onClick={() => markAllAsRead.mutate()}
-            disabled={markAllAsRead.isPending}
-            className="flex items-center gap-1 text-xs text-blue-600 hover:text-blue-700 dark:text-blue-400 dark:hover:text-blue-300"
+            onClick={onClose}
+            className="rounded-md p-1 text-gray-400 hover:bg-gray-100 hover:text-gray-600 dark:hover:bg-gray-700 dark:hover:text-gray-300"
+            aria-label="Cerrar notificaciones"
           >
-            <CheckCheck className="h-3.5 w-3.5" />
-            Marcar todas
+            <X className="h-4 w-4" />
           </button>
-        )}
+        </div>
       </div>
 
       {/* Lista de notificaciones */}
