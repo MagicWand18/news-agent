@@ -101,10 +101,17 @@ export const clientsRouter = router({
       // Determinar orgId: Super Admin puede especificar, usuario normal usa el suyo
       let targetOrgId = getEffectiveOrgId(ctx.user, input.orgId) || ctx.user.orgId;
 
-      // Super Admin sin org asignada: usar primera org disponible
+      // Super Admin sin org asignada: buscar org "Default", luego primera disponible
       if (!targetOrgId) {
-        const firstOrg = await prisma.organization.findFirst({ select: { id: true }, orderBy: { createdAt: "asc" } });
-        targetOrgId = firstOrg?.id || null;
+        const defaultOrg = await prisma.organization.findFirst({
+          where: { name: "Default" },
+          select: { id: true },
+        });
+        targetOrgId = defaultOrg?.id || null;
+        if (!targetOrgId) {
+          const firstOrg = await prisma.organization.findFirst({ select: { id: true }, orderBy: { createdAt: "asc" } });
+          targetOrgId = firstOrg?.id || null;
+        }
       }
 
       if (!targetOrgId) {
@@ -702,10 +709,17 @@ IMPORTANTE: Genera 8-12 keywords variados basados en las noticias.`;
       // Determinar orgId: Super Admin puede especificar, usuario normal usa el suyo
       let targetOrgId = getEffectiveOrgId(ctx.user, input.orgId) || ctx.user.orgId;
 
-      // Super Admin sin org asignada: usar primera org disponible
+      // Super Admin sin org asignada: buscar org "Default", luego primera disponible
       if (!targetOrgId) {
-        const firstOrg = await prisma.organization.findFirst({ select: { id: true }, orderBy: { createdAt: "asc" } });
-        targetOrgId = firstOrg?.id || null;
+        const defaultOrg = await prisma.organization.findFirst({
+          where: { name: "Default" },
+          select: { id: true },
+        });
+        targetOrgId = defaultOrg?.id || null;
+        if (!targetOrgId) {
+          const firstOrg = await prisma.organization.findFirst({ select: { id: true }, orderBy: { createdAt: "asc" } });
+          targetOrgId = firstOrg?.id || null;
+        }
       }
 
       if (!targetOrgId) {
@@ -820,7 +834,7 @@ IMPORTANTE: Genera 8-12 keywords variados basados en las noticias.`;
     .query(async ({ input, ctx }) => {
       const whereClause = ctx.user.isSuperAdmin
         ? { id: input.clientId }
-        : { id: input.clientId, orgId: ctx.user.orgId };
+        : { id: input.clientId, orgId: ctx.user.orgId! };
       const client = await prisma.client.findFirst({
         where: whereClause,
         select: {
@@ -866,7 +880,7 @@ IMPORTANTE: Genera 8-12 keywords variados basados en las noticias.`;
       // Verificar que el cliente pertenece a la organización (o es Super Admin)
       const whereClause = ctx.user.isSuperAdmin
         ? { id: clientId }
-        : { id: clientId, orgId: ctx.user.orgId };
+        : { id: clientId, orgId: ctx.user.orgId! };
       const client = await prisma.client.findFirst({ where: whereClause });
 
       if (!client) {
@@ -901,7 +915,7 @@ IMPORTANTE: Genera 8-12 keywords variados basados en las noticias.`;
     .mutation(async ({ input, ctx }) => {
       const whereClause = ctx.user.isSuperAdmin
         ? { id: input.clientId }
-        : { id: input.clientId, orgId: ctx.user.orgId };
+        : { id: input.clientId, orgId: ctx.user.orgId! };
       const client = await prisma.client.findFirst({
         where: whereClause,
         select: {
@@ -961,7 +975,7 @@ IMPORTANTE: Genera 8-12 keywords variados basados en las noticias.`;
       // Verificar que el cliente pertenece a la organización (o es Super Admin)
       const whereClause = ctx.user.isSuperAdmin
         ? { id: input.clientId }
-        : { id: input.clientId, orgId: ctx.user.orgId };
+        : { id: input.clientId, orgId: ctx.user.orgId! };
       const client = await prisma.client.findFirst({
         where: whereClause,
         select: {
@@ -1004,7 +1018,7 @@ IMPORTANTE: Genera 8-12 keywords variados basados en las noticias.`;
       // Verificar que el cliente pertenece a la organización (o es Super Admin)
       const whereClause = ctx.user.isSuperAdmin
         ? { id: input.clientId }
-        : { id: input.clientId, orgId: ctx.user.orgId };
+        : { id: input.clientId, orgId: ctx.user.orgId! };
       const client = await prisma.client.findFirst({ where: whereClause });
 
       if (!client) {
@@ -1084,7 +1098,7 @@ IMPORTANTE: Genera 8-12 keywords variados basados en las noticias.`;
       // Verificar que el recipient pertenece a un cliente de la organización (o es Super Admin)
       const whereClause = ctx.user.isSuperAdmin
         ? { id }
-        : { id, client: { orgId: ctx.user.orgId } };
+        : { id, client: { orgId: ctx.user.orgId! } };
       const recipient = await prisma.telegramRecipient.findFirst({
         where: whereClause,
         include: { client: true },
@@ -1126,7 +1140,7 @@ IMPORTANTE: Genera 8-12 keywords variados basados en las noticias.`;
       // Verificar que el recipient pertenece a un cliente de la organización (o es Super Admin)
       const whereClause = ctx.user.isSuperAdmin
         ? { id: input.id }
-        : { id: input.id, client: { orgId: ctx.user.orgId } };
+        : { id: input.id, client: { orgId: ctx.user.orgId! } };
       const recipient = await prisma.telegramRecipient.findFirst({
         where: whereClause,
         include: { client: true },
@@ -1168,7 +1182,7 @@ IMPORTANTE: Genera 8-12 keywords variados basados en las noticias.`;
     .query(async ({ input, ctx }) => {
       const whereClause = ctx.user.isSuperAdmin
         ? { id: input.clientId }
-        : { id: input.clientId, orgId: ctx.user.orgId };
+        : { id: input.clientId, orgId: ctx.user.orgId! };
       const client = await prisma.client.findFirst({
         where: whereClause,
         include: { keywords: { where: { active: true } } },

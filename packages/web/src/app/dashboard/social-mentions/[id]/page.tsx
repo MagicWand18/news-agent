@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useRef, useCallback } from "react";
 import { trpc } from "@/lib/trpc";
 import { cn } from "@/lib/cn";
 import { sentimentConfig } from "@/lib/mention-config";
@@ -82,13 +82,38 @@ export default function SocialMentionDetailPage() {
   const params = useParams();
   const id = params.id as string;
   const [extractionMessage, setExtractionMessage] = useState<string | null>(null);
+  const [isPolling, setIsPolling] = useState(false);
+  const pollingRef = useRef<NodeJS.Timeout | null>(null);
+
+  // Limpiar polling al desmontar
+  const stopPolling = useCallback(() => {
+    if (pollingRef.current) {
+      clearInterval(pollingRef.current);
+      pollingRef.current = null;
+    }
+    setIsPolling(false);
+  }, []);
 
   const { data: mention, isLoading, refetch } = trpc.social.getSocialMentionById.useQuery({ id });
   const extractCommentsMutation = trpc.social.extractComments.useMutation({
     onSuccess: (data) => {
       setExtractionMessage(data.message);
-      // Refrescar datos después de unos segundos para ver los comentarios
-      setTimeout(() => refetch(), 5000);
+      setIsPolling(true);
+      let attempts = 0;
+      pollingRef.current = setInterval(async () => {
+        attempts++;
+        const result = await refetch();
+        const comments = (result.data?.commentsData as unknown[]) || [];
+        if (comments.length > 0) {
+          stopPolling();
+          setExtractionMessage(`${comments.length} comentarios extraidos exitosamente`);
+        } else if (attempts >= 10) {
+          stopPolling();
+          setExtractionMessage("La extraccion esta tomando mas tiempo del esperado. Revisa en unos minutos.");
+        } else {
+          setExtractionMessage(`Esperando resultados... (intento ${attempts}/10)`);
+        }
+      }, 3000);
     },
     onError: (error) => {
       setExtractionMessage(error.message);
@@ -192,18 +217,18 @@ export default function SocialMentionDetailPage() {
             {mention.platform !== "TWITTER" && (
               <button
                 onClick={handleExtractComments}
-                disabled={extractCommentsMutation.isPending}
+                disabled={extractCommentsMutation.isPending || isPolling}
                 className={cn(
                   "inline-flex items-center gap-1.5 rounded-lg px-4 py-2 text-sm font-medium transition-colors",
-                  extractCommentsMutation.isPending
+                  extractCommentsMutation.isPending || isPolling
                     ? "bg-gray-100 dark:bg-gray-700 text-gray-400 cursor-not-allowed"
                     : "bg-purple-50 dark:bg-purple-900/30 text-purple-700 dark:text-purple-300 hover:bg-purple-100 dark:hover:bg-purple-900/50"
                 )}
               >
-                {extractCommentsMutation.isPending ? (
+                {extractCommentsMutation.isPending || isPolling ? (
                   <>
                     <Loader2 className="h-4 w-4 animate-spin" />
-                    Extrayendo...
+                    {isPolling ? "Esperando..." : "Extrayendo..."}
                   </>
                 ) : (
                   <>
@@ -356,9 +381,9 @@ export default function SocialMentionDetailPage() {
       </div>
 
       {/* Sección de comentarios extraídos */}
-      {mention.commentsData && (mention.commentsData as ExtractedComment[]).length > 0 && (
+      {mention.commentsData && (mention.commentsData as unknown as ExtractedComment[]).length > 0 && (
         <CommentsSection
-          comments={mention.commentsData as ExtractedComment[]}
+          comments={mention.commentsData as unknown as ExtractedComment[]}
           commentsCount={mention.commentsCount || 0}
           commentsSentiment={mention.commentsSentiment}
           commentsExtractedAt={mention.commentsExtractedAt}

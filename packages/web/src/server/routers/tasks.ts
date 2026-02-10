@@ -53,7 +53,7 @@ export const tasksRouter = router({
       // Super Admin puede crear tareas para cualquier cliente/usuario
       if (input.clientId && !ctx.user.isSuperAdmin) {
         const client = await prisma.client.findFirst({
-          where: { id: input.clientId, orgId: ctx.user.orgId },
+          where: { id: input.clientId, orgId: ctx.user.orgId! },
         });
         if (!client) {
           throw new TRPCError({ code: "NOT_FOUND", message: "Client not found" });
@@ -61,7 +61,7 @@ export const tasksRouter = router({
       }
       if (input.assigneeId && !ctx.user.isSuperAdmin) {
         const assignee = await prisma.user.findFirst({
-          where: { id: input.assigneeId, orgId: ctx.user.orgId },
+          where: { id: input.assigneeId, orgId: ctx.user.orgId! },
         });
         if (!assignee) {
           throw new TRPCError({ code: "NOT_FOUND", message: "Assignee not found" });
@@ -87,7 +87,7 @@ export const tasksRouter = router({
       // Super Admin puede actualizar cualquier tarea
       const whereClause = ctx.user.isSuperAdmin
         ? { id }
-        : { id, client: { orgId: ctx.user.orgId } };
+        : { id, client: { orgId: ctx.user.orgId! } };
       const task = await prisma.task.findFirst({ where: whereClause });
       if (!task) {
         throw new TRPCError({ code: "NOT_FOUND", message: "Task not found" });

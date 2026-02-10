@@ -86,6 +86,7 @@ model Client {
   socialHashtags          String[]  @default([])     // Hashtags a monitorear (sin #)
   socialAccounts          SocialAccount[]
   socialMentions          SocialMention[]
+  lastSocialCollectionAt  DateTime?                  // Última recolección manual de redes sociales
 }
 
 model Keyword {

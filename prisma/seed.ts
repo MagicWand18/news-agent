@@ -22,6 +22,11 @@ async function main() {
     },
   });
 
+  // Crear organización Default para Super Admin
+  const defaultOrg = await prisma.organization.create({
+    data: { name: "Default" },
+  });
+
   // Create super admin (ve todas las organizaciones)
   const superAdminPasswordHash = await bcrypt.hash("6lB5/A1NOVFOkOWG", 12);
   await prisma.user.create({
@@ -31,7 +36,7 @@ async function main() {
       passwordHash: superAdminPasswordHash,
       role: "ADMIN",
       isSuperAdmin: true,
-      // Sin orgId - puede ver todas las organizaciones
+      orgId: defaultOrg.id,
     },
   });
 
@@ -55,8 +60,9 @@ async function main() {
 
   console.log("Seed completado!");
   console.log(`  Org: ${org.name} (${org.id})`);
+  console.log(`  Org Default: ${defaultOrg.name} (${defaultOrg.id})`);
   console.log(`  Admin Crisalida: admin@crisalida.com`);
-  console.log(`  Super Admin: admin@example.com (isSuperAdmin: true)`);
+  console.log(`  Super Admin: admin@example.com (isSuperAdmin: true, orgId: ${defaultOrg.id})`);
   console.log(`  Cliente: ${client.name}`);
 }
 

@@ -57,7 +57,7 @@ export const socialRouter = router({
       // Buscar la mención
       const whereClause = ctx.user.isSuperAdmin
         ? { id: input.mentionId }
-        : { id: input.mentionId, client: { orgId: ctx.user.orgId } };
+        : { id: input.mentionId, client: { orgId: ctx.user.orgId! } };
 
       const mention = await prisma.socialMention.findFirst({
         where: whereClause,
@@ -414,7 +414,7 @@ Genera:
       // Super Admin puede ver cualquier cliente
       const clientWhereClause = ctx.user.isSuperAdmin
         ? { id: input.clientId }
-        : { id: input.clientId, orgId: ctx.user.orgId };
+        : { id: input.clientId, orgId: ctx.user.orgId! };
       const client = await prisma.client.findFirst({
         where: clientWhereClause,
         select: { id: true },
@@ -504,7 +504,7 @@ Genera:
       // Super Admin puede ver cualquier cliente
       const clientWhereClause = ctx.user.isSuperAdmin
         ? { id: input.clientId }
-        : { id: input.clientId, orgId: ctx.user.orgId };
+        : { id: input.clientId, orgId: ctx.user.orgId! };
       const client = await prisma.client.findFirst({
         where: clientWhereClause,
         select: { id: true },
@@ -558,7 +558,7 @@ Genera:
       // Super Admin puede ver cualquier cliente
       const clientWhereClause = ctx.user.isSuperAdmin
         ? { id: input.clientId }
-        : { id: input.clientId, orgId: ctx.user.orgId };
+        : { id: input.clientId, orgId: ctx.user.orgId! };
       const client = await prisma.client.findFirst({
         where: clientWhereClause,
         select: { id: true, socialMonitoringEnabled: true, socialHashtags: true },
@@ -597,7 +597,7 @@ Genera:
       // Super Admin puede agregar a cualquier cliente
       const clientWhereClause = ctx.user.isSuperAdmin
         ? { id: input.clientId }
-        : { id: input.clientId, orgId: ctx.user.orgId };
+        : { id: input.clientId, orgId: ctx.user.orgId! };
       const client = await prisma.client.findFirst({ where: clientWhereClause });
 
       if (!client) {
@@ -678,7 +678,7 @@ Genera:
       // Super Admin puede actualizar cualquier cuenta
       const whereClause = ctx.user.isSuperAdmin
         ? { id }
-        : { id, client: { orgId: ctx.user.orgId } };
+        : { id, client: { orgId: ctx.user.orgId! } };
       const account = await prisma.socialAccount.findFirst({ where: whereClause });
 
       if (!account) {
@@ -700,7 +700,7 @@ Genera:
       // Super Admin puede eliminar cualquier cuenta
       const whereClause = ctx.user.isSuperAdmin
         ? { id: input.id }
-        : { id: input.id, client: { orgId: ctx.user.orgId } };
+        : { id: input.id, client: { orgId: ctx.user.orgId! } };
       const account = await prisma.socialAccount.findFirst({ where: whereClause });
 
       if (!account) {
@@ -732,7 +732,7 @@ Genera:
       // Super Admin puede actualizar cualquier cliente
       const clientWhereClause = ctx.user.isSuperAdmin
         ? { id: clientId }
-        : { id: clientId, orgId: ctx.user.orgId };
+        : { id: clientId, orgId: ctx.user.orgId! };
       const client = await prisma.client.findFirst({ where: clientWhereClause });
 
       if (!client) {
@@ -773,10 +773,10 @@ Genera:
       // Super Admin puede ejecutar recolección para cualquier cliente
       const clientWhereClause = ctx.user.isSuperAdmin
         ? { id: input.clientId }
-        : { id: input.clientId, orgId: ctx.user.orgId };
+        : { id: input.clientId, orgId: ctx.user.orgId! };
       const client = await prisma.client.findFirst({
         where: clientWhereClause,
-        select: { id: true, name: true, socialMonitoringEnabled: true },
+        select: { id: true, name: true, socialMonitoringEnabled: true, lastSocialCollectionAt: true },
       });
 
       if (!client) {
@@ -788,6 +788,19 @@ Genera:
           code: "BAD_REQUEST",
           message: "El monitoreo social no está habilitado para este cliente",
         });
+      }
+
+      // Verificar cooldown de 30 minutos
+      const COOLDOWN_MS = 30 * 60 * 1000;
+      if (client.lastSocialCollectionAt) {
+        const elapsed = Date.now() - new Date(client.lastSocialCollectionAt).getTime();
+        if (elapsed < COOLDOWN_MS) {
+          const remainingMin = Math.ceil((COOLDOWN_MS - elapsed) / 60000);
+          throw new TRPCError({
+            code: "TOO_MANY_REQUESTS",
+            message: `Espera ${remainingMin} minuto${remainingMin !== 1 ? "s" : ""} antes de recolectar de nuevo`,
+          });
+        }
       }
 
       // Encolar el job de recolección
@@ -808,6 +821,12 @@ Genera:
             backoff: { type: "exponential", delay: 5000 },
           }
         );
+
+        // Actualizar timestamp de última recolección
+        await prisma.client.update({
+          where: { id: input.clientId },
+          data: { lastSocialCollectionAt: new Date() },
+        });
 
         const platformsMsg = input.platforms
           ? input.platforms.join(", ")

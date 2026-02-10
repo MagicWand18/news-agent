@@ -31,14 +31,11 @@ import {
   Zap,
 } from "lucide-react";
 import { FilterBar, FilterSelect } from "@/components/filters";
+import { TIME_PERIOD_OPTIONS } from "@/lib/filter-constants";
 
 const SOV_COLORS = ["#3b82f6", "#10b981", "#f59e0b", "#ef4444", "#8b5cf6", "#ec4899"];
 
-const PERIOD_OPTIONS = [
-  { value: "7", label: "7 dias" },
-  { value: "30", label: "30 dias" },
-  { value: "60", label: "60 dias" },
-];
+const PERIOD_OPTIONS = TIME_PERIOD_OPTIONS;
 
 export default function IntelligencePage() {
   const [clientId, setClientId] = useState<string>("");

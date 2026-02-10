@@ -224,6 +224,12 @@ class EnsembleDataClient {
     const data = await response.json() as EnsembleDataResponse<T>;
     console.log(`[EnsembleData] Response OK, units charged: ${data.units_charged || 0}`);
 
+    // Logging diagnóstico para endpoints TikTok
+    if (endpoint.startsWith("/tt/")) {
+      const rawKeys = Object.keys((data?.data as Record<string, unknown>) || {});
+      console.log(`[EnsembleData] TikTok ${endpoint} response data keys:`, rawKeys.slice(0, 10));
+    }
+
     return data;
   }
 
@@ -423,12 +429,14 @@ class EnsembleDataClient {
    */
   async getTikTokUserPosts(username: string, maxResults: number = 20): Promise<SocialPost[]> {
     try {
-      const response = await this.request<{ data: TikTokPost[] }>("/tt/user/posts", {
+      const response = await this.request<Record<string, unknown>>("/tt/user/posts", {
         username,
         depth: "1",
       });
 
-      const posts = response.data?.data || [];
+      const rawData = response.data as Record<string, unknown>;
+      console.log(`[EnsembleData] TikTok user posts keys:`, Object.keys(rawData || {}));
+      const posts = ((rawData?.data || rawData?.aweme_list || (Array.isArray(rawData) ? rawData : [])) as TikTokPost[]);
       return posts.slice(0, maxResults).map((post) => this.normalizeTikTokPost(post));
     } catch (error) {
       console.error(`[EnsembleData] Error getting TikTok posts for ${username}:`, error);
@@ -444,12 +452,14 @@ class EnsembleDataClient {
     const cleanHashtag = hashtag.replace(/^#/, "");
 
     try {
-      const response = await this.request<{ data: TikTokPost[] }>("/tt/hashtag/posts", {
+      const response = await this.request<Record<string, unknown>>("/tt/hashtag/posts", {
         name: cleanHashtag,
         depth: "1",
       });
 
-      const posts = response.data?.data || [];
+      const rawData = response.data as Record<string, unknown>;
+      console.log(`[EnsembleData] TikTok hashtag posts keys:`, Object.keys(rawData || {}));
+      const posts = ((rawData?.data || rawData?.aweme_list || (Array.isArray(rawData) ? rawData : [])) as TikTokPost[]);
       return posts.slice(0, maxResults).map((post) => this.normalizeTikTokPost(post));
     } catch (error) {
       console.error(`[EnsembleData] Error searching TikTok hashtag ${cleanHashtag}:`, error);
@@ -463,12 +473,14 @@ class EnsembleDataClient {
    */
   async searchTikTok(query: string, maxResults: number = 20): Promise<SocialPost[]> {
     try {
-      const response = await this.request<{ data: TikTokPost[] }>("/tt/keyword/search", {
+      const response = await this.request<Record<string, unknown>>("/tt/keyword/search", {
         name: query,
         period: "7", // Últimos 7 días
       });
 
-      const posts = response.data?.data || [];
+      const rawData = response.data as Record<string, unknown>;
+      console.log(`[EnsembleData] TikTok keyword search keys:`, Object.keys(rawData || {}));
+      const posts = ((rawData?.data || rawData?.aweme_list || (Array.isArray(rawData) ? rawData : [])) as TikTokPost[]);
       return posts.slice(0, maxResults).map((post) => this.normalizeTikTokPost(post));
     } catch (error) {
       console.error(`[EnsembleData] Error searching TikTok keyword ${query}:`, error);
@@ -491,20 +503,28 @@ class EnsembleDataClient {
     }
   }
 
-  private normalizeTikTokPost(post: TikTokPost): SocialPost {
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  private normalizeTikTokPost(post: any): SocialPost {
+    // Soportar camelCase y snake_case de la API
+    const author = post.author || {};
+    const stats = post.stats || post.statistics || {};
+    const postId = post.id || post.aweme_id || "";
+    const authorHandle = author.uniqueId || author.unique_id || "unknown";
+    const createTime = post.createTime || post.create_time;
+
     return {
       platform: "TIKTOK",
-      postId: post.id,
-      postUrl: `https://tiktok.com/@${post.author.uniqueId}/video/${post.id}`,
-      content: post.desc || null,
-      authorHandle: post.author.uniqueId,
-      authorName: post.author.nickname,
-      authorFollowers: post.author.followerCount || null,
-      likes: post.stats.diggCount,
-      comments: post.stats.commentCount,
-      shares: post.stats.shareCount,
-      views: post.stats.playCount,
-      postedAt: post.createTime ? new Date(post.createTime * 1000) : null,
+      postId: String(postId),
+      postUrl: `https://tiktok.com/@${authorHandle}/video/${postId}`,
+      content: post.desc || post.description || null,
+      authorHandle,
+      authorName: author.nickname || author.nick_name || null,
+      authorFollowers: author.followerCount || author.follower_count || null,
+      likes: stats.diggCount || stats.digg_count || stats.likes || 0,
+      comments: stats.commentCount || stats.comment_count || stats.comments || 0,
+      shares: stats.shareCount || stats.share_count || stats.shares || 0,
+      views: stats.playCount || stats.play_count || stats.views || null,
+      postedAt: createTime ? new Date(createTime * 1000) : null,
     };
   }
 

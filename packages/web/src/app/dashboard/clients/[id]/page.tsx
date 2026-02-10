@@ -1,6 +1,7 @@
 "use client";
 
 import { trpc } from "@/lib/trpc";
+import { cn } from "@/lib/cn";
 import { MentionRow } from "@/components/mention-row";
 import { SocialMentionRow, SocialMentionRowSkeleton } from "@/components/social-mention-row";
 import { useParams, useRouter } from "next/navigation";
@@ -329,6 +330,9 @@ export default function ClientDetailPage() {
         </form>
       </div>
 
+      {/* Competidores */}
+      <CompetitorsSection clientId={id} keywords={c.keywords} addKeyword={addKeyword} removeKeyword={removeKeyword} />
+
       {/* Grounding Config */}
       <GroundingConfigSection clientId={id} />
 
@@ -433,6 +437,80 @@ export default function ClientDetailPage() {
           );
         })()}
       </div>
+    </div>
+  );
+}
+
+function CompetitorsSection({
+  clientId,
+  keywords,
+  addKeyword,
+  removeKeyword
+}: {
+  clientId: string;
+  keywords: { id: string; word: string; type: string }[];
+  addKeyword: { mutate: (data: { clientId: string; word: string; type: "NAME" | "BRAND" | "COMPETITOR" | "TOPIC" | "ALIAS" }) => void; isPending: boolean };
+  removeKeyword: { mutate: (data: { id: string }) => void };
+}) {
+  const [newCompetitor, setNewCompetitor] = useState("");
+  const competitors = keywords.filter((kw) => kw.type === "COMPETITOR");
+
+  return (
+    <div className="rounded-xl bg-white dark:bg-gray-800 p-6 shadow-sm dark:shadow-gray-900/20">
+      <h3 className="mb-4 font-semibold text-gray-900 dark:text-white flex items-center gap-2">
+        <Target className="h-5 w-5 text-orange-500" />
+        Competidores
+      </h3>
+      <div className="mb-4 flex flex-wrap gap-2">
+        {competitors.map((kw) => (
+          <span
+            key={kw.id}
+            className="flex items-center gap-1 rounded-full bg-orange-100 dark:bg-orange-900/30 px-3 py-1 text-sm text-orange-700 dark:text-orange-400"
+          >
+            {kw.word}
+            <button
+              onClick={() => removeKeyword.mutate({ id: kw.id })}
+              className="ml-1 text-orange-500 hover:text-red-500"
+            >
+              <X className="h-3 w-3" />
+            </button>
+          </span>
+        ))}
+        {competitors.length === 0 && (
+          <span className="text-sm text-gray-400 dark:text-gray-500">
+            Sin competidores configurados. Agrega uno para ver la comparación.
+          </span>
+        )}
+      </div>
+      <form
+        onSubmit={(e) => {
+          e.preventDefault();
+          if (newCompetitor.trim()) {
+            addKeyword.mutate({
+              clientId,
+              word: newCompetitor.trim(),
+              type: "COMPETITOR",
+            });
+            setNewCompetitor("");
+          }
+        }}
+        className="flex gap-2"
+      >
+        <input
+          placeholder="Nombre del competidor"
+          value={newCompetitor}
+          onChange={(e) => setNewCompetitor(e.target.value)}
+          className="flex-1 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 px-3 py-2 text-gray-900 dark:text-white placeholder-gray-400"
+        />
+        <button
+          type="submit"
+          disabled={addKeyword.isPending || !newCompetitor.trim()}
+          className="flex items-center gap-1 rounded-lg bg-orange-500 px-4 py-2 text-white hover:bg-orange-600 disabled:opacity-50"
+        >
+          <Plus className="h-4 w-4" />
+          Agregar
+        </button>
+      </form>
     </div>
   );
 }
@@ -1840,8 +1918,13 @@ function SocialStatsSection({ clientId }: { clientId: string }) {
         </div>
       )}
       {triggerCollection.isError && (
-        <div className="mb-4 rounded-lg bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 p-3 text-sm text-red-700 dark:text-red-400">
-          {triggerCollection.error.message || "Error al iniciar recolección"}
+        <div className={cn(
+          "mb-4 rounded-lg border p-3 text-sm",
+          triggerCollection.error.data?.code === "TOO_MANY_REQUESTS"
+            ? "bg-amber-50 dark:bg-amber-900/20 border-amber-200 dark:border-amber-800 text-amber-700 dark:text-amber-400"
+            : "bg-red-50 dark:bg-red-900/20 border-red-200 dark:border-red-800 text-red-700 dark:text-red-400"
+        )}>
+          {triggerCollection.error.message || "Error al iniciar recoleccion"}
         </div>
       )}
 

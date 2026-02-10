@@ -83,7 +83,7 @@ export const teamRouter = router({
       // Super Admin puede actualizar cualquier usuario
       const whereClause = ctx.user.isSuperAdmin
         ? { id }
-        : { id, orgId: ctx.user.orgId };
+        : { id, orgId: ctx.user.orgId! };
       const user = await prisma.user.findFirst({ where: whereClause });
       if (!user) {
         throw new TRPCError({ code: "NOT_FOUND", message: "User not found" });

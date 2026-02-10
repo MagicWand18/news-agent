@@ -20,6 +20,7 @@ import {
 } from "recharts";
 import { BarChart3, Users, Calendar, Tag, Zap, Share2 } from "lucide-react";
 import { FilterBar, FilterSelect } from "@/components/filters";
+import { TIME_PERIOD_OPTIONS } from "@/lib/filter-constants";
 
 const SENTIMENT_COLORS = {
   positive: "#10b981",
@@ -54,12 +55,7 @@ const PLATFORM_LABELS: Record<string, string> = {
   TIKTOK: "TikTok",
 };
 
-const PERIOD_OPTIONS = [
-  { value: "7", label: "7 dias" },
-  { value: "30", label: "30 dias" },
-  { value: "60", label: "60 dias" },
-  { value: "90", label: "90 dias" },
-];
+const PERIOD_OPTIONS = TIME_PERIOD_OPTIONS;
 
 const SENTIMENT_OPTIONS = [
   { value: "positive", label: "Positivo" },

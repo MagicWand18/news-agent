@@ -100,6 +100,7 @@ export default function NewClientWizardPage() {
   // AI suggestions
   const [keywords, setKeywords] = useState<SuggestedKeyword[]>([]);
   const [competitors, setCompetitors] = useState<string[]>([]);
+  const [newCompetitor, setNewCompetitor] = useState("");
   const [isGenerating, setIsGenerating] = useState(false);
 
   // New keyword form
@@ -689,23 +690,60 @@ export default function NewClientWizardPage() {
             </div>
 
             {/* Competidores */}
-            {competitors.length > 0 && (
-              <div>
-                <h3 className="text-lg font-semibold text-gray-900 dark:text-white">
-                  Competidores Identificados
-                </h3>
-                <div className="mt-2 flex flex-wrap gap-2">
-                  {competitors.map((comp) => (
-                    <span
-                      key={comp}
-                      className="rounded-full bg-orange-100 dark:bg-orange-900/30 px-3 py-1 text-sm text-orange-700 dark:text-orange-400"
+            <div>
+              <h3 className="text-lg font-semibold text-gray-900 dark:text-white">
+                Competidores Identificados
+              </h3>
+              <div className="mt-2 flex flex-wrap gap-2">
+                {competitors.map((comp) => (
+                  <span
+                    key={comp}
+                    className="flex items-center gap-1 rounded-full bg-orange-100 dark:bg-orange-900/30 px-3 py-1 text-sm text-orange-700 dark:text-orange-400"
+                  >
+                    {comp}
+                    <button
+                      onClick={() => setCompetitors(competitors.filter((c) => c !== comp))}
+                      className="ml-1 text-orange-500 hover:text-red-500"
                     >
-                      {comp}
-                    </span>
-                  ))}
-                </div>
+                      <X className="h-3 w-3" />
+                    </button>
+                  </span>
+                ))}
+                {competitors.length === 0 && (
+                  <span className="text-sm text-gray-400 dark:text-gray-500">Sin competidores. Agrega manualmente abajo.</span>
+                )}
               </div>
-            )}
+              <div className="mt-3 flex gap-2">
+                <input
+                  placeholder="Nombre del competidor"
+                  value={newCompetitor}
+                  onChange={(e) => setNewCompetitor(e.target.value)}
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter" && newCompetitor.trim()) {
+                      e.preventDefault();
+                      if (!competitors.includes(newCompetitor.trim())) {
+                        setCompetitors([...competitors, newCompetitor.trim()]);
+                      }
+                      setNewCompetitor("");
+                    }
+                  }}
+                  className="flex-1 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 px-3 py-2 text-sm text-gray-900 dark:text-white placeholder-gray-400"
+                />
+                <button
+                  onClick={() => {
+                    if (newCompetitor.trim() && !competitors.includes(newCompetitor.trim())) {
+                      setCompetitors([...competitors, newCompetitor.trim()]);
+                    }
+                    setNewCompetitor("");
+                  }}
+                  disabled={!newCompetitor.trim()}
+                  className="flex items-center gap-1 rounded-lg bg-orange-100 dark:bg-orange-900/30 px-3 py-2 text-sm text-orange-700 dark:text-orange-400 hover:bg-orange-200 dark:hover:bg-orange-900/50 disabled:opacity-50"
+                >
+                  <Plus className="h-4 w-4" />
+                  Agregar
+                </button>
+              </div>
+            </div>
 
             {/* Botones de acción */}
             <div className="flex justify-between pt-4">

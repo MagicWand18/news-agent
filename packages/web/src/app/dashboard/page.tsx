@@ -1,9 +1,12 @@
 "use client";
 
+import { useState, useMemo } from "react";
 import { trpc } from "@/lib/trpc";
 import { StatCard, StatCardSkeleton } from "@/components/stat-card";
 import { MentionTimeline, MentionTimelineSkeleton } from "@/components/mention-timeline";
-import { LayoutDashboard, Newspaper, Users, CheckSquare, Share2 } from "lucide-react";
+import { FilterBar, FilterSelect } from "@/components/filters";
+import { TIME_PERIOD_OPTIONS } from "@/lib/filter-constants";
+import { LayoutDashboard, Newspaper, Users, CheckSquare, Share2, Calendar } from "lucide-react";
 import {
   AreaChart,
   Area,
@@ -43,11 +46,33 @@ const PLATFORM_LABELS: Record<string, string> = {
 };
 
 export default function DashboardPage() {
-  const stats = trpc.dashboard.stats.useQuery();
-  const recent = trpc.dashboard.recentMentions.useQuery();
-  const socialStats = trpc.dashboard.getSocialDashboardStats.useQuery(undefined, {
-    refetchOnWindowFocus: false,
+  const [clientId, setClientId] = useState<string>("");
+  const [days, setDays] = useState("7");
+
+  const clients = trpc.clients.list.useQuery();
+  const clientOptions = useMemo(
+    () => (clients.data || []).map((c) => ({ value: c.id, label: c.name })),
+    [clients.data]
+  );
+
+  const stats = trpc.dashboard.stats.useQuery({
+    clientId: clientId || undefined,
+    days: Number(days),
   });
+  const recent = trpc.dashboard.recentMentions.useQuery({
+    clientId: clientId || undefined,
+  });
+  const socialStats = trpc.dashboard.getSocialDashboardStats.useQuery(
+    { clientId: clientId || undefined, days: Number(days) },
+    { refetchOnWindowFocus: false }
+  );
+
+  const periodLabel =
+    days === "0"
+      ? "Todo el periodo"
+      : days === "1"
+        ? "Ultimas 24h"
+        : `Ultimos ${days} dias`;
 
   return (
     <div className="space-y-8">
@@ -56,6 +81,29 @@ export default function DashboardPage() {
         <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">
           Resumen general de tu monitoreo de medios
         </p>
+        <FilterBar
+          activeCount={[clientId, days !== "7" ? days : ""].filter(Boolean).length}
+          onClear={() => {
+            setClientId("");
+            setDays("7");
+          }}
+        >
+          <FilterSelect
+            label="Cliente"
+            value={clientId}
+            options={clientOptions}
+            onChange={setClientId}
+            placeholder="Todos"
+            icon={<Users className="h-4 w-4" />}
+          />
+          <FilterSelect
+            label="Periodo"
+            value={days}
+            options={TIME_PERIOD_OPTIONS}
+            onChange={setDays}
+            icon={<Calendar className="h-4 w-4" />}
+          />
+        </FilterBar>
       </div>
 
       {/* KPI Cards */}
@@ -83,13 +131,13 @@ export default function DashboardPage() {
               animate
             />
             <StatCard
-              title="Menciones (7d)"
+              title={`Menciones (${days === "0" ? "total" : days + "d"})`}
               value={stats.data?.mentions7d ?? 0}
               icon={<LayoutDashboard className="h-6 w-6" />}
               animate
             />
             <StatCard
-              title="Social (7d)"
+              title={`Social (${days === "0" ? "total" : days + "d"})`}
               value={socialStats.data?.total7d ?? 0}
               icon={<Share2 className="h-6 w-6" />}
               animate
@@ -123,7 +171,7 @@ export default function DashboardPage() {
       <div className="grid grid-cols-1 gap-6 lg:grid-cols-3">
         <div className="col-span-1 rounded-xl border border-gray-100 bg-white p-6 shadow-sm lg:col-span-2 dark:border-gray-700 dark:bg-gray-800" data-tour-id="mentions-chart">
           <h3 className="font-semibold text-gray-900 dark:text-gray-100">Menciones por dia</h3>
-          <p className="mb-4 text-sm text-gray-500 dark:text-gray-400">Ultimos 7 dias</p>
+          <p className="mb-4 text-sm text-gray-500 dark:text-gray-400">{periodLabel}</p>
           {stats.isLoading ? (
             <div className="flex h-[300px] items-center justify-center">
               <div className="h-8 w-8 animate-spin rounded-full border-2 border-gray-200 border-t-brand-600" />
@@ -183,7 +231,7 @@ export default function DashboardPage() {
 
         <div className="rounded-xl border border-gray-100 bg-white p-6 shadow-sm dark:border-gray-700 dark:bg-gray-800" data-tour-id="sentiment-chart">
           <h3 className="font-semibold text-gray-900 dark:text-gray-100">Sentimiento</h3>
-          <p className="mb-4 text-sm text-gray-500 dark:text-gray-400">Ultimos 7 dias</p>
+          <p className="mb-4 text-sm text-gray-500 dark:text-gray-400">{periodLabel}</p>
           {stats.isLoading ? (
             <div className="flex h-[300px] items-center justify-center">
               <div className="h-8 w-8 animate-spin rounded-full border-2 border-gray-200 border-t-brand-600" />
