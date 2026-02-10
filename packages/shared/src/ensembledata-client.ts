@@ -224,6 +224,48 @@ function filterOldPosts(posts: SocialPost[], maxAgeDays: number): SocialPost[] {
   });
 }
 
+/**
+ * Parsea tiempo relativo de YouTube ("3 hours ago", "4 days ago", "9 months ago", "1 year ago")
+ * a una fecha aproximada.
+ */
+function parseRelativeTime(text: string): Date | null {
+  if (!text) return null;
+  const match = text.match(/(\d+)\s+(second|minute|hour|day|week|month|year)s?\s+ago/i);
+  if (!match) return null;
+
+  const amount = parseInt(match[1], 10);
+  const unit = match[2].toLowerCase();
+  const now = Date.now();
+  const ms: Record<string, number> = {
+    second: 1000,
+    minute: 60 * 1000,
+    hour: 60 * 60 * 1000,
+    day: 24 * 60 * 60 * 1000,
+    week: 7 * 24 * 60 * 60 * 1000,
+    month: 30 * 24 * 60 * 60 * 1000,
+    year: 365 * 24 * 60 * 60 * 1000,
+  };
+
+  return new Date(now - amount * (ms[unit] || 0));
+}
+
+/**
+ * Parsea conteo formateado de YouTube ("12 views", "177,220 views", "177K views", "1.2M views")
+ * a un número.
+ */
+function parseFormattedCount(text: string): number | null {
+  if (!text) return null;
+  // Extraer la parte numérica
+  const match = text.match(/([\d,.]+)\s*([KMB]?)/i);
+  if (!match) return null;
+
+  const num = parseFloat(match[1].replace(/,/g, ""));
+  const suffix = match[2].toUpperCase();
+  const multipliers: Record<string, number> = { K: 1000, M: 1000000, B: 1000000000 };
+
+  return Math.round(num * (multipliers[suffix] || 1));
+}
+
 // ==================== CLIENTE ====================
 
 class EnsembleDataClient {
@@ -254,7 +296,7 @@ class EnsembleDataClient {
     url.searchParams.set("token", this.token);
 
     for (const [key, value] of Object.entries(params)) {
-      if (value !== undefined && value !== null && value !== "") {
+      if (value !== undefined && value !== null) {
         url.searchParams.set(key, String(value));
       }
     }
@@ -687,46 +729,83 @@ class EnsembleDataClient {
   // ==================== YOUTUBE ====================
 
   /**
-   * Obtiene el channelId de YouTube a partir de un username.
-   * Endpoint: /youtube/channel/username-to-id
+   * Resuelve un handle de YouTube a un channelId (browseId).
+   * Si el handle ya es un channelId (empieza con UC/UU), lo retorna directamente.
+   * Si no, busca en YouTube y extrae el browseId del primer resultado.
    */
   async getYouTubeChannelIdFromUsername(username: string): Promise<string | null> {
+    // Si ya es un channel ID, retornar directamente
+    if (username.startsWith("UC") || username.startsWith("UU")) {
+      return username;
+    }
+
     try {
-      const response = await this.request<Record<string, unknown>>("/youtube/channel/username-to-id", {
-        username,
+      // Buscar el canal por nombre usando YouTube search
+      const response = await this.request<Record<string, unknown>>("/youtube/search", {
+        keyword: username,
+        depth: 0,
+        sorting: "relevance",
       });
-      const data = response.data as Record<string, unknown>;
-      return (data?.channel_id || data?.channelId || null) as string | null;
-    } catch {
+
+      const rawData = response.data as Record<string, unknown>;
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const posts = (rawData?.posts || []) as any[];
+
+      // Buscar el browseId en los resultados
+      for (const item of posts) {
+        const renderer = item?.videoRenderer || item;
+        const browseId = renderer?.ownerText?.runs?.[0]?.navigationEndpoint?.browseEndpoint?.browseId
+          || renderer?.longBylineText?.runs?.[0]?.navigationEndpoint?.browseEndpoint?.browseId;
+        const channelName = renderer?.ownerText?.runs?.[0]?.text
+          || renderer?.longBylineText?.runs?.[0]?.text || "";
+
+        // Si el nombre del canal coincide (case insensitive), retornar su browseId
+        if (browseId && channelName.toLowerCase().includes(username.toLowerCase())) {
+          console.log(`[EnsembleData] Resolved YouTube "${username}" → ${browseId} (${channelName})`);
+          return browseId;
+        }
+      }
+
+      // Si no hubo coincidencia exacta, usar el primer resultado con browseId
+      for (const item of posts) {
+        const renderer = item?.videoRenderer || item;
+        const browseId = renderer?.ownerText?.runs?.[0]?.navigationEndpoint?.browseEndpoint?.browseId
+          || renderer?.longBylineText?.runs?.[0]?.navigationEndpoint?.browseEndpoint?.browseId;
+        if (browseId) {
+          console.log(`[EnsembleData] YouTube "${username}" → using first result: ${browseId}`);
+          return browseId;
+        }
+      }
+
+      console.log(`[EnsembleData] Could not resolve YouTube channel for: ${username}`);
+      return null;
+    } catch (error) {
+      console.error(`[EnsembleData] Error resolving YouTube channel "${username}":`, error);
       return null;
     }
   }
 
   /**
    * Obtiene información detallada de un canal de YouTube.
-   * Endpoint: /youtube/channel/detailed-info
+   * Usa /youtube/channel/videos que retorna data.user con metadata del canal.
    */
   async getYouTubeChannelInfo(channelId: string): Promise<YouTubeChannelInfo | null> {
     try {
-      const response = await this.request<Record<string, unknown>>("/youtube/channel/detailed-info", {
-        channel_id: channelId,
-        from_url: false,
+      const response = await this.request<Record<string, unknown>>("/youtube/channel/videos", {
+        browseId: channelId,
+        depth: 0,
       });
       const data = response.data as Record<string, unknown>;
-      if (!data) return null;
-
-      // Extraer datos del snippet y statistics
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const snippet = (data.snippet || data) as any;
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const statistics = (data.statistics || data) as any;
+      const user = data?.user as any;
+      if (!user) return null;
 
       return {
-        channelId: (data.id || channelId) as string,
-        title: snippet.title || "",
-        subscriberCount: Number(statistics.subscriberCount || statistics.subscriber_count || 0),
-        videoCount: Number(statistics.videoCount || statistics.video_count || 0),
-        description: snippet.description || "",
+        channelId,
+        title: user.title || "",
+        subscriberCount: 0, // No disponible en este endpoint
+        videoCount: 0, // No disponible en este endpoint
+        description: user.description || "",
       };
     } catch {
       return null;
@@ -735,20 +814,31 @@ class EnsembleDataClient {
 
   /**
    * Obtiene videos de un canal de YouTube.
-   * Endpoint: /youtube/channel/videos
-   * No tiene filtro de fecha nativo → filtrado post-fetch.
+   * Endpoint: /youtube/channel/videos con browseId=
+   * Estructura: data.videos[].richItemRenderer.content.videoRenderer
    */
   async getYouTubeChannelVideos(channelId: string, maxResults: number = 20, maxAgeDays?: number): Promise<SocialPost[]> {
     try {
       const response = await this.request<Record<string, unknown>>("/youtube/channel/videos", {
-        channel_id: channelId,
+        browseId: channelId,
         depth: 1,
       });
 
       const rawData = response.data as Record<string, unknown>;
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const rawVideos = ((rawData?.videos || rawData?.data || (Array.isArray(rawData) ? rawData : [])) as any[]);
-      let posts = rawVideos.slice(0, maxResults).map((video) => this.normalizeYouTubePost(video));
+      const rawVideos = (rawData?.videos || []) as any[];
+
+      // Extraer videoRenderer de la estructura anidada richItemRenderer.content.videoRenderer
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const videos: any[] = [];
+      for (const item of rawVideos) {
+        const renderer = item?.richItemRenderer?.content?.videoRenderer || item?.videoRenderer || item;
+        if (renderer?.videoId) {
+          videos.push(renderer);
+        }
+      }
+
+      let posts = videos.slice(0, maxResults).map((video) => this.normalizeYouTubePost(video));
 
       if (maxAgeDays) {
         const before = posts.length;
@@ -767,14 +857,15 @@ class EnsembleDataClient {
 
   /**
    * Busca videos en YouTube por keyword.
-   * Endpoint: /youtube/keyword/search
+   * Endpoint: /youtube/search (NO /youtube/keyword/search)
+   * Estructura: data.posts[].videoRenderer
    * Usa `period` nativo para filtro temporal + filtrado post-fetch.
    */
   async searchYouTube(keyword: string, maxResults: number = 20, maxAgeDays?: number): Promise<SocialPost[]> {
     try {
       const period = maxAgeDays ? this.mapDaysToYouTubePeriod(maxAgeDays) : "month";
 
-      const response = await this.request<Record<string, unknown>>("/youtube/keyword/search", {
+      const response = await this.request<Record<string, unknown>>("/youtube/search", {
         keyword,
         depth: 1,
         period,
@@ -782,9 +873,19 @@ class EnsembleDataClient {
       });
 
       const rawData = response.data as Record<string, unknown>;
+      // Resultados vienen en data.posts[].videoRenderer
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const rawVideos = ((rawData?.videos || rawData?.data || (Array.isArray(rawData) ? rawData : [])) as any[]);
-      let posts = rawVideos.slice(0, maxResults).map((video) => this.normalizeYouTubePost(video));
+      const rawPosts = (rawData?.posts || rawData?.videos || []) as any[];
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const videos: any[] = [];
+      for (const item of rawPosts) {
+        const renderer = item?.videoRenderer || item;
+        if (renderer?.videoId) {
+          videos.push(renderer);
+        }
+      }
+
+      let posts = videos.slice(0, maxResults).map((video) => this.normalizeYouTubePost(video));
 
       // Filtrado post-fetch para exactitud
       if (maxAgeDays) {
@@ -801,6 +902,7 @@ class EnsembleDataClient {
   /**
    * Obtiene comentarios de un video de YouTube.
    * Endpoint: /youtube/video/comments
+   * Estructura: data.comments[].commentThreadRenderer.comment.{properties, author, toolbar}
    */
   async getYouTubeVideoComments(videoId: string, maxComments: number = 30): Promise<SocialComment[]> {
     const allComments: SocialComment[] = [];
@@ -819,7 +921,7 @@ class EnsembleDataClient {
         const response = await this.request<Record<string, unknown>>("/youtube/video/comments", params);
         const data = response.data as Record<string, unknown>;
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        const comments = ((data?.comments || data?.data || (Array.isArray(data) ? data : [])) as any[]);
+        const comments = (data?.comments || []) as any[];
         if (comments.length === 0) break;
 
         for (const comment of comments) {
@@ -827,8 +929,8 @@ class EnsembleDataClient {
           allComments.push(this.normalizeYouTubeComment(comment));
         }
 
-        // Verificar si hay más comentarios
-        const nextCursor = data?.next_cursor || data?.nextCursor;
+        // Paginación usa nextCursor
+        const nextCursor = data?.nextCursor;
         if (!nextCursor) break;
         cursor = String(nextCursor);
 
@@ -856,49 +958,90 @@ class EnsembleDataClient {
     return "year";
   }
 
+  /**
+   * Normaliza un video de YouTube (estructura videoRenderer de la API).
+   * Soporta tanto videoRenderer (search) como estructura con snippet/statistics (fallback).
+   *
+   * videoRenderer: { videoId, title.runs[0].text, publishedTimeText.simpleText,
+   *   viewCountText.simpleText, ownerText.runs[0].text, ownerText.runs[0]...browseEndpoint.browseId }
+   */
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   private normalizeYouTubePost(video: any): SocialPost {
     const videoId = video.videoId || video.video_id || video.id?.videoId || video.id || "";
-    const snippet = video.snippet || video;
-    const statistics = video.statistics || video;
-    const channelTitle = snippet.channelTitle || snippet.channel_title || snippet.author || "unknown";
-    const channelId = snippet.channelId || snippet.channel_id || "";
 
-    // Parsear fecha: puede ser ISO string o timestamp
+    // Formato videoRenderer (actual de la API)
+    const title = video.title?.runs?.[0]?.text || video.title?.simpleText || video.snippet?.title || video.title || "";
+    const channelTitle = video.ownerText?.runs?.[0]?.text || video.longBylineText?.runs?.[0]?.text
+      || video.snippet?.channelTitle || "unknown";
+    const channelId = video.ownerText?.runs?.[0]?.navigationEndpoint?.browseEndpoint?.browseId
+      || video.longBylineText?.runs?.[0]?.navigationEndpoint?.browseEndpoint?.browseId
+      || video.snippet?.channelId || "";
+
+    // Parsear fecha: relativa ("3 hours ago") o ISO string
     let postedAt: Date | null = null;
-    const publishedTime = snippet.publishedAt || snippet.published_at || snippet.publishedTime || video.publishedTime;
-    if (publishedTime) {
-      const d = new Date(publishedTime);
-      if (!isNaN(d.getTime())) postedAt = d;
+    const publishedText = video.publishedTimeText?.simpleText || video.snippet?.publishedAt || video.publishedTime;
+    if (publishedText) {
+      // Intentar primero como fecha relativa
+      postedAt = parseRelativeTime(publishedText);
+      // Fallback a ISO date
+      if (!postedAt) {
+        const d = new Date(publishedText);
+        if (!isNaN(d.getTime())) postedAt = d;
+      }
     }
+
+    // Parsear views: "12 views", "177K views", o número directo
+    const viewText = video.viewCountText?.simpleText || video.shortViewCountText?.simpleText;
+    const views = viewText ? parseFormattedCount(viewText)
+      : Number(video.statistics?.viewCount || video.viewCount || 0) || null;
 
     return {
       platform: "YOUTUBE",
       postId: String(videoId),
       postUrl: `https://youtube.com/watch?v=${videoId}`,
-      content: snippet.title || snippet.description || null,
+      content: title || null,
       authorHandle: channelId || channelTitle,
       authorName: channelTitle,
       authorFollowers: null,
-      likes: Number(statistics.likeCount || statistics.like_count || video.likeCount || 0),
-      comments: Number(statistics.commentCount || statistics.comment_count || video.commentCount || 0),
+      likes: Number(video.statistics?.likeCount || video.likeCount || 0),
+      comments: Number(video.statistics?.commentCount || video.commentCount || 0),
       shares: 0, // YouTube no expone shares
-      views: Number(statistics.viewCount || statistics.view_count || video.viewCount || null) || null,
+      views,
       postedAt,
     };
   }
 
+  /**
+   * Normaliza un comentario de YouTube.
+   * Estructura real: commentThreadRenderer.comment.{properties, author, toolbar}
+   * - properties: commentId, content.content, publishedTime ("9 months ago")
+   * - author: channelId, displayName
+   * - toolbar: likeCountNotliked ("176K"), replyCount ("959")
+   */
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  private normalizeYouTubeComment(comment: any): SocialComment {
-    const snippet = comment.snippet?.topLevelComment?.snippet || comment.snippet || comment;
+  private normalizeYouTubeComment(raw: any): SocialComment {
+    // Extraer el comment del wrapper commentThreadRenderer
+    const comment = raw?.commentThreadRenderer?.comment || raw?.comment || raw;
+    const properties = comment?.properties || {};
+    const author = comment?.author || {};
+    const toolbar = comment?.toolbar || {};
+
+    // Parsear likes y replies (pueden ser strings formateados como "176K")
+    const likes = parseFormattedCount(String(toolbar.likeCountNotliked || "0")) || 0;
+    const replies = parseFormattedCount(String(toolbar.replyCount || "0")) || 0;
+
+    // Parsear fecha relativa ("9 months ago")
+    const publishedTime = properties.publishedTime || "";
+    const postedAt = parseRelativeTime(publishedTime);
+
     return {
-      commentId: comment.id || comment.commentId || "",
-      text: snippet.textDisplay || snippet.textOriginal || snippet.text || "",
-      authorHandle: snippet.authorChannelUrl || snippet.authorDisplayName || "",
-      authorName: snippet.authorDisplayName || snippet.author || null,
-      likes: Number(snippet.likeCount || snippet.like_count || 0),
-      replies: Number(comment.snippet?.totalReplyCount || comment.totalReplyCount || 0),
-      postedAt: snippet.publishedAt ? new Date(snippet.publishedAt) : null,
+      commentId: properties.commentId || raw?.id || "",
+      text: properties.content?.content || "",
+      authorHandle: author.channelId || "",
+      authorName: author.displayName || null,
+      likes,
+      replies,
+      postedAt,
     };
   }
 
@@ -972,7 +1115,7 @@ class EnsembleDataClient {
   async getInstagramPostComments(mediaId: string, maxComments: number = 30): Promise<SocialComment[]> {
     const allComments: SocialComment[] = [];
     let cursor = "";
-    const commentsPerRequest = 10;
+    const commentsPerRequest = 15;
     const maxRequests = Math.ceil(maxComments / commentsPerRequest);
 
     for (let i = 0; i < maxRequests && allComments.length < maxComments; i++) {
@@ -984,23 +1127,23 @@ class EnsembleDataClient {
         };
 
         const response = await this.request<{
-          comments: InstagramComment[];
-          end_cursor?: string;
-          next_min_id?: string;
-          has_next_page?: boolean;
+          comments: Array<{ node: InstagramComment }>;
+          nextCursor?: string;
         }>("/instagram/post/comments", params);
 
-        const comments = response.data?.comments || [];
-        if (comments.length === 0) break;
+        // La API retorna comments[].node con la estructura real
+        const rawComments = response.data?.comments || [];
+        if (rawComments.length === 0) break;
 
-        for (const comment of comments) {
+        for (const wrapper of rawComments) {
           if (allComments.length >= maxComments) break;
-          allComments.push(this.normalizeInstagramComment(comment));
+          const comment = wrapper.node || wrapper;
+          allComments.push(this.normalizeInstagramComment(comment as InstagramComment));
         }
 
-        // Verificar si hay más comentarios
-        const nextCursor = response.data?.end_cursor || response.data?.next_min_id;
-        if (!response.data?.has_next_page || !nextCursor) break;
+        // Paginación usa nextCursor
+        const nextCursor = response.data?.nextCursor;
+        if (!nextCursor) break;
         cursor = nextCursor;
 
         // Pequeño delay entre requests para evitar rate limiting
@@ -1029,14 +1172,15 @@ class EnsembleDataClient {
     };
   }
 
-  private normalizeInstagramComment(comment: InstagramComment): SocialComment {
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  private normalizeInstagramComment(comment: any): SocialComment {
     return {
-      commentId: comment.pk,
-      text: comment.text,
-      authorHandle: comment.user.username,
-      authorName: comment.user.full_name || null,
-      likes: comment.comment_like_count,
-      replies: 0, // Instagram no incluye replies en este endpoint
+      commentId: String(comment.pk || ""),
+      text: comment.text || "",
+      authorHandle: comment.user?.username || "",
+      authorName: comment.user?.full_name || null,
+      likes: Number(comment.comment_like_count || 0),
+      replies: Number(comment.child_comment_count || 0),
       postedAt: comment.created_at ? new Date(comment.created_at * 1000) : null,
     };
   }
@@ -1071,6 +1215,14 @@ class EnsembleDataClient {
             : { valid: false, error: "Usuario no encontrado" };
         }
         case "YOUTUBE": {
+          // Si ya es un channel ID, verificar que el canal existe
+          if (cleanHandle.startsWith("UC") || cleanHandle.startsWith("UU")) {
+            const info = await this.getYouTubeChannelInfo(cleanHandle);
+            return info
+              ? { valid: true, platformUserId: cleanHandle }
+              : { valid: false, error: "Canal no encontrado" };
+          }
+          // Si no, resolver username a channelId via búsqueda
           const channelId = await this.getYouTubeChannelIdFromUsername(cleanHandle);
           return channelId
             ? { valid: true, platformUserId: channelId }
