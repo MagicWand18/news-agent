@@ -768,6 +768,7 @@ Genera:
         platforms: z.array(SocialPlatformEnum).optional(), // Si no se especifica, recolecta todas
         collectHashtags: z.boolean().default(true),
         collectHandles: z.boolean().default(true),
+        maxPostsPerSource: z.number().min(1).max(50).optional(),
       })
     )
     .mutation(async ({ input, ctx }) => {
@@ -816,6 +817,7 @@ Genera:
             platforms: input.platforms, // undefined = todas
             collectHashtags: input.collectHashtags,
             collectHandles: input.collectHandles,
+            maxPostsPerSource: input.maxPostsPerSource,
           },
           {
             attempts: 2,

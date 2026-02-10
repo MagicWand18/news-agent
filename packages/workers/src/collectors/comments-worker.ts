@@ -90,14 +90,9 @@ export function startCommentsExtractionWorker() {
           }
 
           case "INSTAGRAM": {
-            // Extraer shortcode de la URL
-            const shortcode = extractInstagramShortcode(mention.postUrl);
-            if (!shortcode) {
-              console.error(`[CommentsWorker] Could not extract shortcode from URL: ${mention.postUrl}`);
-              return { error: "invalid_url" };
-            }
+            // Usar el postId (media_id numérico) directamente
             comments = await client.getInstagramPostComments(
-              shortcode,
+              mention.postId,
               maxComments || config.socialComments.instagramMaxComments
             );
             break;

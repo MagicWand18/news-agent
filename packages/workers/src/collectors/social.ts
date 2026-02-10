@@ -181,15 +181,16 @@ async function collectFromHandle(
   client: ReturnType<typeof getEnsembleDataClient>,
   platform: PrismaSocialPlatform,
   handle: string,
-  _platformUserId: string | null // No usado por EnsembleData, mantenido para compatibilidad
+  _platformUserId: string | null, // No usado por EnsembleData, mantenido para compatibilidad
+  maxPosts: number = MAX_POSTS_PER_SOURCE
 ): Promise<SocialPost[]> {
   switch (platform) {
     case "TWITTER":
-      return client.getTwitterUserTweets(handle, MAX_POSTS_PER_SOURCE);
+      return client.getTwitterUserTweets(handle, maxPosts);
     case "INSTAGRAM":
-      return client.getInstagramUserPosts(handle, MAX_POSTS_PER_SOURCE);
+      return client.getInstagramUserPosts(handle, maxPosts);
     case "TIKTOK":
-      return client.getTikTokUserPosts(handle, MAX_POSTS_PER_SOURCE);
+      return client.getTikTokUserPosts(handle, maxPosts);
     default:
       return [];
   }
@@ -201,7 +202,8 @@ async function collectFromHandle(
 async function collectFromHashtag(
   client: ReturnType<typeof getEnsembleDataClient>,
   hashtag: string,
-  platforms?: PrismaSocialPlatform[]
+  platforms?: PrismaSocialPlatform[],
+  maxPosts: number = MAX_POSTS_PER_SOURCE
 ): Promise<SocialPost[]> {
   const posts: SocialPost[] = [];
   const shouldCollect = (p: PrismaSocialPlatform) => !platforms || platforms.includes(p);
@@ -209,7 +211,7 @@ async function collectFromHashtag(
   // Instagram
   if (shouldCollect("INSTAGRAM")) {
     try {
-      const igPosts = await client.searchInstagramHashtag(hashtag, MAX_POSTS_PER_SOURCE);
+      const igPosts = await client.searchInstagramHashtag(hashtag, maxPosts);
       posts.push(...igPosts);
     } catch (error) {
       console.error(`  [Instagram hashtag error]:`, error instanceof Error ? error.message : error);
@@ -220,7 +222,7 @@ async function collectFromHashtag(
   // TikTok
   if (shouldCollect("TIKTOK")) {
     try {
-      const ttPosts = await client.searchTikTokHashtag(hashtag, MAX_POSTS_PER_SOURCE);
+      const ttPosts = await client.searchTikTokHashtag(hashtag, maxPosts);
       posts.push(...ttPosts);
     } catch (error) {
       console.error(`  [TikTok hashtag error]:`, error instanceof Error ? error.message : error);
@@ -345,6 +347,7 @@ export interface CollectSocialOptions {
   platforms?: PrismaSocialPlatform[]; // Si no se especifica, recolecta todas
   collectHandles?: boolean; // Default: true
   collectHashtags?: boolean; // Default: true
+  maxPostsPerSource?: number; // Default: MAX_POSTS_PER_SOURCE (20)
 }
 
 /**
@@ -363,6 +366,7 @@ export async function collectSocialForClient(
     platforms,
     collectHandles = true,
     collectHashtags = true,
+    maxPostsPerSource: maxPosts = MAX_POSTS_PER_SOURCE,
   } = options;
 
   const apiClient = getEnsembleDataClient();
@@ -396,7 +400,7 @@ export async function collectSocialForClient(
     for (const account of accountsToProcess) {
       await delay(API_DELAY_MS);
       try {
-        const posts = await collectFromHandle(apiClient, account.platform, account.handle, null);
+        const posts = await collectFromHandle(apiClient, account.platform, account.handle, null, maxPosts);
         const newPosts = await savePosts(posts, clientId, "HANDLE", account.handle);
         postsCollected += posts.length;
         postsNew += newPosts;
@@ -413,7 +417,7 @@ export async function collectSocialForClient(
     for (const hashtag of clientData.socialHashtags || []) {
       await delay(API_DELAY_MS);
       try {
-        const posts = await collectFromHashtag(apiClient, hashtag, platforms);
+        const posts = await collectFromHashtag(apiClient, hashtag, platforms, maxPosts);
         const newPosts = await savePosts(posts, clientId, "HASHTAG", hashtag);
         postsCollected += posts.length;
         postsNew += newPosts;

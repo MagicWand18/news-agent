@@ -1717,6 +1717,7 @@ function SocialStatsSection({ clientId }: { clientId: string }) {
   const [selectedPlatforms, setSelectedPlatforms] = useState<SocialPlatform[]>(["TWITTER", "INSTAGRAM", "TIKTOK"]);
   const [collectHandles, setCollectHandles] = useState(true);
   const [collectHashtags, setCollectHashtags] = useState(true);
+  const [maxPostsPerSource, setMaxPostsPerSource] = useState(20);
   const utils = trpc.useUtils();
 
   const stats = trpc.social.getSocialStats.useQuery(
@@ -1756,6 +1757,7 @@ function SocialStatsSection({ clientId }: { clientId: string }) {
       platforms,
       collectHandles,
       collectHashtags,
+      maxPostsPerSource,
     });
   };
 
@@ -1887,6 +1889,22 @@ function SocialStatsSection({ clientId }: { clientId: string }) {
                     </div>
                   </div>
 
+                  {/* Límite de posts */}
+                  <div className="border-t border-gray-200 dark:border-gray-700 pt-3">
+                    <p className="text-xs font-medium text-gray-500 dark:text-gray-400 mb-2">Posts por fuente</p>
+                    <select
+                      value={maxPostsPerSource}
+                      onChange={(e) => setMaxPostsPerSource(Number(e.target.value))}
+                      className="w-full rounded-md border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 px-3 py-1.5 text-sm text-gray-700 dark:text-gray-200"
+                    >
+                      <option value={5}>5 posts</option>
+                      <option value={10}>10 posts</option>
+                      <option value={20}>20 posts</option>
+                      <option value={30}>30 posts</option>
+                      <option value={50}>50 posts</option>
+                    </select>
+                  </div>
+
                   {/* Botón de ejecutar */}
                   <button
                     onClick={handleCollect}
@@ -1929,14 +1947,14 @@ function SocialStatsSection({ clientId }: { clientId: string }) {
       )}
 
       {/* Stats Cards */}
-      <div className="mb-6 grid grid-cols-2 gap-4 sm:grid-cols-4">
-        <div className="rounded-lg bg-gray-50 dark:bg-gray-700/50 p-4 text-center">
-          <p className="text-sm text-gray-500 dark:text-gray-400">Total</p>
+      <div className="mb-6 grid grid-cols-2 gap-3 sm:grid-cols-4">
+        <div className="rounded-lg bg-gray-50 dark:bg-gray-700 border border-gray-200 dark:border-gray-600 px-3 py-4 text-center">
+          <p className="text-xs font-medium text-gray-500 dark:text-gray-400 mb-1">Total</p>
           <p className="text-2xl font-bold text-gray-900 dark:text-white">{total}</p>
         </div>
         {(["TWITTER", "INSTAGRAM", "TIKTOK"] as const).map((platform) => (
-          <div key={platform} className="rounded-lg bg-gray-50 dark:bg-gray-700/50 p-4 text-center">
-            <p className="text-sm text-gray-500 dark:text-gray-400">{platformLabels[platform]}</p>
+          <div key={platform} className="rounded-lg bg-gray-50 dark:bg-gray-700 border border-gray-200 dark:border-gray-600 px-3 py-4 text-center">
+            <p className="text-xs font-medium text-gray-500 dark:text-gray-400 mb-1">{platformLabels[platform]}</p>
             <p className="text-2xl font-bold text-gray-900 dark:text-white">
               {byPlatform[platform] || 0}
             </p>

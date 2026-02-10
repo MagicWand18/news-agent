@@ -88,21 +88,24 @@ export function startCollectorWorkers(_queues: ReturnType<typeof import("../queu
         platforms,
         collectHandles,
         collectHashtags,
+        maxPostsPerSource,
       } = job.data as {
         clientId?: string;
         manual?: boolean;
         platforms?: ("TWITTER" | "INSTAGRAM" | "TIKTOK")[];
         collectHandles?: boolean;
         collectHashtags?: boolean;
+        maxPostsPerSource?: number;
       } || {};
 
       if (clientId) {
         const platformsMsg = platforms ? platforms.join(", ") : "todas";
-        console.log(`📱 Social: Manual collection for client ${clientId} (${platformsMsg})`);
+        console.log(`📱 Social: Manual collection for client ${clientId} (${platformsMsg}, max ${maxPostsPerSource || 20}/source)`);
         const stats = await collectSocialForClient(clientId, {
           platforms,
           collectHandles,
           collectHashtags,
+          maxPostsPerSource,
         });
         console.log(`📱 Social: ${stats.postsNew} new posts, ${stats.errors} errors`);
       } else {

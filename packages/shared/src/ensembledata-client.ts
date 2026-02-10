@@ -595,24 +595,24 @@ class EnsembleDataClient {
    * @param maxComments - Máximo de comentarios a extraer (default: 30, max: 3 requests)
    * @returns Array de comentarios normalizados
    */
-  async getInstagramPostComments(shortcode: string, maxComments: number = 30): Promise<SocialComment[]> {
+  async getInstagramPostComments(mediaId: string, maxComments: number = 30): Promise<SocialComment[]> {
     const allComments: SocialComment[] = [];
-    let endCursor: string | undefined;
+    let cursor = "";
     const commentsPerRequest = 10;
     const maxRequests = Math.ceil(maxComments / commentsPerRequest);
 
     for (let i = 0; i < maxRequests && allComments.length < maxComments; i++) {
       try {
         const params: Record<string, string | number | boolean> = {
-          code: shortcode,
+          media_id: mediaId,
+          cursor,
+          sorting: "popular",
         };
-        if (endCursor) {
-          params.end_cursor = endCursor;
-        }
 
         const response = await this.request<{
           comments: InstagramComment[];
           end_cursor?: string;
+          next_min_id?: string;
           has_next_page?: boolean;
         }>("/instagram/post/comments", params);
 
@@ -625,8 +625,9 @@ class EnsembleDataClient {
         }
 
         // Verificar si hay más comentarios
-        if (!response.data?.has_next_page || !response.data?.end_cursor) break;
-        endCursor = response.data.end_cursor;
+        const nextCursor = response.data?.end_cursor || response.data?.next_min_id;
+        if (!response.data?.has_next_page || !nextCursor) break;
+        cursor = nextCursor;
 
         // Pequeño delay entre requests para evitar rate limiting
         if (i < maxRequests - 1) {
@@ -638,7 +639,7 @@ class EnsembleDataClient {
       }
     }
 
-    console.log(`[EnsembleData] Extracted ${allComments.length} Instagram comments for post ${shortcode}`);
+    console.log(`[EnsembleData] Extracted ${allComments.length} Instagram comments for media ${mediaId}`);
     return allComments;
   }
 
