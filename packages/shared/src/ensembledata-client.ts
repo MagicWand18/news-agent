@@ -607,32 +607,31 @@ class EnsembleDataClient {
     const cleanHashtag = hashtag.replace(/^#/, "");
 
     try {
-      let rawData: Record<string, unknown>;
-
       if (maxAgeDays) {
-        // Endpoint con filtro temporal nativo
+        // /tt/hashtag/recent-posts tiene estructura diferente: data.posts[].{authorInfos, itemInfos}
         const response = await this.request<Record<string, unknown>>("/tt/hashtag/recent-posts", {
           name: cleanHashtag,
           days: maxAgeDays,
         });
-        rawData = response.data as Record<string, unknown>;
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        const rawData = response.data as any;
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        const rawPosts = (rawData?.posts || []) as any[];
+
+        let posts = rawPosts.slice(0, maxResults).map((post) => this.normalizeRecentHashtagPost(post));
+
+        posts = filterOldPosts(posts, maxAgeDays);
+        return posts;
       } else {
+        // /tt/hashtag/posts tiene estructura estándar: data.data[].{aweme_id, desc, author, statistics}
         const response = await this.request<Record<string, unknown>>("/tt/hashtag/posts", {
           name: cleanHashtag,
         });
-        rawData = response.data as Record<string, unknown>;
+        const rawData = response.data as Record<string, unknown>;
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        const rawPosts = ((rawData?.data || rawData?.aweme_list || []) as any[]);
+        return rawPosts.slice(0, maxResults).map((post) => this.normalizeTikTokPost(post));
       }
-
-      console.log(`[EnsembleData] TikTok hashtag posts keys:`, Object.keys(rawData || {}));
-      const rawPosts = ((rawData?.data || rawData?.aweme_list || (Array.isArray(rawData) ? rawData : [])) as TikTokPost[]);
-      let posts = rawPosts.slice(0, maxResults).map((post) => this.normalizeTikTokPost(post));
-
-      // Filtrado post-fetch de seguridad
-      if (maxAgeDays) {
-        posts = filterOldPosts(posts, maxAgeDays);
-      }
-
-      return posts;
     } catch (error) {
       console.error(`[EnsembleData] Error searching TikTok hashtag ${cleanHashtag}:`, error);
       return [];
@@ -657,8 +656,13 @@ class EnsembleDataClient {
       });
 
       const rawData = response.data as Record<string, unknown>;
-      console.log(`[EnsembleData] TikTok keyword search keys:`, Object.keys(rawData || {}));
-      const rawPosts = ((rawData?.data || rawData?.aweme_list || (Array.isArray(rawData) ? rawData : [])) as TikTokPost[]);
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const rawItems = ((rawData?.data || rawData?.aweme_list || (Array.isArray(rawData) ? rawData : [])) as any[]);
+
+      // Keyword search envuelve cada resultado en { type, aweme_info }
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const rawPosts: any[] = rawItems.map((item) => item.aweme_info || item);
+
       let posts = rawPosts.slice(0, maxResults).map((post) => this.normalizeTikTokPost(post));
 
       // Filtrado post-fetch para exactitud (period es aproximado)
@@ -689,13 +693,29 @@ class EnsembleDataClient {
   /**
    * Obtiene información de un usuario de TikTok.
    * Endpoint: /tt/user/info con parámetro username=
+   * Estructura real: data = { user: {...}, stats: { followerCount, videoCount, ... } }
    */
   async getTikTokUser(username: string): Promise<TikTokUserInfo | null> {
     try {
-      const response = await this.request<TikTokUserInfo>("/tt/user/info", {
+      const response = await this.request<Record<string, unknown>>("/tt/user/info", {
         username,
       });
-      return response.data || null;
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const rawData = response.data as any;
+      const user = rawData?.user || rawData;
+      const stats = rawData?.stats || {};
+      if (!user?.uniqueId && !user?.unique_id) return null;
+
+      return {
+        id: user.id || user.uid || "",
+        uniqueId: user.uniqueId || user.unique_id || username,
+        nickname: user.nickname || "",
+        signature: user.signature || undefined,
+        followerCount: stats.followerCount || stats.follower_count || user.followerCount || 0,
+        followingCount: stats.followingCount || stats.following_count || user.followingCount || 0,
+        videoCount: stats.videoCount || stats.video_count || user.aweme_count || 0,
+        verified: user.verified || false,
+      };
     } catch {
       return null;
     }
@@ -722,6 +742,34 @@ class EnsembleDataClient {
       comments: stats.commentCount || stats.comment_count || stats.comments || 0,
       shares: stats.shareCount || stats.share_count || stats.shares || 0,
       views: stats.playCount || stats.play_count || stats.views || null,
+      postedAt: createTime ? new Date(createTime * 1000) : null,
+    };
+  }
+
+  /**
+   * Normaliza un post del endpoint /tt/hashtag/recent-posts que tiene estructura diferente:
+   * { authorInfos: { uniqueId, nickName }, itemInfos: { id, text, createTime, diggCount, ... } }
+   */
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  private normalizeRecentHashtagPost(post: any): SocialPost {
+    const authorInfos = post.authorInfos || {};
+    const itemInfos = post.itemInfos || {};
+    const authorHandle = authorInfos.uniqueId || authorInfos.unique_id || "unknown";
+    const postId = itemInfos.id || "";
+    const createTime = Number(itemInfos.createTime || itemInfos.create_time || 0);
+
+    return {
+      platform: "TIKTOK",
+      postId: String(postId),
+      postUrl: `https://tiktok.com/@${authorHandle}/video/${postId}`,
+      content: itemInfos.text || null,
+      authorHandle,
+      authorName: authorInfos.nickName || authorInfos.nickname || null,
+      authorFollowers: null,
+      likes: Number(itemInfos.diggCount || itemInfos.digg_count || 0),
+      comments: Number(itemInfos.commentCount || itemInfos.comment_count || 0),
+      shares: Number(itemInfos.shareCount || itemInfos.share_count || 0),
+      views: Number(itemInfos.playCount || itemInfos.play_count || 0) || null,
       postedAt: createTime ? new Date(createTime * 1000) : null,
     };
   }
@@ -1073,8 +1121,8 @@ class EnsembleDataClient {
 
         const response = await this.request<{
           comments: TikTokComment[];
-          cursor?: number;
-          has_more?: boolean;
+          nextCursor?: number;
+          total?: number;
         }>("/tt/post/comments", params);
 
         const comments = response.data?.comments || [];
@@ -1085,9 +1133,9 @@ class EnsembleDataClient {
           allComments.push(this.normalizeTikTokComment(comment));
         }
 
-        // Verificar si hay más comentarios
-        if (!response.data?.has_more || !response.data?.cursor) break;
-        cursor = response.data.cursor;
+        // Paginación usa nextCursor
+        if (!response.data?.nextCursor) break;
+        cursor = response.data.nextCursor;
 
         // Pequeño delay entre requests para evitar rate limiting
         if (i < maxRequests - 1) {
