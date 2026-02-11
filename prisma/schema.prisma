@@ -107,6 +107,7 @@ model Keyword {
 enum KeywordType {
   NAME
   BRAND
+  COMPETITOR // Se mantiene temporalmente hasta migrar datos existentes
   TOPIC
   ALIAS
 }
