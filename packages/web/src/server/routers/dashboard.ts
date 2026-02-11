@@ -291,6 +291,7 @@ export const dashboardRouter = router({
         TWITTER: byPlatform.find((p) => p.platform === "TWITTER")?._count.id ?? 0,
         INSTAGRAM: byPlatform.find((p) => p.platform === "INSTAGRAM")?._count.id ?? 0,
         TIKTOK: byPlatform.find((p) => p.platform === "TIKTOK")?._count.id ?? 0,
+        YOUTUBE: byPlatform.find((p) => p.platform === "YOUTUBE")?._count.id ?? 0,
       },
     };
   }),

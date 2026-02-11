@@ -107,7 +107,7 @@ describe("sources router", () => {
           name: "New Source",
           url: "https://newsource.com/rss",
           tier: 2,
-          type: "STATE",
+          type: "STATE" as const,
         };
 
         vi.mocked(prisma.rssSource.findUnique).mockResolvedValue(null);

@@ -37,9 +37,18 @@ MediaBot is a media monitoring platform for PR agencies. It monitors news source
 | `prisma/schema.prisma` | Database models |
 | `packages/web/src/server/routers/` | tRPC API endpoints |
 | `packages/web/src/app/dashboard/` | Dashboard pages |
+| `packages/web/src/components/platform-icons.tsx` | Iconos SVG compartidos de plataformas sociales |
+| `packages/web/src/components/social-mention-row.tsx` | Componente de fila de mencion social (con checkbox para bulk select) |
 | `packages/workers/src/queues.ts` | Job queues and cron schedules (19+ colas) |
 | `packages/workers/src/collectors/social.ts` | Social media collector (EnsembleData) |
 | `deploy/remote-deploy.sh` | Production deployment script |
+
+## Social Media Features
+
+- **Plataformas activas**: Instagram, TikTok, YouTube (Twitter oculto del UI pero soportado para datos existentes)
+- **Paginas**: `/dashboard/social-mentions` (lista global con paginacion infinita, bulk select/delete/export), `/dashboard/social-mentions/[id]` (detalle con delete individual)
+- **Backend mutations**: `deleteSocialMention` (individual), `deleteSocialMentions` (bulk hasta 100)
+- **Componentes compartidos**: `platform-icons.tsx` (SVG icons), `social-mention-row.tsx` (fila con checkbox)
 
 ## Commands
 

@@ -295,10 +295,12 @@ describe("intelligence router logic", () => {
 
     it("should handle null/undefined values from DB", () => {
       // Simular null de la DB
+      const nullVal: number | null = null;
+      const undefVal: number | undefined = undefined;
       const result = {
-        topicsCount: Number(null ?? 0),
-        emergingTopics: Number(undefined ?? 0),
-        avgSOV: null ?? 0,
+        topicsCount: Number(nullVal ?? 0),
+        emergingTopics: Number(undefVal ?? 0),
+        avgSOV: nullVal ?? 0,
         weightedMentions: Number(BigInt(0)),
       };
 

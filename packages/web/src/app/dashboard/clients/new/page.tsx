@@ -22,18 +22,11 @@ import {
   Check,
   Plus,
   X,
-  Twitter,
   Instagram,
   Hash,
   Loader2,
 } from "lucide-react";
-
-// Icono de TikTok (no existe en lucide-react)
-const TikTokIcon = ({ className }: { className?: string }) => (
-  <svg className={className} viewBox="0 0 24 24" fill="currentColor">
-    <path d="M19.59 6.69a4.83 4.83 0 0 1-3.77-4.25V2h-3.45v13.67a2.89 2.89 0 0 1-5.2 1.74 2.89 2.89 0 0 1 2.31-4.64 2.93 2.93 0 0 1 .88.13V9.4a6.84 6.84 0 0 0-1-.05A6.33 6.33 0 0 0 5 20.1a6.34 6.34 0 0 0 10.86-4.43v-7a8.16 8.16 0 0 0 4.77 1.52v-3.4a4.85 4.85 0 0 1-1-.1z"/>
-  </svg>
-);
+import { InstagramIcon, TikTokIcon, YouTubeIcon } from "@/components/platform-icons";
 
 type WizardStep = "info" | "search" | "review" | "socials" | "complete";
 
@@ -118,7 +111,7 @@ export default function NewClientWizardPage() {
   const [socialAccounts, setSocialAccounts] = useState<SocialAccountInput[]>([]);
   const [socialHashtags, setSocialHashtags] = useState<string[]>([]);
   const [newSocialAccount, setNewSocialAccount] = useState<SocialAccountInput>({
-    platform: "TWITTER",
+    platform: "INSTAGRAM",
     handle: "",
     label: "",
     isOwned: false,
@@ -365,12 +358,14 @@ export default function NewClientWizardPage() {
   // Icono de plataforma
   const getPlatformIcon = (platform: SocialPlatform) => {
     switch (platform) {
-      case "TWITTER":
-        return <Twitter className="h-4 w-4" />;
       case "INSTAGRAM":
-        return <Instagram className="h-4 w-4" />;
+        return <InstagramIcon className="h-4 w-4" />;
       case "TIKTOK":
         return <TikTokIcon className="h-4 w-4" />;
+      case "YOUTUBE":
+        return <YouTubeIcon className="h-4 w-4" />;
+      default:
+        return <Instagram className="h-4 w-4" />;
     }
   };
 
@@ -778,7 +773,7 @@ export default function NewClientWizardPage() {
                 <div>
                   <h3 className="font-semibold text-gray-900 dark:text-white">Monitoreo de Redes Sociales</h3>
                   <p className="text-sm text-gray-500 dark:text-gray-400">
-                    Twitter/X, Instagram y TikTok
+                    Instagram, TikTok y YouTube
                   </p>
                 </div>
               </div>
@@ -836,7 +831,7 @@ export default function NewClientWizardPage() {
                 {/* Cuentas a monitorear */}
                 <div>
                   <h3 className="flex items-center gap-2 text-lg font-semibold text-gray-900 dark:text-white">
-                    <Twitter className="h-5 w-5 text-brand-600" />
+                    <Hash className="h-5 w-5 text-brand-600" />
                     Cuentas a Monitorear
                   </h3>
                   <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">
@@ -853,8 +848,8 @@ export default function NewClientWizardPage() {
                         >
                           <div className="flex items-center gap-3">
                             <span className={`rounded-full p-1.5 ${
-                              account.platform === "TWITTER" ? "bg-sky-100 text-sky-600 dark:bg-sky-900/30 dark:text-sky-400" :
                               account.platform === "INSTAGRAM" ? "bg-pink-100 text-pink-600 dark:bg-pink-900/30 dark:text-pink-400" :
+                              account.platform === "YOUTUBE" ? "bg-red-100 text-red-600 dark:bg-red-900/30 dark:text-red-400" :
                               "bg-gray-100 text-gray-600 dark:bg-gray-600 dark:text-gray-300"
                             }`}>
                               {getPlatformIcon(account.platform)}
@@ -889,7 +884,6 @@ export default function NewClientWizardPage() {
                       onChange={(e) => setNewSocialAccount((prev) => ({ ...prev, platform: e.target.value as SocialPlatform }))}
                       className="rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 px-3 py-2 text-sm text-gray-900 dark:text-white"
                     >
-                      <option value="TWITTER">Twitter/X</option>
                       <option value="INSTAGRAM">Instagram</option>
                       <option value="TIKTOK">TikTok</option>
                       <option value="YOUTUBE">YouTube</option>

@@ -37,12 +37,14 @@ const PLATFORM_COLORS: Record<string, string> = {
   TWITTER: "#000000",
   INSTAGRAM: "#E4405F",
   TIKTOK: "#25F4EE",
+  YOUTUBE: "#FF0000",
 };
 
 const PLATFORM_LABELS: Record<string, string> = {
   TWITTER: "X",
   INSTAGRAM: "IG",
   TIKTOK: "TT",
+  YOUTUBE: "YT",
 };
 
 export default function DashboardPage() {
@@ -144,14 +146,14 @@ export default function DashboardPage() {
               subtitle={
                 socialStats.data ? (
                   <div className="mt-1 flex gap-2 text-xs">
-                    <span className="text-gray-500 dark:text-gray-400">
-                      X:{socialStats.data.byPlatform.TWITTER}
-                    </span>
                     <span className="text-pink-500">
                       IG:{socialStats.data.byPlatform.INSTAGRAM}
                     </span>
                     <span className="text-gray-500 dark:text-gray-400">
                       TT:{socialStats.data.byPlatform.TIKTOK}
+                    </span>
+                    <span className="text-red-500">
+                      YT:{socialStats.data.byPlatform.YOUTUBE}
                     </span>
                   </div>
                 ) : undefined

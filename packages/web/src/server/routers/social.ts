@@ -757,6 +757,58 @@ Genera:
     }),
 
   /**
+   * Elimina una mención social individual.
+   */
+  deleteSocialMention: protectedProcedure
+    .input(z.object({ id: z.string() }))
+    .mutation(async ({ input, ctx }) => {
+      const whereClause = ctx.user.isSuperAdmin
+        ? { id: input.id }
+        : { id: input.id, client: { orgId: ctx.user.orgId! } };
+
+      const mention = await prisma.socialMention.findFirst({
+        where: whereClause,
+        select: { id: true },
+      });
+
+      if (!mention) {
+        throw new TRPCError({ code: "NOT_FOUND", message: "Mención no encontrada" });
+      }
+
+      await prisma.socialMention.delete({ where: { id: input.id } });
+
+      return { success: true };
+    }),
+
+  /**
+   * Elimina múltiples menciones sociales en lote.
+   */
+  deleteSocialMentions: protectedProcedure
+    .input(z.object({ ids: z.array(z.string()).min(1).max(100) }))
+    .mutation(async ({ input, ctx }) => {
+      const whereClause = ctx.user.isSuperAdmin
+        ? { id: { in: input.ids } }
+        : { id: { in: input.ids }, client: { orgId: ctx.user.orgId! } };
+
+      const found = await prisma.socialMention.findMany({
+        where: whereClause,
+        select: { id: true },
+      });
+
+      const foundIds = found.map((m) => m.id);
+
+      if (foundIds.length === 0) {
+        throw new TRPCError({ code: "NOT_FOUND", message: "Ninguna mención encontrada" });
+      }
+
+      const result = await prisma.socialMention.deleteMany({
+        where: { id: { in: foundIds } },
+      });
+
+      return { success: true, deletedCount: result.count };
+    }),
+
+  /**
    * Ejecuta recolección manual de redes sociales para un cliente.
    * Encola un job para la recolección en lugar de ejecutar directamente.
    * Permite seleccionar plataformas específicas.

@@ -47,12 +47,14 @@ const PLATFORM_COLORS: Record<string, string> = {
   TWITTER: "#000000",
   INSTAGRAM: "#E4405F",
   TIKTOK: "#25F4EE",
+  YOUTUBE: "#FF0000",
 };
 
 const PLATFORM_LABELS: Record<string, string> = {
   TWITTER: "Twitter/X",
   INSTAGRAM: "Instagram",
   TIKTOK: "TikTok",
+  YOUTUBE: "YouTube",
 };
 
 const PERIOD_OPTIONS = TIME_PERIOD_OPTIONS;
@@ -574,7 +576,7 @@ export default function AnalyticsPage() {
           <h3 className="font-semibold text-gray-900 dark:text-white">Redes Sociales</h3>
         </div>
         <p className="mb-6 text-sm text-gray-500 dark:text-gray-400">
-          Menciones en Twitter/X, Instagram y TikTok
+          Menciones en Instagram, TikTok y YouTube
         </p>
 
         {socialAnalytics.isLoading ? (

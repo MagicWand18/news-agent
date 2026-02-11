@@ -4,6 +4,7 @@ import { trpc } from "@/lib/trpc";
 import { cn } from "@/lib/cn";
 import { MentionRow } from "@/components/mention-row";
 import { SocialMentionRow, SocialMentionRowSkeleton } from "@/components/social-mention-row";
+import { InstagramIcon, TikTokIcon, YouTubeIcon } from "@/components/platform-icons";
 import { useParams, useRouter } from "next/navigation";
 import { useState } from "react";
 import { ArrowLeft, Plus, X, BarChart3, Target, TrendingUp, TrendingDown, Minus, Trash2, Settings, Search, Calendar, Loader2, MessageCircle, Building2, Users, User, RefreshCw, ArrowRightLeft } from "lucide-react";
@@ -1435,7 +1436,6 @@ function ManualGroundingButton({
 type SocialPlatform = "TWITTER" | "INSTAGRAM" | "TIKTOK" | "YOUTUBE";
 
 const PLATFORMS: { value: SocialPlatform; label: string; icon: string }[] = [
-  { value: "TWITTER", label: "Twitter/X", icon: "𝕏" },
   { value: "INSTAGRAM", label: "Instagram", icon: "📷" },
   { value: "TIKTOK", label: "TikTok", icon: "🎵" },
   { value: "YOUTUBE", label: "YouTube", icon: "▶" },
@@ -1451,7 +1451,7 @@ function SocialAccountsSection({ clientId }: { clientId: string }) {
     handle: string;
     label: string;
     isOwned: boolean;
-  }>({ platform: "TWITTER", handle: "", label: "", isOwned: false });
+  }>({ platform: "INSTAGRAM", handle: "", label: "", isOwned: false });
   const [newHashtag, setNewHashtag] = useState("");
   const utils = trpc.useUtils();
 
@@ -1463,7 +1463,7 @@ function SocialAccountsSection({ clientId }: { clientId: string }) {
   const addAccount = trpc.social.addSocialAccount.useMutation({
     onSuccess: () => {
       utils.social.getSocialAccounts.invalidate({ clientId });
-      setNewAccount({ platform: "TWITTER", handle: "", label: "", isOwned: false });
+      setNewAccount({ platform: "INSTAGRAM", handle: "", label: "", isOwned: false });
       setShowAddForm(false);
     },
   });
@@ -1717,7 +1717,7 @@ const SOCIAL_PLATFORM_COLORS: Record<string, string> = {
 function SocialStatsSection({ clientId }: { clientId: string }) {
   const [days, setDays] = useState(7);
   const [showOptions, setShowOptions] = useState(false);
-  const [selectedPlatforms, setSelectedPlatforms] = useState<SocialPlatform[]>(["TWITTER", "INSTAGRAM", "TIKTOK", "YOUTUBE"]);
+  const [selectedPlatforms, setSelectedPlatforms] = useState<SocialPlatform[]>(["INSTAGRAM", "TIKTOK", "YOUTUBE"]);
   const [collectHandles, setCollectHandles] = useState(true);
   const [collectHashtags, setCollectHashtags] = useState(true);
   const [maxPostsPerSource, setMaxPostsPerSource] = useState(20);
@@ -1953,15 +1953,25 @@ function SocialStatsSection({ clientId }: { clientId: string }) {
 
       {/* Stats Cards */}
       <div className="mb-6 grid grid-cols-2 gap-3 sm:grid-cols-4">
-        <div className="rounded-lg bg-gray-50 dark:bg-gray-700 border border-gray-200 dark:border-gray-600 px-3 py-4 text-center">
-          <p className="text-xs font-medium text-gray-500 dark:text-gray-400 mb-1">Total</p>
+        <div className="rounded-lg bg-white dark:bg-gray-700 border border-gray-200 dark:border-gray-600 border-l-4 border-l-brand-500 px-4 py-3">
+          <div className="flex items-center gap-2 mb-1">
+            <BarChart3 className="h-4 w-4 text-brand-500" />
+            <p className="text-xs font-medium text-gray-500 dark:text-gray-400">Total</p>
+          </div>
           <p className="text-2xl font-bold text-gray-900 dark:text-white">{total}</p>
         </div>
-        {(["TWITTER", "INSTAGRAM", "TIKTOK"] as const).map((platform) => (
-          <div key={platform} className="rounded-lg bg-gray-50 dark:bg-gray-700 border border-gray-200 dark:border-gray-600 px-3 py-4 text-center">
-            <p className="text-xs font-medium text-gray-500 dark:text-gray-400 mb-1">{platformLabels[platform]}</p>
+        {([
+          { key: "INSTAGRAM" as const, icon: InstagramIcon, color: "border-l-pink-500", iconColor: "text-pink-500" },
+          { key: "TIKTOK" as const, icon: TikTokIcon, color: "border-l-gray-900 dark:border-l-gray-300", iconColor: "text-gray-900 dark:text-gray-300" },
+          { key: "YOUTUBE" as const, icon: YouTubeIcon, color: "border-l-red-600", iconColor: "text-red-600" },
+        ]).map(({ key, icon: Icon, color, iconColor }) => (
+          <div key={key} className={cn("rounded-lg bg-white dark:bg-gray-700 border border-gray-200 dark:border-gray-600 border-l-4 px-4 py-3", color)}>
+            <div className="flex items-center gap-2 mb-1">
+              <Icon className={cn("h-4 w-4", iconColor)} />
+              <p className="text-xs font-medium text-gray-500 dark:text-gray-400">{platformLabels[key]}</p>
+            </div>
             <p className="text-2xl font-bold text-gray-900 dark:text-white">
-              {byPlatform[platform] || 0}
+              {byPlatform[key] || 0}
             </p>
           </div>
         ))}
