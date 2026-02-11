@@ -114,7 +114,16 @@ export function startDigestWorker() {
           orderBy: { relevance: "desc" },
         });
 
-        if (mentions.length === 0) continue;
+        // Obtener menciones sociales del período
+        const socialMentions = await prisma.socialMention.findMany({
+          where: {
+            clientId: client.id,
+            createdAt: { gte: since },
+          },
+          orderBy: [{ likes: "desc" }],
+        });
+
+        if (mentions.length === 0 && socialMentions.length === 0) continue;
 
         // Calculate sentiment breakdown
         const sentimentBreakdown = {
@@ -133,6 +142,22 @@ export function startDigestWorker() {
           summary: m.aiSummary || "",
         }));
 
+        // Preparar stats sociales para el resumen AI
+        const socialStats = socialMentions.length > 0 ? {
+          totalPosts: socialMentions.length,
+          platforms: socialMentions.reduce((acc, sm) => {
+            acc[sm.platform] = (acc[sm.platform] || 0) + 1;
+            return acc;
+          }, {} as Record<string, number>),
+          totalEngagement: socialMentions.reduce((sum, sm) => sum + sm.likes + sm.comments, 0),
+          topPost: socialMentions[0] ? {
+            author: socialMentions[0].authorHandle,
+            content: (socialMentions[0].content || "").slice(0, 100),
+            likes: socialMentions[0].likes,
+            platform: socialMentions[0].platform,
+          } : undefined,
+        } : undefined;
+
         // Generate AI summary
         let aiSummary = "";
         try {
@@ -141,6 +166,7 @@ export function startDigestWorker() {
             totalMentions: mentions.length,
             sentimentBreakdown,
             topMentions,
+            socialStats,
           });
         } catch (error) {
           console.error(`Digest AI summary error for ${client.name}:`, error);
@@ -195,6 +221,42 @@ export function startDigestWorker() {
           }
         }
 
+        // Sección de redes sociales
+        if (socialMentions.length > 0) {
+          const platformCounts = socialMentions.reduce((acc, sm) => {
+            acc[sm.platform] = (acc[sm.platform] || 0) + 1;
+            return acc;
+          }, {} as Record<string, number>);
+
+          const totalLikes = socialMentions.reduce((sum, sm) => sum + sm.likes, 0);
+          const totalComments = socialMentions.reduce((sum, sm) => sum + sm.comments, 0);
+
+          const platformLabels: Record<string, string> = {
+            INSTAGRAM: "Instagram",
+            TIKTOK: "TikTok",
+            YOUTUBE: "YouTube",
+            TWITTER: "Twitter",
+          };
+
+          const platformLine = Object.entries(platformCounts)
+            .map(([p, count]) => `${platformLabels[p] || p}: ${count}`)
+            .join(" | ");
+
+          message += `\n📱 REDES SOCIALES\n`;
+          message += `${platformLine}\n`;
+          message += `💬 Engagement total: ${totalLikes} likes, ${totalComments} comentarios\n`;
+
+          // Top 3 posts virales
+          const topPosts = socialMentions.slice(0, 3);
+          if (topPosts.length > 0) {
+            message += `🔥 Top posts:\n`;
+            for (const post of topPosts) {
+              const contentPreview = (post.content || "Sin contenido").slice(0, 50);
+              message += `  @${post.authorHandle} — ${contentPreview}... (${post.likes} likes)\n`;
+            }
+          }
+        }
+
         // Obtener destinatarios internos de agencia
         const internalRecipients = await getRecipientsForClient(
           client.id,
@@ -245,6 +307,11 @@ export function startDigestWorker() {
             }
           }
 
+          // Agregar resumen social al mensaje del cliente
+          if (socialMentions.length > 0) {
+            clientMessage += `\n📱 ${socialMentions.length} publicaciones en redes sociales detectadas\n`;
+          }
+
           const { sent, failed } = await sendToMultipleRecipients(clientRecipients, clientMessage);
           console.log(`📊 Digest sent for ${client.name} (client recipients): ${sent} delivered, ${failed} failed`);
         }
@@ -255,6 +322,7 @@ export function startDigestWorker() {
             clientId: client.id,
             type: "daily",
             articleCount: mentions.length,
+            socialMentionCount: socialMentions.length,
           },
         });
 

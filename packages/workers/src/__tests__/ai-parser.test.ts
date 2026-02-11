@@ -256,7 +256,7 @@ describe("preFilterArticle", () => {
     expect(result.confidence).toBe(0);
   });
 
-  it("should return fallback on JSON parse failure", async () => {
+  it("should return fallback on JSON parse failure with confidence 1.0 to pass threshold", async () => {
     mockGenerateContent.mockResolvedValue({
       response: {
         text: () => "I cannot analyze this content properly",
@@ -271,10 +271,26 @@ describe("preFilterArticle", () => {
       keyword: "test",
     });
 
-    // Default to relevant=true to not lose potential mentions
+    // Default to relevant=true with confidence 1.0 to guarantee it passes threshold (0.6)
     expect(result.relevant).toBe(true);
-    expect(result.confidence).toBe(0.5);
+    expect(result.confidence).toBe(1.0);
     expect(result.reason).toContain("Error de parsing");
+  });
+
+  it("should return fallback on API 429 error with confidence 1.0", async () => {
+    mockGenerateContent.mockRejectedValue(new Error("429 Resource has been exhausted"));
+
+    const result = await preFilterArticle({
+      articleTitle: "PEMEX inversiones",
+      articleContent: "La petrolera anunció...",
+      clientName: "PEMEX",
+      clientDescription: "Petrolera",
+      keyword: "PEMEX",
+    });
+
+    // Cuando Gemini falla (429, timeout), el fallback debe aceptar la mención
+    expect(result.relevant).toBe(true);
+    expect(result.confidence).toBe(1.0);
   });
 
   it("should handle JSON wrapped in markdown code blocks", async () => {
@@ -357,5 +373,61 @@ describe("generateDigestSummary", () => {
     });
 
     expect(result).toBe("Resumen no disponible");
+  });
+
+  it("should accept optional socialStats parameter", async () => {
+    mockGenerateContent.mockResolvedValue({
+      response: {
+        text: () => "Hoy se detectaron 5 menciones y 10 publicaciones en redes sociales.",
+      },
+    });
+
+    const result = await generateDigestSummary({
+      clientName: "Test Client",
+      totalMentions: 5,
+      sentimentBreakdown: { positive: 3, negative: 1, neutral: 1, mixed: 0 },
+      topMentions: [],
+      socialStats: {
+        totalPosts: 10,
+        platforms: { INSTAGRAM: 5, TIKTOK: 3, YOUTUBE: 2 },
+        totalEngagement: 1500,
+        topPost: {
+          author: "influencer1",
+          content: "Gran campaña de Test Client",
+          likes: 500,
+          platform: "INSTAGRAM",
+        },
+      },
+    });
+
+    expect(result).toContain("redes sociales");
+    // Verificar que el prompt incluye contexto social
+    expect(mockGenerateContent).toHaveBeenCalledTimes(1);
+    const callArgs = mockGenerateContent.mock.calls[0][0];
+    const promptText = callArgs.contents[0].parts[0].text;
+    expect(promptText).toContain("Redes sociales");
+    expect(promptText).toContain("INSTAGRAM");
+    expect(promptText).toContain("influencer1");
+  });
+
+  it("should work without socialStats (backward compatible)", async () => {
+    mockGenerateContent.mockResolvedValue({
+      response: {
+        text: () => "Resumen del día sin datos sociales.",
+      },
+    });
+
+    const result = await generateDigestSummary({
+      clientName: "Test",
+      totalMentions: 3,
+      sentimentBreakdown: { positive: 1, negative: 1, neutral: 1, mixed: 0 },
+      topMentions: [],
+    });
+
+    expect(result).toBe("Resumen del día sin datos sociales.");
+    const callArgs = mockGenerateContent.mock.calls[0][0];
+    const promptText = callArgs.contents[0].parts[0].text;
+    // Sin socialStats, no debería incluir contexto de redes
+    expect(promptText).not.toContain("Redes sociales:");
   });
 });

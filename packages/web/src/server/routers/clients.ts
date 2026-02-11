@@ -28,7 +28,7 @@ const OnboardingConfigSchema = z.object({
   suggestedKeywords: z.array(
     z.object({
       word: z.string(),
-      type: z.enum(["NAME", "BRAND", "COMPETITOR", "TOPIC", "ALIAS"]),
+      type: z.enum(["NAME", "BRAND", "TOPIC", "ALIAS"]),
       confidence: z.number().min(0).max(1).optional(),
       reason: z.string().optional(),
     })
@@ -77,6 +77,10 @@ export const clientsRouter = router({
         },
         include: {
           keywords: { where: { active: true }, orderBy: { type: "asc" } },
+          competitors: {
+            include: { competitor: true },
+            orderBy: { createdAt: "asc" },
+          },
           mentions: {
             include: { article: true },
             orderBy: { createdAt: "desc" },
@@ -286,7 +290,7 @@ export const clientsRouter = router({
       z.object({
         clientId: z.string(),
         word: z.string().min(1),
-        type: z.enum(["NAME", "BRAND", "COMPETITOR", "TOPIC", "ALIAS"]),
+        type: z.enum(["NAME", "BRAND", "TOPIC", "ALIAS"]),
       })
     )
     .mutation(async ({ input, ctx }) => {
@@ -628,7 +632,8 @@ Responde UNICAMENTE con JSON valido, sin markdown ni texto adicional:
   "monitoringStrategy": ["Estrategia 1", "Estrategia 2"]
 }
 
-Tipos validos para keywords: NAME, BRAND, COMPETITOR, TOPIC, ALIAS
+Tipos validos para keywords: NAME, BRAND, TOPIC, ALIAS
+Los competidores van en el array "competitors", NO como keywords.
 
 IMPORTANTE: Genera 8-12 keywords variados basados en las noticias.`;
 
@@ -683,7 +688,7 @@ IMPORTANTE: Genera 8-12 keywords variados basados en las noticias.`;
         keywords: z.array(
           z.object({
             word: z.string(),
-            type: z.enum(["NAME", "BRAND", "COMPETITOR", "TOPIC", "ALIAS"]),
+            type: z.enum(["NAME", "BRAND", "TOPIC", "ALIAS"]),
           })
         ),
         competitors: z.array(z.string()).optional(),
@@ -762,17 +767,20 @@ IMPORTANTE: Genera 8-12 keywords variados basados en las noticias.`;
         });
       }
 
-      // Crear keywords de competidores
+      // Crear competidores como registros Competitor + ClientCompetitor
       if (input.competitors && input.competitors.length > 0) {
-        await prisma.keyword.createMany({
-          data: input.competitors.map((comp) => ({
-            word: comp,
-            type: "COMPETITOR",
-            clientId: client.id,
-            active: true,
-          })),
-          skipDuplicates: true,
-        });
+        for (const compName of input.competitors) {
+          const competitor = await prisma.competitor.upsert({
+            where: { name_orgId: { name: compName, orgId: targetOrgId } },
+            create: { name: compName, orgId: targetOrgId },
+            update: {},
+          });
+          await prisma.clientCompetitor.upsert({
+            where: { clientId_competitorId: { clientId: client.id, competitorId: competitor.id } },
+            create: { clientId: client.id, competitorId: competitor.id },
+            update: {},
+          });
+        }
       }
 
       // Crear menciones de articulos seleccionados
@@ -1185,7 +1193,6 @@ IMPORTANTE: Genera 8-12 keywords variados basados en las noticias.`;
         : { id: input.clientId, orgId: ctx.user.orgId! };
       const client = await prisma.client.findFirst({
         where: whereClause,
-        include: { keywords: { where: { active: true } } },
       });
 
       if (!client) {
@@ -1194,95 +1201,128 @@ IMPORTANTE: Genera 8-12 keywords variados basados en las noticias.`;
 
       const since = new Date(Date.now() - input.days * 24 * 60 * 60 * 1000);
 
-      // Separate competitor keywords from client keywords
-      const competitorKeywords = client.keywords.filter((k) => k.type === "COMPETITOR");
-      const clientKeywords = client.keywords.filter((k) => k.type !== "COMPETITOR");
-
-      // Get client's own mention count
+      // Conteo de menciones del cliente
       const clientMentions = await prisma.mention.count({
         where: {
           clientId: client.id,
           createdAt: { gte: since },
-          keywordMatched: { in: clientKeywords.map((k) => k.word) },
         },
       });
 
-      // Get client sentiment breakdown
-      const clientSentiment = await prisma.mention.groupBy({
-        by: ["sentiment"],
-        where: {
-          clientId: client.id,
-          createdAt: { gte: since },
-          keywordMatched: { in: clientKeywords.map((k) => k.word) },
-        },
-        _count: { id: true },
+      // Obtener competidores del modelo Competitor
+      const clientCompetitors = await prisma.clientCompetitor.findMany({
+        where: { clientId: client.id },
+        include: { competitor: true },
       });
 
-      // Get stats for each competitor
+      // Buscar presencia de cada competidor en artículos (por nombre en título/contenido)
       const competitorStats = await Promise.all(
-        competitorKeywords.map(async (comp) => {
-          const mentionCount = await prisma.mention.count({
+        clientCompetitors.map(async (cc) => {
+          const articleCount = await prisma.article.count({
             where: {
-              clientId: client.id,
-              createdAt: { gte: since },
-              keywordMatched: comp.word,
+              collectedAt: { gte: since },
+              OR: [
+                { title: { contains: cc.competitor.name, mode: "insensitive" } },
+                { content: { contains: cc.competitor.name, mode: "insensitive" } },
+              ],
             },
           });
-
-          const sentimentBreakdown = await prisma.mention.groupBy({
-            by: ["sentiment"],
-            where: {
-              clientId: client.id,
-              keywordMatched: comp.word,
-              createdAt: { gte: since },
-            },
-            _count: { id: true },
-          });
-
-          // Transform to object
-          const sentiment = {
-            positive: 0,
-            negative: 0,
-            neutral: 0,
-            mixed: 0,
-          };
-          for (const s of sentimentBreakdown) {
-            const key = s.sentiment.toLowerCase() as keyof typeof sentiment;
-            if (key in sentiment) {
-              sentiment[key] = s._count.id;
-            }
-          }
 
           return {
-            name: comp.word,
-            mentions: mentionCount,
-            sentiment,
+            id: cc.competitor.id,
+            name: cc.competitor.name,
+            articles: articleCount,
           };
         })
       );
-
-      // Transform client sentiment
-      const clientSentimentObj = {
-        positive: 0,
-        negative: 0,
-        neutral: 0,
-        mixed: 0,
-      };
-      for (const s of clientSentiment) {
-        const key = s.sentiment.toLowerCase() as keyof typeof clientSentimentObj;
-        if (key in clientSentimentObj) {
-          clientSentimentObj[key] = s._count.id;
-        }
-      }
 
       return {
         client: {
           name: client.name,
           mentions: clientMentions,
-          sentiment: clientSentimentObj,
         },
         competitors: competitorStats,
         period: { start: since, end: new Date() },
       };
+    }),
+
+  // ==================== COMPETITOR MANAGEMENT ====================
+
+  addCompetitor: protectedProcedure
+    .input(
+      z.object({
+        clientId: z.string(),
+        name: z.string().min(1).max(200),
+      })
+    )
+    .mutation(async ({ input, ctx }) => {
+      const client = await prisma.client.findFirst({
+        where: {
+          id: input.clientId,
+          ...(ctx.user.isSuperAdmin ? {} : { orgId: ctx.user.orgId! }),
+        },
+      });
+      if (!client) {
+        throw new TRPCError({ code: "NOT_FOUND", message: "Cliente no encontrado" });
+      }
+
+      // Upsert Competitor a nivel org
+      const competitor = await prisma.competitor.upsert({
+        where: { name_orgId: { name: input.name, orgId: client.orgId } },
+        create: { name: input.name, orgId: client.orgId },
+        update: {},
+      });
+
+      // Crear vínculo con el cliente
+      await prisma.clientCompetitor.upsert({
+        where: { clientId_competitorId: { clientId: client.id, competitorId: competitor.id } },
+        create: { clientId: client.id, competitorId: competitor.id },
+        update: {},
+      });
+
+      return competitor;
+    }),
+
+  removeCompetitor: protectedProcedure
+    .input(
+      z.object({
+        clientId: z.string(),
+        competitorId: z.string(),
+      })
+    )
+    .mutation(async ({ input, ctx }) => {
+      const client = await prisma.client.findFirst({
+        where: {
+          id: input.clientId,
+          ...(ctx.user.isSuperAdmin ? {} : { orgId: ctx.user.orgId! }),
+        },
+      });
+      if (!client) {
+        throw new TRPCError({ code: "NOT_FOUND", message: "Cliente no encontrado" });
+      }
+
+      await prisma.clientCompetitor.deleteMany({
+        where: {
+          clientId: input.clientId,
+          competitorId: input.competitorId,
+        },
+      });
+
+      return { success: true };
+    }),
+
+  listOrgCompetitors: protectedProcedure
+    .input(z.object({ clientId: z.string() }).optional())
+    .query(async ({ ctx }) => {
+      const orgId = ctx.user.orgId;
+      if (!orgId && !ctx.user.isSuperAdmin) {
+        return [];
+      }
+
+      return prisma.competitor.findMany({
+        where: orgId ? { orgId } : {},
+        orderBy: { name: "asc" },
+        select: { id: true, name: true },
+      });
     }),
 });

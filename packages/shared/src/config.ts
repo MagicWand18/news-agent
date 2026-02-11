@@ -50,7 +50,7 @@ export const config = {
     google: optionalEnv("COLLECTOR_GOOGLE_CRON", "0 */2 * * *"),
     // social: deshabilitado - recolección solo manual desde el dashboard
     gnews: optionalEnv("COLLECTOR_GNEWS_CRON", "0 6 * * *"), // 6 AM diario
-    digest: optionalEnv("DIGEST_CRON", "0 8 * * *"),
+    digest: optionalEnv("DIGEST_CRON", "0 13 * * *"), // 13:00 UTC = 7:00 AM CST (México)
   },
   // Worker configuration
   workers: {

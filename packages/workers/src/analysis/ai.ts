@@ -49,7 +49,7 @@ Responde UNICAMENTE con JSON valido, sin markdown ni texto adicional:
     return {
       relevant: true,
       reason: "Error de parsing - aceptado por defecto",
-      confidence: 0.5,
+      confidence: 1.0,
     };
   }
 }
@@ -148,11 +148,12 @@ Responde UNICAMENTE con JSON valido, sin markdown ni texto adicional:
   "recentMentions": [{"title": "titulo", "url": "url", "source": "fuente"}]
 }
 
-Tipos validos para keywords: NAME, BRAND, COMPETITOR, TOPIC, ALIAS
+Tipos validos para keywords: NAME, BRAND, TOPIC, ALIAS
+Los competidores van en el array "competitors", NO como keywords.
 
 Incluye al menos:
 - 5-10 keywords variados (nombre, variantes, marcas si aplica, alias)
-- 2-3 competidores identificados
+- 2-3 competidores identificados (en el array competitors)
 - 2-3 temas sensibles para la industria
 - 3-5 lineas de accion para monitoreo proactivo`;
 
@@ -261,22 +262,41 @@ export async function generateDigestSummary(params: {
   totalMentions: number;
   sentimentBreakdown: { positive: number; negative: number; neutral: number; mixed: number };
   topMentions: { title: string; source: string; sentiment: string; relevance: number }[];
+  socialStats?: {
+    totalPosts: number;
+    platforms: Record<string, number>;
+    totalEngagement: number;
+    topPost?: { author: string; content: string; likes: number; platform: string };
+  };
 }): Promise<string> {
   const topMentionsText = params.topMentions
     .map((m) => `- ${m.title} (${m.source}, ${m.sentiment}, relevancia ${m.relevance}/10)`)
     .join("\n");
 
+  let socialContext = "";
+  if (params.socialStats && params.socialStats.totalPosts > 0) {
+    const platformLine = Object.entries(params.socialStats.platforms)
+      .map(([p, count]) => `${p}: ${count}`)
+      .join(", ");
+    socialContext = `\nRedes sociales: ${params.socialStats.totalPosts} publicaciones (${platformLine})
+Engagement total: ${params.socialStats.totalEngagement} interacciones`;
+    if (params.socialStats.topPost) {
+      socialContext += `\nPost mas destacado: @${params.socialStats.topPost.author} en ${params.socialStats.topPost.platform} (${params.socialStats.topPost.likes} likes) - "${params.socialStats.topPost.content}"`;
+    }
+  }
+
   const model = getGeminiModel();
 
   const prompt = `Genera un resumen ejecutivo del dia para el equipo de PR del cliente "${params.clientName}".
 
-Total menciones: ${params.totalMentions}
+Total menciones en medios: ${params.totalMentions}
 Sentimiento: Positivas=${params.sentimentBreakdown.positive}, Negativas=${params.sentimentBreakdown.negative}, Neutras=${params.sentimentBreakdown.neutral}, Mixtas=${params.sentimentBreakdown.mixed}
 
 Menciones mas relevantes:
 ${topMentionsText || "Ninguna relevante"}
+${socialContext}
 
-Escribe un resumen de 3-5 lineas en espanol, directo y accionable. No uses markdown ni formato especial.`;
+Escribe un resumen de 3-5 lineas en espanol, directo y accionable. Incluye contexto social si hay datos. No uses markdown ni formato especial.`;
 
   try {
     const result = await model.generateContent({
@@ -817,7 +837,7 @@ Valores de riskLevel:
 export interface EnhancedOnboardingResult {
   suggestedKeywords: Array<{
     word: string;
-    type: "NAME" | "BRAND" | "COMPETITOR" | "TOPIC" | "ALIAS";
+    type: "NAME" | "BRAND" | "TOPIC" | "ALIAS";
     confidence: number;
     reason: string;
   }>;
@@ -888,7 +908,8 @@ Responde UNICAMENTE con JSON valido, sin markdown ni texto adicional:
   "monitoringStrategy": ["Estrategia 1", "Estrategia 2"]
 }
 
-Tipos validos para keywords: NAME, BRAND, COMPETITOR, TOPIC, ALIAS
+Tipos validos para keywords: NAME, BRAND, TOPIC, ALIAS
+Los competidores van en el array "competitors", NO como keywords.
 
 IMPORTANTE:
 - Genera al menos 8-12 keywords variados y especificos
@@ -909,7 +930,7 @@ IMPORTANTE:
     const parsed = JSON.parse(cleaned) as EnhancedOnboardingResult;
 
     // Validar tipos de keywords
-    const validTypes = ["NAME", "BRAND", "COMPETITOR", "TOPIC", "ALIAS"] as const;
+    const validTypes = ["NAME", "BRAND", "TOPIC", "ALIAS"] as const;
     parsed.suggestedKeywords = parsed.suggestedKeywords.map((kw) => ({
       ...kw,
       type: validTypes.includes(kw.type as typeof validTypes[number]) ? kw.type : "TOPIC",

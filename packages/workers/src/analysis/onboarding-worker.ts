@@ -41,14 +41,34 @@ export function startOnboardingWorker() {
         recentArticles,
       });
 
-      // Save suggested keywords (skip duplicates)
+      // Save suggested keywords (skip duplicates, convert COMPETITOR to Competitor model)
       const existingWords = new Set(client.keywords.map((k) => k.word.toLowerCase()));
+
+      const VALID_KEYWORD_TYPES = ["NAME", "BRAND", "TOPIC", "ALIAS"] as const;
+      type KeywordType = (typeof VALID_KEYWORD_TYPES)[number];
 
       for (const kw of result.suggestedKeywords) {
         if (existingWords.has(kw.word.toLowerCase())) continue;
 
-        const VALID_KEYWORD_TYPES = ["NAME", "BRAND", "COMPETITOR", "TOPIC", "ALIAS"] as const;
-        type KeywordType = (typeof VALID_KEYWORD_TYPES)[number];
+        // Si AI genera tipo COMPETITOR, convertir a registro Competitor
+        if (kw.type === "COMPETITOR") {
+          try {
+            const competitor = await prisma.competitor.upsert({
+              where: { name_orgId: { name: kw.word, orgId: client.orgId } },
+              create: { name: kw.word, orgId: client.orgId },
+              update: {},
+            });
+            await prisma.clientCompetitor.upsert({
+              where: { clientId_competitorId: { clientId: client.id, competitorId: competitor.id } },
+              create: { clientId: client.id, competitorId: competitor.id },
+              update: {},
+            });
+          } catch (err) {
+            console.warn(`[Onboarding] Error creating competitor "${kw.word}":`, err);
+          }
+          continue;
+        }
+
         const validType: KeywordType = VALID_KEYWORD_TYPES.includes(kw.type as KeywordType)
           ? (kw.type as KeywordType)
           : "TOPIC";
@@ -61,6 +81,26 @@ export function startOnboardingWorker() {
             active: true,
           },
         });
+      }
+
+      // Crear competidores identificados por AI como registros Competitor
+      if (result.competitors && result.competitors.length > 0) {
+        for (const compName of result.competitors) {
+          try {
+            const competitor = await prisma.competitor.upsert({
+              where: { name_orgId: { name: compName, orgId: client.orgId } },
+              create: { name: compName, orgId: client.orgId },
+              update: {},
+            });
+            await prisma.clientCompetitor.upsert({
+              where: { clientId_competitorId: { clientId: client.id, competitorId: competitor.id } },
+              create: { clientId: client.id, competitorId: competitor.id },
+              update: {},
+            });
+          } catch (err) {
+            console.warn(`[Onboarding] Error creating competitor "${compName}":`, err);
+          }
+        }
       }
 
       // Store onboarding results in client JSON field

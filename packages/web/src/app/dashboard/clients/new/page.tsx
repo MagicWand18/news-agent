@@ -32,7 +32,7 @@ type WizardStep = "info" | "search" | "review" | "socials" | "complete";
 
 interface SuggestedKeyword {
   word: string;
-  type: "NAME" | "BRAND" | "COMPETITOR" | "TOPIC" | "ALIAS";
+  type: "NAME" | "BRAND" | "TOPIC" | "ALIAS";
   confidence: number;
   reason: string;
   selected: boolean;
@@ -670,7 +670,6 @@ export default function NewClientWizardPage() {
                 >
                   <option value="NAME">Nombre</option>
                   <option value="BRAND">Marca</option>
-                  <option value="COMPETITOR">Competidor</option>
                   <option value="TOPIC">Tema</option>
                   <option value="ALIAS">Alias</option>
                 </select>

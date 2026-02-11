@@ -73,7 +73,7 @@ function extractDomain(source: string): string | null {
 
 /**
  * Calcula el Share of Voice de un cliente en un período.
- * Incluye comparación con competidores definidos en keywords tipo COMPETITOR.
+ * Incluye comparación con competidores definidos en el modelo Competitor.
  */
 export async function calculateSOV(
   clientId: string,
@@ -89,21 +89,21 @@ export async function calculateSOV(
   const startDate = new Date();
   startDate.setDate(startDate.getDate() - days);
 
-  // Obtener cliente y sus keywords
+  // Obtener cliente
   const client = await prisma.client.findUnique({
     where: { id: clientId },
-    include: {
-      keywords: true,
-    },
   });
 
   if (!client) {
     throw new Error(`Cliente no encontrado: ${clientId}`);
   }
 
-  // Obtener competidores del cliente (keywords tipo COMPETITOR)
-  const competitorKeywords = client.keywords.filter((k) => k.type === "COMPETITOR" && k.active);
-  const competitorNames = competitorKeywords.map((k) => k.word);
+  // Obtener competidores del modelo Competitor
+  const clientCompetitors = await prisma.clientCompetitor.findMany({
+    where: { clientId },
+    include: { competitor: true },
+  });
+  const competitorNames = clientCompetitors.map((cc) => cc.competitor.name);
 
   // Calcular menciones del cliente
   const clientMentions = await getMentionsWithWeights(clientId, startDate, endDate);

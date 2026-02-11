@@ -8,12 +8,13 @@ datasource db {
 }
 
 model Organization {
-  id         String   @id @default(cuid())
-  name       String
-  maxClients Int?     // Límite de clientes (null = sin límite)
-  createdAt  DateTime @default(now())
-  users      User[]
-  clients    Client[]
+  id          String       @id @default(cuid())
+  name        String
+  maxClients  Int?         // Límite de clientes (null = sin límite)
+  createdAt   DateTime     @default(now())
+  users       User[]
+  clients     Client[]
+  competitors Competitor[]
 }
 
 model User {
@@ -81,6 +82,9 @@ model Client {
   lastGroundingAt          DateTime?                  // Última ejecución de grounding
   lastGroundingResult      Json?                      // Resultado de la última búsqueda
 
+  // Competitors
+  competitors ClientCompetitor[]
+
   // Social Media Monitoring Config
   socialMonitoringEnabled Boolean   @default(false)  // Habilitar monitoreo de redes sociales
   socialHashtags          String[]  @default([])     // Hashtags a monitorear (sin #)
@@ -103,7 +107,6 @@ model Keyword {
 enum KeywordType {
   NAME
   BRAND
-  COMPETITOR
   TOPIC
   ALIAS
 }
@@ -206,11 +209,12 @@ enum Priority {
 }
 
 model DigestLog {
-  id           String   @id @default(cuid())
-  clientId     String
-  type         String
-  articleCount Int
-  sentAt       DateTime @default(now())
+  id                 String   @id @default(cuid())
+  clientId           String
+  type               String
+  articleCount       Int
+  socialMentionCount Int      @default(0)
+  sentAt             DateTime @default(now())
 }
 
 model Setting {
@@ -454,6 +458,34 @@ enum NotificationType {
   WEEKLY_REPORT      // Reporte semanal disponible
   EMERGING_TOPIC     // Tema emergente detectado
   SYSTEM             // Notificación del sistema
+}
+
+// ==================== COMPETITORS ====================
+
+model Competitor {
+  id          String             @id @default(cuid())
+  name        String
+  description String?
+  orgId       String
+  org         Organization       @relation(fields: [orgId], references: [id])
+  createdAt   DateTime           @default(now())
+  clients     ClientCompetitor[]
+
+  @@unique([name, orgId])
+  @@index([orgId])
+}
+
+model ClientCompetitor {
+  id           String     @id @default(cuid())
+  clientId     String
+  client       Client     @relation(fields: [clientId], references: [id], onDelete: Cascade)
+  competitorId String
+  competitor   Competitor @relation(fields: [competitorId], references: [id], onDelete: Cascade)
+  createdAt    DateTime   @default(now())
+
+  @@unique([clientId, competitorId])
+  @@index([clientId])
+  @@index([competitorId])
 }
 
 // ==================== SOCIAL MEDIA MONITORING ====================

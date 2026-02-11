@@ -108,18 +108,19 @@ export function startInsightsWorker() {
             console.error(`[InsightsWorker] Topic stats failed for ${client.name}:`, err);
           }
 
-          // Obtener competidores
-          const competitorKeywords = client.keywords.filter(
-            (k) => k.type === "COMPETITOR" && k.active
-          );
+          // Obtener competidores del modelo Competitor
+          const clientCompetitors = await prisma.clientCompetitor.findMany({
+            where: { clientId: client.id },
+            include: { competitor: true },
+          });
           const competitors: { name: string; sov: number }[] = [];
 
-          if (competitorKeywords.length > 0) {
+          if (clientCompetitors.length > 0) {
             const competitorClients = await prisma.client.findMany({
               where: {
                 orgId: client.orgId,
-                OR: competitorKeywords.map((k) => ({
-                  name: { contains: k.word, mode: "insensitive" as const },
+                OR: clientCompetitors.map((cc) => ({
+                  name: { contains: cc.competitor.name, mode: "insensitive" as const },
                 })),
                 active: true,
                 id: { not: client.id },

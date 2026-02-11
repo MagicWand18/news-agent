@@ -76,7 +76,7 @@ export function startCommentsExtractionWorker() {
         }
       }
 
-      console.log(`[CommentsWorker] Extracting comments for ${mention.platform} mention ${mentionId}`);
+      console.log(`[CommentsWorker] Extracting comments for ${mention.platform} mention ${mentionId} (maxComments=${maxComments ?? 'default'})`);
 
       const client = getEnsembleDataClient();
       if (!client.isConfigured()) {

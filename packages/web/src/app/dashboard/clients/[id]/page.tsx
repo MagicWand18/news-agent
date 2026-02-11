@@ -24,11 +24,10 @@ import {
   Area,
 } from "recharts";
 
-const KEYWORD_TYPES = ["NAME", "BRAND", "COMPETITOR", "TOPIC", "ALIAS"] as const;
+const KEYWORD_TYPES = ["NAME", "BRAND", "TOPIC", "ALIAS"] as const;
 const typeLabels: Record<string, string> = {
   NAME: "Nombre",
   BRAND: "Marca",
-  COMPETITOR: "Competidor",
   TOPIC: "Tema",
   ALIAS: "Alias",
 };
@@ -332,7 +331,7 @@ export default function ClientDetailPage() {
       </div>
 
       {/* Competidores */}
-      <CompetitorsSection clientId={id} keywords={c.keywords} addKeyword={addKeyword} removeKeyword={removeKeyword} />
+      <CompetitorsSection clientId={id} competitors={c.competitors || []} />
 
       {/* Grounding Config */}
       <GroundingConfigSection clientId={id} />
@@ -444,17 +443,32 @@ export default function ClientDetailPage() {
 
 function CompetitorsSection({
   clientId,
-  keywords,
-  addKeyword,
-  removeKeyword
+  competitors,
 }: {
   clientId: string;
-  keywords: { id: string; word: string; type: string }[];
-  addKeyword: { mutate: (data: { clientId: string; word: string; type: "NAME" | "BRAND" | "COMPETITOR" | "TOPIC" | "ALIAS" }) => void; isPending: boolean };
-  removeKeyword: { mutate: (data: { id: string }) => void };
+  competitors: Array<{ id: string; competitor: { id: string; name: string } }>;
 }) {
+  const utils = trpc.useUtils();
   const [newCompetitor, setNewCompetitor] = useState("");
-  const competitors = keywords.filter((kw) => kw.type === "COMPETITOR");
+
+  const addCompetitor = trpc.clients.addCompetitor.useMutation({
+    onSuccess: () => {
+      utils.clients.getById.invalidate({ id: clientId });
+      setNewCompetitor("");
+    },
+  });
+  const removeCompetitor = trpc.clients.removeCompetitor.useMutation({
+    onSuccess: () => utils.clients.getById.invalidate({ id: clientId }),
+  });
+
+  // Autocomplete de competidores existentes en la org
+  const orgCompetitors = trpc.clients.listOrgCompetitors.useQuery();
+  const suggestions = (orgCompetitors.data || []).filter(
+    (oc) =>
+      !competitors.some((c) => c.competitor.id === oc.id) &&
+      oc.name.toLowerCase().includes(newCompetitor.toLowerCase()) &&
+      newCompetitor.length > 0
+  );
 
   return (
     <div className="rounded-xl bg-white dark:bg-gray-800 p-6 shadow-sm dark:shadow-gray-900/20">
@@ -462,15 +476,18 @@ function CompetitorsSection({
         <Target className="h-5 w-5 text-orange-500" />
         Competidores
       </h3>
+      <p className="mb-3 text-xs text-gray-400 dark:text-gray-500">
+        Los competidores se usan para SOV y comparación. No generan menciones.
+      </p>
       <div className="mb-4 flex flex-wrap gap-2">
-        {competitors.map((kw) => (
+        {competitors.map((cc) => (
           <span
-            key={kw.id}
+            key={cc.id}
             className="flex items-center gap-1 rounded-full bg-orange-100 dark:bg-orange-900/30 px-3 py-1 text-sm text-orange-700 dark:text-orange-400"
           >
-            {kw.word}
+            {cc.competitor.name}
             <button
-              onClick={() => removeKeyword.mutate({ id: kw.id })}
+              onClick={() => removeCompetitor.mutate({ clientId, competitorId: cc.competitor.id })}
               className="ml-1 text-orange-500 hover:text-red-500"
             >
               <X className="h-3 w-3" />
@@ -487,25 +504,39 @@ function CompetitorsSection({
         onSubmit={(e) => {
           e.preventDefault();
           if (newCompetitor.trim()) {
-            addKeyword.mutate({
-              clientId,
-              word: newCompetitor.trim(),
-              type: "COMPETITOR",
-            });
-            setNewCompetitor("");
+            addCompetitor.mutate({ clientId, name: newCompetitor.trim() });
           }
         }}
-        className="flex gap-2"
+        className="relative flex gap-2"
       >
-        <input
-          placeholder="Nombre del competidor"
-          value={newCompetitor}
-          onChange={(e) => setNewCompetitor(e.target.value)}
-          className="flex-1 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 px-3 py-2 text-gray-900 dark:text-white placeholder-gray-400"
-        />
+        <div className="relative flex-1">
+          <input
+            placeholder="Nombre del competidor"
+            value={newCompetitor}
+            onChange={(e) => setNewCompetitor(e.target.value)}
+            className="w-full rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 px-3 py-2 text-gray-900 dark:text-white placeholder-gray-400"
+          />
+          {suggestions.length > 0 && (
+            <div className="absolute top-full left-0 right-0 z-10 mt-1 rounded-lg border border-gray-200 dark:border-gray-600 bg-white dark:bg-gray-700 shadow-lg">
+              {suggestions.slice(0, 5).map((s) => (
+                <button
+                  key={s.id}
+                  type="button"
+                  onClick={() => {
+                    addCompetitor.mutate({ clientId, name: s.name });
+                    setNewCompetitor("");
+                  }}
+                  className="block w-full px-3 py-2 text-left text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-600"
+                >
+                  {s.name}
+                </button>
+              ))}
+            </div>
+          )}
+        </div>
         <button
           type="submit"
-          disabled={addKeyword.isPending || !newCompetitor.trim()}
+          disabled={addCompetitor.isPending || !newCompetitor.trim()}
           className="flex items-center gap-1 rounded-lg bg-orange-500 px-4 py-2 text-white hover:bg-orange-600 disabled:opacity-50"
         >
           <Plus className="h-4 w-4" />
@@ -730,7 +761,7 @@ function CompetitorComparison({ clientId }: { clientId: string }) {
           </div>
           <p className="text-sm text-gray-500 dark:text-gray-400">No hay competidores configurados</p>
           <p className="mt-1 text-xs text-gray-400 dark:text-gray-500">
-            Agrega keywords de tipo "Competidor" para ver la comparación
+            Agrega competidores arriba para ver la comparación
           </p>
         </div>
       </div>
@@ -739,36 +770,21 @@ function CompetitorComparison({ clientId }: { clientId: string }) {
 
   const data = comparison.data;
 
-  // Prepare chart data
+  // Preparar datos para el chart: cliente usa menciones, competidores usan artículos
   const chartData = [
     {
       name: data.client.name,
-      mentions: data.client.mentions,
+      count: data.client.mentions,
       fill: "#3b82f6",
-      isClient: true,
+      label: "Menciones",
     },
-    ...data.competitors.map((c: { name: string; mentions: number }) => ({
+    ...data.competitors.map((c: { name: string; articles: number }) => ({
       name: c.name,
-      mentions: c.mentions,
+      count: c.articles,
       fill: "#9ca3af",
-      isClient: false,
+      label: "Artículos",
     })),
   ];
-
-  // Calculate sentiment percentages
-  const calculateSentimentPercent = (sentiment: {
-    positive: number;
-    negative: number;
-    neutral: number;
-    mixed: number;
-  }) => {
-    const total = sentiment.positive + sentiment.negative + sentiment.neutral + sentiment.mixed;
-    if (total === 0) return { positive: 0, negative: 0 };
-    return {
-      positive: Math.round((sentiment.positive / total) * 100),
-      negative: Math.round((sentiment.negative / total) * 100),
-    };
-  };
 
   return (
     <div className="rounded-xl bg-white dark:bg-gray-800 p-6 shadow-sm dark:shadow-gray-900/20">
@@ -807,7 +823,7 @@ function CompetitorComparison({ clientId }: { clientId: string }) {
               border: "1px solid #e5e7eb",
             }}
           />
-          <Bar dataKey="mentions" name="Menciones" radius={[0, 4, 4, 0]}>
+          <Bar dataKey="count" name="Presencia" radius={[0, 4, 4, 0]}>
             {chartData.map((entry, index) => (
               <Cell key={`cell-${index}`} fill={entry.fill} />
             ))}
@@ -815,39 +831,29 @@ function CompetitorComparison({ clientId }: { clientId: string }) {
         </BarChart>
       </ResponsiveContainer>
 
-      {/* Detailed Table */}
+      {/* Tabla */}
       <div className="mt-4 overflow-x-auto">
         <table className="w-full text-sm">
           <thead>
             <tr className="border-b border-gray-200 dark:border-gray-700 text-left">
               <th className="pb-2 font-medium text-gray-500 dark:text-gray-400">Entidad</th>
-              <th className="pb-2 text-right font-medium text-gray-500 dark:text-gray-400">Menciones</th>
-              <th className="pb-2 text-right font-medium text-gray-500 dark:text-gray-400">% Positivo</th>
-              <th className="pb-2 text-right font-medium text-gray-500 dark:text-gray-400">% Negativo</th>
+              <th className="pb-2 text-right font-medium text-gray-500 dark:text-gray-400">Tipo</th>
+              <th className="pb-2 text-right font-medium text-gray-500 dark:text-gray-400">Presencia</th>
             </tr>
           </thead>
           <tbody>
             <tr className="border-b border-gray-200 dark:border-gray-700 bg-blue-50 dark:bg-blue-900/20">
               <td className="py-2 font-medium text-blue-700 dark:text-blue-400">{data.client.name}</td>
-              <td className="py-2 text-right text-gray-900 dark:text-white">{data.client.mentions}</td>
-              <td className="py-2 text-right text-green-600 dark:text-green-400">
-                {calculateSentimentPercent(data.client.sentiment).positive}%
-              </td>
-              <td className="py-2 text-right text-red-600 dark:text-red-400">
-                {calculateSentimentPercent(data.client.sentiment).negative}%
-              </td>
+              <td className="py-2 text-right text-gray-500 dark:text-gray-400">Menciones</td>
+              <td className="py-2 text-right font-semibold text-gray-900 dark:text-white">{data.client.mentions}</td>
             </tr>
-            {data.competitors.map((comp: { name: string; mentions: number; sentiment: { positive: number; negative: number; neutral: number; mixed: number } }) => {
-              const percent = calculateSentimentPercent(comp.sentiment);
-              return (
-                <tr key={comp.name} className="border-b border-gray-200 dark:border-gray-700">
-                  <td className="py-2 text-gray-700 dark:text-gray-300">{comp.name}</td>
-                  <td className="py-2 text-right text-gray-900 dark:text-white">{comp.mentions}</td>
-                  <td className="py-2 text-right text-green-600 dark:text-green-400">{percent.positive}%</td>
-                  <td className="py-2 text-right text-red-600 dark:text-red-400">{percent.negative}%</td>
-                </tr>
-              );
-            })}
+            {data.competitors.map((comp: { id: string; name: string; articles: number }) => (
+              <tr key={comp.id} className="border-b border-gray-200 dark:border-gray-700">
+                <td className="py-2 text-gray-700 dark:text-gray-300">{comp.name}</td>
+                <td className="py-2 text-right text-gray-500 dark:text-gray-400">Artículos</td>
+                <td className="py-2 text-right font-semibold text-gray-900 dark:text-white">{comp.articles}</td>
+              </tr>
+            ))}
           </tbody>
         </table>
       </div>
