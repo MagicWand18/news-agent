@@ -13,6 +13,7 @@
 
 import { z } from "zod";
 import { TRPCError } from "@trpc/server";
+import { Prisma } from "@prisma/client";
 import { router, protectedProcedure, getEffectiveOrgId } from "../trpc";
 import { prisma, getEnsembleDataClient } from "@mediabot/shared";
 
@@ -468,17 +469,21 @@ Genera:
 
       // Filtro de organización para raw queries (vacío si Super Admin ve todo)
       const orgFilterSql = orgId
-        ? prisma.$queryRaw`AND c."orgId" = ${orgId}`
-        : prisma.$queryRaw``;
+        ? Prisma.sql`AND c."orgId" = ${orgId}`
+        : Prisma.empty;
 
       // Agrupar por fecha
+      const clientFilterSql = input.clientId
+        ? Prisma.sql`AND sm."clientId" = ${input.clientId}`
+        : Prisma.empty;
+
       const trend = await prisma.$queryRaw<{ date: string; count: bigint }[]>`
         SELECT DATE(sm."createdAt") as date, COUNT(*) as count
         FROM "SocialMention" sm
         JOIN "Client" c ON sm."clientId" = c.id
         WHERE sm."createdAt" >= ${since}
         ${orgFilterSql}
-        ${input.clientId ? prisma.$queryRaw`AND sm."clientId" = ${input.clientId}` : prisma.$queryRaw``}
+        ${clientFilterSql}
         GROUP BY DATE(sm."createdAt")
         ORDER BY date ASC
       `;

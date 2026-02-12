@@ -123,7 +123,7 @@ export const clientsRouter = router({
         });
       }
 
-      // Validar límite de clientes de la organización
+      // Validar que la organización exista y verificar límite de clientes
       const org = await prisma.organization.findUnique({
         where: { id: targetOrgId },
         select: {
@@ -132,7 +132,15 @@ export const clientsRouter = router({
         },
       });
 
-      if (org?.maxClients !== null && org?.maxClients !== undefined) {
+      if (!org) {
+        console.error(`[create] Org no encontrada. targetOrgId=${targetOrgId}, user.orgId=${ctx.user.orgId}, user.id=${ctx.user.id}`);
+        throw new TRPCError({
+          code: "BAD_REQUEST",
+          message: "Tu organización no existe. Por favor cierra sesión e inicia de nuevo.",
+        });
+      }
+
+      if (org.maxClients !== null && org.maxClients !== undefined) {
         if (org._count.clients >= org.maxClients) {
           throw new TRPCError({
             code: "FORBIDDEN",
@@ -671,6 +679,51 @@ IMPORTANTE: Genera 8-12 keywords variados basados en las noticias.`;
           code: "BAD_REQUEST",
           message: "Debe especificar una organización",
         });
+      }
+
+      // Validar que la organización exista antes de crear el cliente
+      const org = await prisma.organization.findUnique({
+        where: { id: targetOrgId },
+        select: { id: true, name: true, maxClients: true, _count: { select: { clients: true } } },
+      });
+
+      if (!org) {
+        console.error(`[createWithOnboarding] Org no encontrada. targetOrgId=${targetOrgId}, user.orgId=${ctx.user.orgId}, user.id=${ctx.user.id}, input.orgId=${input.orgId}`);
+        // Intentar refrescar orgId desde la DB del usuario actual
+        const freshUser = await prisma.user.findUnique({
+          where: { id: ctx.user.id },
+          select: { orgId: true },
+        });
+        if (freshUser?.orgId) {
+          const freshOrg = await prisma.organization.findUnique({
+            where: { id: freshUser.orgId },
+            select: { id: true },
+          });
+          if (freshOrg) {
+            targetOrgId = freshUser.orgId;
+            console.log(`[createWithOnboarding] Usando orgId fresco de la DB: ${targetOrgId}`);
+          } else {
+            throw new TRPCError({
+              code: "BAD_REQUEST",
+              message: "Tu organización no existe. Por favor cierra sesión e inicia de nuevo.",
+            });
+          }
+        } else {
+          throw new TRPCError({
+            code: "BAD_REQUEST",
+            message: "No se encontró tu organización. Por favor cierra sesión e inicia de nuevo.",
+          });
+        }
+      }
+
+      // Validar límite de clientes de la organización
+      if (org && org.maxClients !== null && org.maxClients !== undefined) {
+        if (org._count.clients >= org.maxClients) {
+          throw new TRPCError({
+            code: "FORBIDDEN",
+            message: `Esta organización ha alcanzado su límite de ${org.maxClients} cliente(s). Contacta al administrador.`,
+          });
+        }
       }
 
       // Crear cliente
