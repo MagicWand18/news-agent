@@ -201,6 +201,9 @@ async function analyzeCommentsJob(
     platform: string;
     content: string | null;
     commentsData: unknown;
+    analyzed: boolean;
+    sourceType: string;
+    sourceValue: string;
     client: { name: string; description: string | null; industry: string | null };
     authorHandle: string;
     authorFollowers: number | null;
@@ -242,7 +245,34 @@ async function analyzeCommentsJob(
     },
   });
 
-  // Actualizar mención con percepción pública de los comentarios
+  // Si el post no ha sido analizado aún, también ejecutar análisis del post
+  let postAnalysisData: Record<string, unknown> = {};
+  if (!mention.analyzed) {
+    console.log(`[SocialAnalysis] Post ${mention.id} not yet analyzed, running post analysis too`);
+    const postAnalysis = await analyzeSocialMention({
+      platform: mention.platform,
+      content: mention.content || "",
+      authorHandle: mention.authorHandle,
+      authorFollowers: mention.authorFollowers || undefined,
+      engagement: {
+        likes: mention.likes,
+        comments: mention.comments,
+        shares: mention.shares,
+        views: mention.views || undefined,
+      },
+      clientName: mention.client.name,
+      clientDescription: mention.client.description || undefined,
+      sourceType: mention.sourceType,
+      sourceValue: mention.sourceValue,
+    });
+    postAnalysisData = {
+      sentiment: postAnalysis.sentiment as Sentiment,
+      relevance: postAnalysis.relevance,
+      analyzed: true,
+    };
+  }
+
+  // Combinar resumen: percepción pública de comentarios + resumen del post si existe
   const updatedSummary = analysis.publicPerception;
 
   await prisma.socialMention.update({
@@ -250,8 +280,8 @@ async function analyzeCommentsJob(
     data: {
       commentsSentiment: analysis.overallSentiment as Sentiment,
       commentsAnalyzed: true,
-      // Actualizar aiSummary para incluir percepción pública de comentarios
       aiSummary: updatedSummary,
+      ...postAnalysisData,
     },
   });
 

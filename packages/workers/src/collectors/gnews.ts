@@ -2,16 +2,17 @@ import Parser from "rss-parser";
 import type { NormalizedArticle } from "@mediabot/shared";
 import { prisma } from "@mediabot/shared";
 
-// Configuración del collector Google News RSS
+// Configuración del collector Google News RSS + Bing News RSS
 const GNEWS_CONFIG = {
   baseUrl: "https://news.google.com/rss/search",
+  bingBaseUrl: "https://www.bing.com/news/search",
   timeout: parseInt(process.env.GNEWS_TIMEOUT || "15000", 10),
   rateLimitMs: parseInt(process.env.GNEWS_RATE_LIMIT_MS || "500", 10),
   errorThreshold: parseInt(process.env.GNEWS_ERROR_THRESHOLD || "10", 10),
   userAgent: "Mozilla/5.0 (compatible; MediaBot/1.0)",
 };
 
-const parser = new Parser({
+export const gnewsParser = new Parser({
   timeout: GNEWS_CONFIG.timeout,
   headers: {
     "User-Agent": GNEWS_CONFIG.userAgent,
@@ -19,11 +20,14 @@ const parser = new Parser({
   },
 });
 
+// Alias interno para compatibilidad
+const parser = gnewsParser;
+
 /**
  * Extrae la URL real del redirect de Google News.
  * Google News envuelve las URLs en su propio dominio.
  */
-function extractRealUrl(googleUrl: string): string {
+export function extractRealUrl(googleUrl: string): string {
   try {
     const url = new URL(googleUrl);
 
@@ -67,7 +71,7 @@ function extractRealUrl(googleUrl: string): string {
  * Sigue el redirect de Google News para obtener la URL final.
  * Alternativa cuando extractRealUrl no funciona.
  */
-async function followRedirect(googleUrl: string): Promise<string> {
+export async function followRedirect(googleUrl: string): Promise<string> {
   try {
     const controller = new AbortController();
     const timeoutId = setTimeout(() => controller.abort(), 5000);
@@ -92,7 +96,7 @@ async function followRedirect(googleUrl: string): Promise<string> {
  * Obtiene la URL real de un artículo de Google News.
  * Primero intenta extraerla del URL, luego sigue el redirect si es necesario.
  */
-async function getRealArticleUrl(googleUrl: string): Promise<string> {
+export async function getRealArticleUrl(googleUrl: string): Promise<string> {
   // Primero intentar extraer sin hacer request
   const extracted = extractRealUrl(googleUrl);
 
@@ -257,6 +261,173 @@ export async function collectGnews(): Promise<NormalizedArticle[]> {
   );
 
   return articles;
+}
+
+/**
+ * Extrae la URL real del wrapper de redirect de Bing News.
+ * Bing envuelve URLs en: http://www.bing.com/news/apiclick.aspx?...&url=https%3a%2f%2f...
+ */
+export function extractBingRealUrl(bingUrl: string): string {
+  try {
+    const url = new URL(bingUrl);
+    const realUrl = url.searchParams.get("url");
+    if (realUrl) return realUrl;
+  } catch {
+    // Ignorar errores de parsing
+  }
+  return bingUrl;
+}
+
+/**
+ * Busca artículos en Bing News RSS para un término dado.
+ * https://www.bing.com/news/search?q="term"&format=rss
+ */
+async function searchBingNewsRss(
+  term: string
+): Promise<NormalizedArticle[]> {
+  const query = encodeURIComponent(`"${term}"`);
+  const url = `${GNEWS_CONFIG.bingBaseUrl}?q=${query}&format=rss`;
+
+  const feed = await parser.parseURL(url);
+  const items = feed.items || [];
+
+  const results: NormalizedArticle[] = [];
+  for (const item of items) {
+    if (!item.link || !item.title) continue;
+
+    const realUrl = extractBingRealUrl(item.link);
+    // Extraer source del dominio de la URL real
+    let source = "Bing News";
+    try {
+      source = new URL(realUrl).hostname.replace(/^www\./, "");
+    } catch { /* ignorar */ }
+
+    results.push({
+      url: realUrl,
+      title: item.title,
+      source,
+      content: item.contentSnippet || undefined,
+      publishedAt: item.pubDate ? new Date(item.pubDate) : undefined,
+    });
+  }
+
+  return results;
+}
+
+/**
+ * Collector por nombre de cliente: busca en Google News RSS + Bing News RSS
+ * artículos que mencionen a cada cliente activo por su nombre y keywords.
+ *
+ * Los artículos pasan por el pipeline normal de ingest (dedup, keyword match, pre-filtro, análisis).
+ */
+export async function collectGnewsByClient(): Promise<NormalizedArticle[]> {
+  // Obtener clientes activos con sus keywords
+  const clients = await prisma.client.findMany({
+    where: { active: true },
+    select: {
+      id: true,
+      name: true,
+      keywords: {
+        where: { active: true },
+        select: { word: true },
+      },
+    },
+  });
+
+  if (clients.length === 0) {
+    console.log("🔍 GNews Client Search: No hay clientes activos");
+    return [];
+  }
+
+  console.log(`🔍 GNews Client Search: Buscando noticias para ${clients.length} clientes`);
+
+  const articles: NormalizedArticle[] = [];
+  let totalItems = 0;
+  let clientsOk = 0;
+
+  for (const client of clients) {
+    // Construir queries de búsqueda: nombre del cliente + keywords relevantes
+    const searchTerms = new Set<string>();
+    searchTerms.add(client.name);
+
+    // Agregar keywords que no sean genéricos (evitar keywords de 1 palabra muy comunes)
+    for (const kw of client.keywords) {
+      if (kw.word.length > 3 && kw.word !== client.name) {
+        searchTerms.add(kw.word);
+      }
+    }
+
+    for (const term of searchTerms) {
+      try {
+        // Buscar en Google News + Bing News en paralelo
+        const [gResult, bResult] = await Promise.allSettled([
+          (async () => {
+            const query = encodeURIComponent(`"${term}"`);
+            const url = `${GNEWS_CONFIG.baseUrl}?q=${query}&hl=es-419&gl=MX&ceid=MX:es-419`;
+            const feed = await parser.parseURL(url);
+            const items = feed.items || [];
+            const results: NormalizedArticle[] = [];
+            for (const item of items) {
+              if (!item.link || !item.title) continue;
+              const realUrl = await getRealArticleUrl(item.link);
+              results.push({
+                url: realUrl,
+                title: item.title,
+                source: item.creator || extractSourceFromTitle(item.title),
+                content: item.contentSnippet || undefined,
+                publishedAt: item.pubDate ? new Date(item.pubDate) : undefined,
+              });
+            }
+            return results;
+          })(),
+          searchBingNewsRss(term),
+        ]);
+
+        if (gResult.status === "fulfilled" && gResult.value.length > 0) {
+          articles.push(...gResult.value);
+          totalItems += gResult.value.length;
+          clientsOk++;
+        }
+        if (bResult.status === "fulfilled" && bResult.value.length > 0) {
+          articles.push(...bResult.value);
+          totalItems += bResult.value.length;
+        }
+
+        if (gResult.status === "rejected") {
+          console.warn(`  ⚠️ Google News [${client.name}] "${term}": ${String(gResult.reason).slice(0, 80)}`);
+        }
+        if (bResult.status === "rejected") {
+          console.warn(`  ⚠️ Bing News [${client.name}] "${term}": ${String(bResult.reason).slice(0, 80)}`);
+        }
+      } catch (error) {
+        const msg = error instanceof Error ? error.message : String(error);
+        console.error(`  ❌ Client Search [${client.name}] "${term}": ${msg.slice(0, 80)}`);
+      }
+
+      // Rate limiting entre búsquedas
+      await new Promise((resolve) =>
+        setTimeout(resolve, GNEWS_CONFIG.rateLimitMs)
+      );
+    }
+  }
+
+  console.log(
+    `🔍 Client News Search: ${clientsOk} búsquedas exitosas, ${totalItems} artículos encontrados (Google + Bing)`
+  );
+
+  return articles;
+}
+
+/**
+ * Extrae el nombre de la fuente del título de Google News RSS.
+ * Google News agrega " - Fuente" al final del título.
+ */
+function extractSourceFromTitle(title: string): string {
+  const parts = title.split(" - ");
+  if (parts.length > 1) {
+    return parts[parts.length - 1].trim();
+  }
+  return "Google News";
 }
 
 /**

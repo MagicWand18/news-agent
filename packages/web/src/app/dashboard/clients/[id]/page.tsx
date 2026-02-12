@@ -1742,12 +1742,15 @@ function SocialStatsSection({ clientId }: { clientId: string }) {
   const triggerCollection = trpc.social.triggerCollection.useMutation({
     onSuccess: () => {
       setShowOptions(false);
-      // Refrescar datos después de unos segundos
-      setTimeout(() => {
+      // Polling: refrescar datos cada 10s por 60s mientras la recolección async termina
+      let attempts = 0;
+      const interval = setInterval(() => {
+        attempts++;
         utils.social.getSocialStats.invalidate({ clientId });
         utils.social.getSocialTrend.invalidate({ clientId });
         utils.social.getSocialMentions.invalidate({ clientId });
-      }, 5000);
+        if (attempts >= 6) clearInterval(interval);
+      }, 10000);
     },
   });
 

@@ -83,18 +83,32 @@ export default function SocialMentionDetailPage() {
       setExtractionMessage(data.message);
       setIsPolling(true);
       let attempts = 0;
+      let commentsFound = false;
       pollingRef.current = setInterval(async () => {
         attempts++;
         const result = await refetch();
         const comments = (result.data?.commentsData as unknown[]) || [];
-        if (comments.length > 0) {
+        const analyzed = result.data?.commentsAnalyzed ?? false;
+        const postAnalyzed = result.data?.analyzed ?? false;
+
+        if (!commentsFound && comments.length > 0) {
+          commentsFound = true;
+          setExtractionMessage(`${comments.length} comentarios extraidos. Analizando sentimiento...`);
+        }
+
+        // Esperar a que tanto los comentarios como el análisis completo estén listos
+        if (commentsFound && analyzed && postAnalyzed) {
           stopPolling();
-          setExtractionMessage(`${comments.length} comentarios extraidos exitosamente`);
-        } else if (attempts >= 10) {
+          setExtractionMessage(`${comments.length} comentarios analizados exitosamente`);
+        } else if (attempts >= 20) {
           stopPolling();
-          setExtractionMessage("La extraccion esta tomando mas tiempo del esperado. Revisa en unos minutos.");
-        } else {
-          setExtractionMessage(`Esperando resultados... (intento ${attempts}/10)`);
+          if (commentsFound) {
+            setExtractionMessage(`${comments.length} comentarios extraidos. El analisis puede tardar unos minutos.`);
+          } else {
+            setExtractionMessage("La extraccion esta tomando mas tiempo del esperado. Revisa en unos minutos.");
+          }
+        } else if (!commentsFound) {
+          setExtractionMessage(`Esperando resultados... (intento ${attempts}/20)`);
         }
       }, 3000);
     },
@@ -339,7 +353,7 @@ export default function SocialMentionDetailPage() {
               {sent.label}
             </span>
           )}
-          {/* Emoción pública (basada en comentarios) */}
+          {/* Sentimiento de comentarios */}
           {mention.commentsAnalyzed && mention.commentsSentiment ? (
             <span
               className={cn(
@@ -349,14 +363,9 @@ export default function SocialMentionDetailPage() {
               )}
             >
               <MessageCircle className="h-3.5 w-3.5" />
-              Emocion: {(sentimentConfig[mention.commentsSentiment] || sentimentConfig.NEUTRAL).label}
+              Comentarios: {(sentimentConfig[mention.commentsSentiment] || sentimentConfig.NEUTRAL).label}
             </span>
-          ) : (
-            <span className="inline-flex items-center gap-1.5 rounded-full bg-gray-100 dark:bg-gray-700 px-3 py-1 text-sm font-medium text-gray-500 dark:text-gray-400">
-              <MessageCircle className="h-3.5 w-3.5" />
-              Emocion: N/A
-            </span>
-          )}
+          ) : null}
           {mention.relevance !== null && (
             <span className="rounded-full bg-gray-100 dark:bg-gray-700 px-3 py-1 text-sm font-medium text-gray-700 dark:text-gray-300">
               Relevancia: {mention.relevance}/10
@@ -395,56 +404,13 @@ export default function SocialMentionDetailPage() {
 
         {mention.aiSummary ? (
           <div className="mt-3">
-            <p className="text-sm font-medium text-gray-500 dark:text-gray-400">Resumen</p>
             <p className="mt-1 text-gray-700 dark:text-gray-300 whitespace-pre-line">{mention.aiSummary}</p>
           </div>
         ) : (
           <p className="mt-3 text-sm text-gray-400 dark:text-gray-500 italic">
-            Analisis pendiente. Se procesará automaticamente.
+            Analisis pendiente. Se procesara automaticamente.
           </p>
         )}
-
-        {/* Detalle de sentimientos */}
-        <div className="mt-4 grid gap-4 sm:grid-cols-2">
-          <div className="rounded-lg bg-gray-50 dark:bg-gray-900/50 p-4">
-            <p className="text-sm font-medium text-gray-500 dark:text-gray-400">Sentimiento del post</p>
-            {mention.sentiment ? (
-              <div className="mt-2 flex items-center gap-2">
-                <span className={cn("inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-xs font-medium", sent.bg, sent.text)}>
-                  <span className={cn("h-1.5 w-1.5 rounded-full", sent.dot)} />
-                  {sent.label}
-                </span>
-                <span className="text-xs text-gray-500 dark:text-gray-400">
-                  Basado en el contenido del texto
-                </span>
-              </div>
-            ) : (
-              <p className="mt-2 text-sm text-gray-400">Pendiente de analisis</p>
-            )}
-          </div>
-          <div className="rounded-lg bg-gray-50 dark:bg-gray-900/50 p-4">
-            <p className="text-sm font-medium text-gray-500 dark:text-gray-400">Emocion publica (comentarios)</p>
-            {mention.commentsAnalyzed && mention.commentsSentiment ? (
-              <div className="mt-2 flex items-center gap-2">
-                <span className={cn(
-                  "inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-xs font-medium",
-                  (sentimentConfig[mention.commentsSentiment] || sentimentConfig.NEUTRAL).bg,
-                  (sentimentConfig[mention.commentsSentiment] || sentimentConfig.NEUTRAL).text,
-                )}>
-                  <span className={cn("h-1.5 w-1.5 rounded-full", (sentimentConfig[mention.commentsSentiment] || sentimentConfig.NEUTRAL).dot)} />
-                  {(sentimentConfig[mention.commentsSentiment] || sentimentConfig.NEUTRAL).label}
-                </span>
-                <span className="text-xs text-gray-500 dark:text-gray-400">
-                  Promedio de {mention.commentsCount || 0} comentarios
-                </span>
-              </div>
-            ) : (
-              <p className="mt-2 text-sm text-gray-400">
-                N/A — {mention.commentsData ? "Analisis en proceso" : "Extrae comentarios para analizar emocion"}
-              </p>
-            )}
-          </div>
-        </div>
       </div>
 
       {/* Sección de comentarios extraídos */}

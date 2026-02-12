@@ -1,49 +1,23 @@
 /**
- * Servicio de grounding con Gemini.
- * Busca noticias en internet usando Google Search grounding.
+ * Servicio de búsqueda de noticias via Google News RSS + Bing News RSS.
+ * Combina múltiples fuentes RSS gratuitas para máxima cobertura.
  */
 import {
   prisma,
   config,
   normalizeUrl,
-  validateUrl,
-  validateAndEnrichUrl,
-  deduplicateUrls,
-  extractDomain,
 } from "@mediabot/shared";
-import { GoogleGenerativeAI, GenerateContentResult } from "@google/generative-ai";
+import { getQueue, QUEUE_NAMES } from "../queues.js";
+import { preFilterArticle } from "../analysis/ai.js";
+import {
+  gnewsParser,
+  getRealArticleUrl,
+  extractRealUrl,
+} from "../collectors/gnews.js";
 
-/**
- * Estructura de un chunk de grounding (URL real de Google Search).
- */
-interface GroundingChunk {
-  web?: {
-    uri: string;
-    title?: string;
-  };
-}
-
-/**
- * Extrae URLs reales del groundingMetadata del response de Gemini.
- * Estos son los URLs que Google Search realmente encontró.
- */
-function extractGroundingUrls(result: GenerateContentResult): GroundingChunk[] {
-  try {
-    // Acceder al candidato y su metadata de grounding
-    const candidate = result.response.candidates?.[0];
-    if (!candidate) return [];
-
-    // El groundingMetadata contiene los chunks con URLs reales
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const metadata = (candidate as any).groundingMetadata;
-    if (!metadata?.groundingChunks) return [];
-
-    return metadata.groundingChunks as GroundingChunk[];
-  } catch (error) {
-    console.warn("[Grounding] Error extracting grounding URLs:", error);
-    return [];
-  }
-}
+const GNEWS_BASE_URL = "https://news.google.com/rss/search";
+const BING_NEWS_BASE_URL = "https://www.bing.com/news/search";
+const RATE_LIMIT_MS = 500;
 
 export type GroundingTrigger = "manual" | "auto_low_mentions" | "weekly" | "onboarding";
 
@@ -87,209 +61,235 @@ function subDays(date: Date, days: number): Date {
 }
 
 /**
- * Ejecuta una búsqueda de grounding con Gemini.
- * Busca noticias en internet y crea artículos/menciones en la base de datos.
+ * Extrae el nombre de la fuente del título de Google News RSS.
+ * Google News agrega " - Fuente" al final del título.
+ */
+function extractSourceFromTitle(title: string): string {
+  const parts = title.split(" - ");
+  if (parts.length > 1) {
+    return parts[parts.length - 1].trim();
+  }
+  return "Google News";
+}
+
+/**
+ * Limpia el título removiendo el sufijo " - Fuente" de Google News RSS.
+ */
+function cleanTitle(title: string): string {
+  const parts = title.split(" - ");
+  if (parts.length > 1) {
+    return parts.slice(0, -1).join(" - ").trim();
+  }
+  return title;
+}
+
+/**
+ * Busca artículos en Google News RSS para un término dado.
+ */
+async function searchGoogleNewsRss(
+  searchTerm: string
+): Promise<Array<{ title: string; source: string; url: string; snippet?: string; publishedAt?: Date }>> {
+  const query = encodeURIComponent(`"${searchTerm}"`);
+  const url = `${GNEWS_BASE_URL}?q=${query}&hl=es-419&gl=MX&ceid=MX:es-419`;
+
+  const feed = await gnewsParser.parseURL(url);
+  const items = feed.items || [];
+
+  const results: Array<{ title: string; source: string; url: string; snippet?: string; publishedAt?: Date }> = [];
+
+  for (const item of items) {
+    if (!item.link || !item.title) continue;
+
+    // Extraer URL real del redirect de Google News
+    const realUrl = await getRealArticleUrl(item.link);
+    const source = item.creator || extractSourceFromTitle(item.title);
+    const title = cleanTitle(item.title);
+
+    results.push({
+      title,
+      source,
+      url: realUrl,
+      snippet: item.contentSnippet || undefined,
+      publishedAt: item.pubDate ? new Date(item.pubDate) : undefined,
+    });
+  }
+
+  return results;
+}
+
+/**
+ * Extrae la URL real del wrapper de redirect de Bing News.
+ * Bing envuelve URLs en: http://www.bing.com/news/apiclick.aspx?...&url=https%3a%2f%2f...
+ */
+function extractBingRealUrl(bingUrl: string): string {
+  try {
+    const url = new URL(bingUrl);
+    const realUrl = url.searchParams.get("url");
+    if (realUrl) return realUrl;
+  } catch {
+    // Ignorar errores de parsing
+  }
+  return bingUrl;
+}
+
+/**
+ * Extrae un nombre legible del dominio de una URL.
+ * Ej: "https://www.sdpnoticias.com/opinion/..." → "sdpnoticias.com"
+ */
+function extractSourceFromUrl(articleUrl: string): string {
+  try {
+    const hostname = new URL(articleUrl).hostname.replace(/^www\./, "");
+    return hostname;
+  } catch {
+    return "Bing News";
+  }
+}
+
+/**
+ * Busca artículos en Bing News RSS para un término dado.
+ */
+async function searchBingNewsRss(
+  searchTerm: string
+): Promise<Array<{ title: string; source: string; url: string; snippet?: string; publishedAt?: Date }>> {
+  const query = encodeURIComponent(`"${searchTerm}"`);
+  const url = `${BING_NEWS_BASE_URL}?q=${query}&format=rss`;
+
+  const feed = await gnewsParser.parseURL(url);
+  const items = feed.items || [];
+
+  const results: Array<{ title: string; source: string; url: string; snippet?: string; publishedAt?: Date }> = [];
+
+  for (const item of items) {
+    if (!item.link || !item.title) continue;
+
+    const realUrl = extractBingRealUrl(item.link);
+    const source = extractSourceFromUrl(realUrl);
+
+    results.push({
+      title: item.title,
+      source,
+      url: realUrl,
+      snippet: item.contentSnippet || undefined,
+      publishedAt: item.pubDate ? new Date(item.pubDate) : undefined,
+    });
+  }
+
+  return results;
+}
+
+/**
+ * Ejecuta una búsqueda de noticias via Google News RSS + Bing News RSS.
+ * Busca el nombre del cliente y crea artículos/menciones en la base de datos.
  */
 export async function executeGroundingSearch(
   params: GroundingParams
 ): Promise<GroundingResult> {
-  const { clientId, clientName, industry, days, articleCount, trigger } = params;
+  const { clientId, clientName, days, trigger } = params;
   const executedAt = new Date();
-
-  console.log(
-    `[Grounding] Starting search for "${clientName}" (${trigger}): ${articleCount} articles, last ${days} days`
-  );
-
-  if (!config.google.apiKey) {
-    console.warn("[Grounding] GOOGLE_API_KEY not configured");
-    return {
-      success: false,
-      articles: [],
-      articlesFound: 0,
-      mentionsCreated: 0,
-      trigger,
-      error: "GOOGLE_API_KEY no configurada",
-      executedAt,
-    };
-  }
-
-  const foundArticles: GroundingArticle[] = [];
-  // Fecha mínima aceptable para el período solicitado
   const minAcceptableDate = subDays(new Date(), days);
 
+  console.log(
+    `[NewsSearch] Starting news RSS search for "${clientName}" (${trigger}): last ${days} days`
+  );
+
+  const foundArticles: GroundingArticle[] = [];
+  const seenUrls = new Set<string>();
+
   try {
-    const genAI = new GoogleGenerativeAI(config.google.apiKey);
-    const model = genAI.getGenerativeModel({
-      model: "gemini-2.0-flash",
-      generationConfig: {
-        temperature: 0.3,
-        maxOutputTokens: 4096,
+    // Buscar el nombre del cliente en Google News + Bing News en paralelo
+    const [googleResults, bingResults] = await Promise.allSettled([
+      searchGoogleNewsRss(clientName),
+      searchBingNewsRss(clientName),
+    ]);
+
+    const rssResults = googleResults.status === "fulfilled" ? googleResults.value : [];
+    const bingRssResults = bingResults.status === "fulfilled" ? bingResults.value : [];
+
+    if (googleResults.status === "rejected") {
+      console.warn(`[NewsSearch] Google News RSS failed: ${googleResults.reason}`);
+    }
+    if (bingResults.status === "rejected") {
+      console.warn(`[NewsSearch] Bing News RSS failed: ${bingResults.reason}`);
+    }
+
+    console.log(`[NewsSearch] Google News: ${rssResults.length}, Bing News: ${bingRssResults.length} results for "${clientName}"`);
+
+    // También obtener keywords del cliente para búsquedas adicionales
+    const clientData = await prisma.client.findUnique({
+      where: { id: clientId },
+      select: {
+        description: true,
+        keywords: {
+          where: { active: true },
+          select: { word: true },
+        },
       },
     });
 
-    const industryContext = industry ? ` relacionadas con ${industry}` : "";
-    const prompt = `Eres un investigador de medios. Busca entre ${articleCount} y ${articleCount + 10} noticias recientes sobre "${clientName}"${industryContext}.
+    // Buscar también por keywords que no sean el nombre del cliente
+    const additionalTerms = (clientData?.keywords || [])
+      .map((k) => k.word)
+      .filter((w) => w.length > 3 && w.toLowerCase() !== clientName.toLowerCase());
 
-CRITERIOS DE BÚSQUEDA:
-- Noticias de los últimos ${days} días
-- Fuentes: periódicos mexicanos (El Universal, Milenio, Reforma, Excélsior, La Jornada, El Financiero, Forbes México, Expansión), agencias internacionales (Reuters, AFP, EFE), y medios digitales
-- Incluir menciones directas e indirectas (competidores, industria, ejecutivos)
-- Priorizar noticias con impacto mediático
-
-Responde en formato JSON:
-{
-  "articles": [
-    {
-      "title": "título completo de la noticia",
-      "source": "nombre del medio",
-      "url": "URL completa y funcional del artículo",
-      "snippet": "resumen de 2-3 oraciones del contenido",
-      "date": "YYYY-MM-DD"
-    }
-  ]
-}
-
-REGLAS:
-- Mínimo ${articleCount} artículos, máximo ${articleCount + 10}
-- URLs deben ser reales y accesibles
-- No inventar noticias - solo incluir las que realmente existen
-- Si hay pocas noticias directas, incluir noticias relacionadas con la industria o competidores
-- Responde SOLO con el JSON, sin explicaciones`;
-
-    const result = await model.generateContent({
-      contents: [{ role: "user", parts: [{ text: prompt }] }],
-      tools: [{ googleSearch: {} }] as unknown as import("@google/generative-ai").Tool[],
-    });
-
-    const response = result.response;
-    const text = response.text();
-
-    // PRIMERO: Extraer URLs reales del groundingMetadata (fuente confiable)
-    const rawChunks = extractGroundingUrls(result);
-
-    // Deduplicar chunks usando normalización robusta
-    const groundingChunks = deduplicateUrls(
-      rawChunks.filter((chunk) => chunk.web?.uri),
-      (chunk) => chunk.web!.uri
-    );
-
-    console.log(`[Grounding] Found ${rawChunks.length} URLs in groundingMetadata, ${groundingChunks.length} unique`);
-
-    // Extraer JSON de la respuesta para títulos/snippets/fechas
-    const jsonMatch = text.match(/\{[\s\S]*"articles"[\s\S]*\}/);
-    let parsedArticles: Array<{
-      title: string;
-      source: string;
-      url: string;
-      snippet?: string;
-      date?: string;
-    }> = [];
-
-    if (jsonMatch) {
+    const additionalResults: typeof rssResults = [];
+    for (const term of additionalTerms.slice(0, 3)) {
       try {
-        const parsed = JSON.parse(jsonMatch[0]);
-        parsedArticles = parsed.articles || [];
-        console.log(`[Grounding] Gemini text contains ${parsedArticles.length} articles`);
-      } catch (e) {
-        console.warn("[Grounding] Failed to parse JSON from response text");
+        await new Promise((resolve) => setTimeout(resolve, RATE_LIMIT_MS));
+        // Buscar en ambas fuentes por keyword
+        const [gRes, bRes] = await Promise.allSettled([
+          searchGoogleNewsRss(term),
+          searchBingNewsRss(term),
+        ]);
+        if (gRes.status === "fulfilled") {
+          additionalResults.push(...gRes.value);
+          console.log(`[NewsSearch] Google News: ${gRes.value.length} results for keyword "${term}"`);
+        }
+        if (bRes.status === "fulfilled") {
+          additionalResults.push(...bRes.value);
+          console.log(`[NewsSearch] Bing News: ${bRes.value.length} results for keyword "${term}"`);
+        }
+      } catch (error) {
+        console.warn(`[NewsSearch] Failed to search keyword "${term}":`, error);
       }
     }
 
-    // Procesar URLs del groundingMetadata (fuente principal)
-    let skippedUrls = 0;
-    let processedFromMetadata = 0;
+    // Combinar resultados de todas las fuentes y deduplicar
+    const allResults = [...rssResults, ...bingRssResults, ...additionalResults];
 
-    for (const chunk of groundingChunks) {
-      if (!chunk.web?.uri) continue;
+    for (const result of allResults) {
+      const normalizedUrl = normalizeUrl(result.url);
+      if (seenUrls.has(normalizedUrl)) continue;
+      seenUrls.add(normalizedUrl);
 
-      const url = chunk.web.uri;
+      // Filtrar por fecha si tenemos publishedAt
+      const isHistorical = result.publishedAt ? result.publishedAt < minAcceptableDate : false;
 
-      // Validar URL con retry y fallback, obtener título enriquecido
-      const enriched = await validateAndEnrichUrl(url, chunk.web?.title, {
-        retries: 2,
-        timeout: 10000,
-        detectSoft404: true,
-      });
-
-      if (!enriched.valid || !enriched.finalUrl) {
-        skippedUrls++;
-        console.warn(`[Grounding] URL validation failed: ${enriched.error} - ${url.slice(0, 60)}...`);
-        continue;
-      }
-
-      const finalUrl = enriched.finalUrl;
-
-      // Verificar duplicados con normalización
-      const normalizedFinalUrl = normalizeUrl(finalUrl);
-      if (foundArticles.some((a) => normalizeUrl(a.url) === normalizedFinalUrl)) continue;
-
-      const source = enriched.source;
-      const title = enriched.title;
-
-      // Buscar fecha en el JSON de Gemini si matchea por dominio
-      const domain = source.toLowerCase();
-      const matchingArticle = parsedArticles.find((a) => {
-        try {
-          const articleDomain = extractDomain(a.url).toLowerCase();
-          return articleDomain === domain;
-        } catch {
-          return false;
-        }
-      });
-
-      // Parsear fecha si existe en el JSON
-      let publishedAt: Date | undefined;
-      if (matchingArticle?.date) {
-        const parsedDate = new Date(matchingArticle.date);
-        if (!isNaN(parsedDate.getTime())) {
-          publishedAt = parsedDate;
-        }
-      }
-
-      // Usar snippet del JSON de Gemini si está disponible
-      const snippet = matchingArticle?.snippet;
-
-      // Crear o actualizar el artículo en la base de datos
+      // Crear o encontrar artículo en DB
       let article = await prisma.article.findFirst({
-        where: { url: finalUrl },
+        where: { url: result.url },
       });
 
       if (!article) {
         article = await prisma.article.create({
           data: {
-            url: finalUrl,
-            title,
-            source,
-            content: snippet || null,
-            publishedAt: publishedAt || null,
+            url: result.url,
+            title: result.title,
+            source: result.source,
+            content: result.snippet || null,
+            publishedAt: result.publishedAt || null,
           },
-        });
-      } else if (!enriched.isGenericTitle && title.length > 20) {
-        // Actualizar título si tenemos uno mejor (no genérico)
-        article = await prisma.article.update({
-          where: { id: article.id },
-          data: { title, source, content: snippet || article.content },
         });
       }
 
-      // Marcar como histórico si la fecha está fuera del período solicitado
-      const isHistorical = publishedAt ? publishedAt < minAcceptableDate : false;
-
       foundArticles.push({
         id: article.id,
-        title,
-        source,
-        url: finalUrl,
-        snippet,
-        publishedAt,
+        title: result.title,
+        source: result.source,
+        url: result.url,
+        snippet: result.snippet,
+        publishedAt: result.publishedAt,
         isHistorical,
       });
-      processedFromMetadata++;
-    }
-
-    console.log(`[Grounding] Processed ${processedFromMetadata} articles from groundingMetadata`);
-    if (skippedUrls > 0) {
-      console.log(`[Grounding] Skipped ${skippedUrls} articles with invalid/unreachable URLs`);
     }
 
     // Complementar con artículos existentes en la DB
@@ -312,10 +312,9 @@ REGLAS:
         publishedAt: true,
       },
       orderBy: { publishedAt: "desc" },
-      take: Math.max(0, articleCount - foundArticles.length),
+      take: 20,
     });
 
-    // Agregar artículos de DB (estos ya están filtrados por fecha, no son históricos)
     for (const a of dbArticles) {
       foundArticles.push({
         id: a.id,
@@ -328,40 +327,77 @@ REGLAS:
       });
     }
 
-    // Log informativo de artículos históricos
-    const historicalCount = foundArticles.filter((a) => a.isHistorical).length;
-    if (historicalCount > 0) {
-      console.log(
-        `[Grounding] ${historicalCount} of ${foundArticles.length} articles are historical (outside ${days}-day period)`
-      );
-    }
+    console.log(`[NewsSearch] Total: ${foundArticles.length} articles (Google: ${rssResults.length}, Bing: ${bingRssResults.length}, DB: ${dbArticles.length})`);
 
-    // Crear menciones para el cliente
+    // Crear menciones con pre-filtrado
+    const analyzeQueue = getQueue(QUEUE_NAMES.ANALYZE_MENTION);
     let mentionsCreated = 0;
+    let skippedByFilter = 0;
+
     for (const article of foundArticles) {
       try {
         // Verificar si ya existe la mención
         const existing = await prisma.mention.findFirst({
           where: { articleId: article.id, clientId },
         });
+        if (existing) continue;
 
-        if (!existing) {
-          await prisma.mention.create({
-            data: {
-              articleId: article.id,
-              clientId,
-              keywordMatched: clientName,
-              snippet: article.snippet || null,
-              sentiment: "NEUTRAL",
-              relevance: 6,
-            },
-          });
-          mentionsCreated++;
+        // Filtro rápido de texto: el título o snippet debe contener el nombre del cliente
+        const textToCheck = `${article.title} ${article.snippet || ""}`.toLowerCase();
+        const clientNameLower = clientName.toLowerCase();
+        const clientNameNormalized = clientNameLower.normalize("NFD").replace(/[\u0300-\u036f]/g, "");
+        const textNormalized = textToCheck.normalize("NFD").replace(/[\u0300-\u036f]/g, "");
+
+        if (!textToCheck.includes(clientNameLower) && !textNormalized.includes(clientNameNormalized)) {
+          // Pre-filtro IA como segunda oportunidad
+          try {
+            const preFilter = await preFilterArticle({
+              articleTitle: article.title,
+              articleContent: article.snippet || "",
+              clientName,
+              clientDescription: clientData?.description || "",
+              keyword: clientName,
+            });
+
+            if (!preFilter.relevant || preFilter.confidence < 0.5) {
+              console.log(
+                `[NewsSearch] Filtered out: "${article.title.slice(0, 50)}..." ` +
+                `(reason: ${preFilter.reason}, confidence: ${preFilter.confidence.toFixed(2)})`
+              );
+              skippedByFilter++;
+              continue;
+            }
+          } catch {
+            console.warn(`[NewsSearch] Pre-filter error, skipping: ${article.title.slice(0, 50)}`);
+            skippedByFilter++;
+            continue;
+          }
         }
+
+        const mention = await prisma.mention.create({
+          data: {
+            articleId: article.id,
+            clientId,
+            keywordMatched: clientName,
+            snippet: article.snippet || null,
+            sentiment: "NEUTRAL",
+            relevance: 6,
+          },
+        });
+        mentionsCreated++;
+
+        // Encolar para análisis IA (sentimiento, relevancia, resumen)
+        await analyzeQueue.add("analyze", { mentionId: mention.id }, {
+          attempts: config.jobs.retryAttempts,
+          backoff: { type: "exponential", delay: config.jobs.backoffDelayMs },
+        });
       } catch (err) {
-        // Ignorar errores de duplicados
-        console.warn(`[Grounding] Error creating mention for article ${article.id}:`, err);
+        console.warn(`[NewsSearch] Error creating mention for article ${article.id}:`, err);
       }
+    }
+
+    if (skippedByFilter > 0) {
+      console.log(`[NewsSearch] Filtered out ${skippedByFilter} irrelevant articles`);
     }
 
     // Actualizar cliente con resultado
@@ -388,15 +424,14 @@ REGLAS:
     });
 
     console.log(
-      `[Grounding] Completed for "${clientName}": ${foundArticles.length} articles, ${mentionsCreated} new mentions`
+      `[NewsSearch] Completed for "${clientName}": ${foundArticles.length} articles, ${mentionsCreated} new mentions`
     );
 
     return groundingResult;
   } catch (error) {
-    console.error("[Grounding] Search error:", error);
+    console.error("[NewsSearch] Search error:", error);
     const errorMessage = error instanceof Error ? error.message : "Error desconocido";
 
-    // Actualizar cliente con error
     await prisma.client.update({
       where: { id: clientId },
       data: {
@@ -434,7 +469,6 @@ export async function checkLowMentions(
 ): Promise<boolean> {
   const now = new Date();
 
-  // Verificar cada día hacia atrás
   for (let i = 0; i < consecutiveDays; i++) {
     const dayStart = new Date(now);
     dayStart.setDate(dayStart.getDate() - i);
@@ -453,12 +487,10 @@ export async function checkLowMentions(
       },
     });
 
-    // Si algún día tiene suficientes menciones, no hay problema
     if (count >= minDailyMentions) {
       return false;
     }
   }
 
-  // Todos los días tuvieron pocas menciones
   return true;
 }

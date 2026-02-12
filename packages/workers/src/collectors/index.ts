@@ -5,7 +5,7 @@ import { collectNewsdata } from "./newsdata.js";
 import { collectRss } from "./rss.js";
 import { collectGoogle } from "./google.js";
 import { collectSocial, collectSocialForClient } from "./social.js";
-import { collectGnews } from "./gnews.js";
+import { collectGnews, collectGnewsByClient } from "./gnews.js";
 import type { NormalizedArticle } from "@mediabot/shared";
 
 function withErrorLogging(worker: Worker, name: string) {
@@ -129,6 +129,16 @@ export function startCollectorWorkers(_queues: ReturnType<typeof import("../queu
     },
     { connection, concurrency: 1 }
   ), "GNews");
+
+  // Google News RSS Client Search Worker (búsqueda por nombre de cliente)
+  withErrorLogging(new Worker(
+    QUEUE_NAMES.COLLECT_GNEWS_CLIENT,
+    async () => {
+      const articles = await collectGnewsByClient();
+      await enqueueArticles(articles, "GNewsClient");
+    },
+    { connection, concurrency: 1 }
+  ), "GNewsClient");
 
   // Ingestion Worker - processes collected articles
   withErrorLogging(new Worker(

@@ -33,6 +33,8 @@ export const QUEUE_NAMES = {
   EXTRACT_COMMENTS: "extract-social-comments",
   // Google News RSS para fuentes sin feed propio
   COLLECT_GNEWS: "collect-gnews",
+  // Google News RSS búsqueda por nombre de cliente
+  COLLECT_GNEWS_CLIENT: "collect-gnews-client",
   // Watchdog de menciones
   WATCHDOG_MENTIONS: "watchdog-mentions",
 } as const;
@@ -65,6 +67,8 @@ export function setupQueues() {
     extractComments: new Queue(QUEUE_NAMES.EXTRACT_COMMENTS, { connection }),
     // Google News RSS para fuentes sin feed propio
     collectGnews: new Queue(QUEUE_NAMES.COLLECT_GNEWS, { connection }),
+    // Google News RSS búsqueda por nombre de cliente
+    collectGnewsClient: new Queue(QUEUE_NAMES.COLLECT_GNEWS_CLIENT, { connection }),
     // Watchdog de menciones
     watchdogMentions: new Queue(QUEUE_NAMES.WATCHDOG_MENTIONS, { connection }),
   };
@@ -167,6 +171,15 @@ export function setupQueues() {
     { name: "collect-gnews" }
   );
   console.log(`📅 GNews cron: ${gnewsCron}`);
+
+  // Google News RSS client search (default: every 3 hours)
+  const gnewsClientCron = process.env.COLLECTOR_GNEWS_CLIENT_CRON || "0 */3 * * *";
+  queues.collectGnewsClient.upsertJobScheduler(
+    "gnews-client-cron",
+    { pattern: gnewsClientCron },
+    { name: "collect-gnews-client" }
+  );
+  console.log(`📅 GNews Client Search cron: ${gnewsClientCron}`);
 
   // Watchdog de menciones (default: cada hora, solo si está habilitado)
   if (config.watchdog.enabled) {
