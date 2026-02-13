@@ -143,6 +143,9 @@ model Mention {
   createdAt      DateTime  @default(now())
   tasks          Task[]
 
+  // Legacy: artículo publicado antes de que el cliente fuera creado (contexto histórico)
+  isLegacy       Boolean   @default(false)
+
   // Clustering
   parentMentionId String?
   parentMention   Mention?  @relation("MentionCluster", fields: [parentMentionId], references: [id])
@@ -155,6 +158,7 @@ model Mention {
   topicCluster   TopicCluster? @relation(fields: [topicClusterId], references: [id])
 
   @@index([clientId, createdAt])
+  @@index([clientId, isLegacy, createdAt])
   @@index([parentMentionId])
   @@index([clientId, parentMentionId, createdAt])
   @@index([topicClusterId])

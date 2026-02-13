@@ -23,6 +23,12 @@ services:
     image: redis:7-alpine
     container_name: mediabot-redis
     restart: unless-stopped
+    command: >
+      redis-server
+      --maxmemory 256mb
+      --maxmemory-policy allkeys-lru
+      --stop-writes-on-bgsave-error no
+      --save ""
     ports:
       - "6379:6379"
     volumes:

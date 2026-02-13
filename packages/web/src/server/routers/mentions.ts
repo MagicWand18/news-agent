@@ -26,15 +26,29 @@ export const mentionsRouter = router({
         source: z.string().max(200).optional(),
         dateFrom: z.date().optional(),
         dateTo: z.date().optional(),
+        isLegacy: z.boolean().optional(),
         cursor: z.string().optional(),
         limit: z.number().min(1).max(50).default(20),
         orgId: z.string().optional(), // Super Admin puede especificar org
       })
     )
     .query(async ({ input, ctx }) => {
-      const { cursor, limit, clientId, sentiment, urgency, source, dateFrom, dateTo, orgId: inputOrgId } = input;
+      const { cursor, limit, clientId, sentiment, urgency, source, dateFrom, dateTo, isLegacy, orgId: inputOrgId } = input;
       const orgId = getEffectiveOrgId(ctx.user, inputOrgId);
       const clientOrgFilter = orgId ? { client: { orgId } } : {};
+
+      // Construir filtro de artículo combinando source y fecha
+      const articleFilter = {
+        ...(source && { source: { contains: source, mode: "insensitive" as const } }),
+        ...(dateFrom || dateTo
+          ? {
+              publishedAt: {
+                ...(dateFrom && { gte: dateFrom }),
+                ...(dateTo && { lte: dateTo }),
+              },
+            }
+          : {}),
+      };
 
       const mentions = await prisma.mention.findMany({
         where: {
@@ -42,21 +56,14 @@ export const mentionsRouter = router({
           ...(clientId && { clientId }),
           ...(sentiment && { sentiment }),
           ...(urgency && { urgency }),
-          ...(source && { article: { source: { contains: source, mode: "insensitive" } } }),
-          ...(dateFrom || dateTo
-            ? {
-                createdAt: {
-                  ...(dateFrom && { gte: dateFrom }),
-                  ...(dateTo && { lte: dateTo }),
-                },
-              }
-            : {}),
+          ...(isLegacy !== undefined && { isLegacy }),
+          ...(Object.keys(articleFilter).length > 0 && { article: articleFilter }),
         },
         include: {
           article: { select: { title: true, source: true, url: true, publishedAt: true } },
           client: { select: { name: true, org: ctx.user.isSuperAdmin ? { select: { name: true } } : false } },
         },
-        orderBy: { createdAt: "desc" },
+        orderBy: [{ article: { publishedAt: "desc" } }, { createdAt: "desc" }],
         take: limit + 1,
         ...(cursor && { cursor: { id: cursor }, skip: 1 }),
       });

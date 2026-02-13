@@ -4,6 +4,14 @@ import { config } from "@mediabot/shared";
 
 export const connection = new IORedis(config.redis.url, {
   maxRetriesPerRequest: null,
+  reconnectOnError(err) {
+    // Reconectar automáticamente si Redis entra en modo READONLY
+    return err.message.includes("READONLY");
+  },
+  retryStrategy(times) {
+    // Backoff exponencial: 500ms, 1s, 2s, 4s... máximo 30s
+    return Math.min(times * 500, 30000);
+  },
 });
 
 export const QUEUE_NAMES = {

@@ -4,9 +4,10 @@ import { trpc } from "@/lib/trpc";
 import { MentionRow } from "@/components/mention-row";
 import { useState, useMemo, useEffect, Suspense } from "react";
 import { useSearchParams } from "next/navigation";
-import { Download, Users, TrendingUp, AlertTriangle, Globe } from "lucide-react";
+import { Download, Users, TrendingUp, AlertTriangle, Globe, Clock, Archive } from "lucide-react";
 import { exportMentionsToCsv } from "@/lib/csv-export";
 import { FilterBar, FilterSelect, FilterDateRange, FilterChips } from "@/components/filters";
+import { cn } from "@/lib/cn";
 
 const SENTIMENT_OPTIONS = [
   { value: "POSITIVE", label: "Positivo" },
@@ -57,6 +58,7 @@ function MentionsPageContent() {
   const searchParams = useSearchParams();
   const urlClientId = searchParams.get("clientId");
 
+  const [showLegacy, setShowLegacy] = useState(false);
   const [filters, setFilters] = useState<Filters>({
     clientId: "",
     sentiment: "",
@@ -90,6 +92,7 @@ function MentionsPageContent() {
     source: filters.source || undefined,
     dateFrom: filters.startDate ? new Date(filters.startDate) : undefined,
     dateTo: filters.endDate ? new Date(filters.endDate + "T23:59:59") : undefined,
+    isLegacy: showLegacy,
     limit: 30,
   });
 
@@ -170,6 +173,34 @@ function MentionsPageContent() {
         </button>
       </div>
 
+      {/* Tabs: Recientes / Contexto histórico */}
+      <div className="flex gap-1 rounded-lg bg-gray-100 dark:bg-gray-800 p-1 w-fit">
+        <button
+          onClick={() => setShowLegacy(false)}
+          className={cn(
+            "flex items-center gap-2 rounded-md px-4 py-2 text-sm font-medium transition-colors",
+            !showLegacy
+              ? "bg-white dark:bg-gray-700 text-gray-900 dark:text-white shadow-sm"
+              : "text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300"
+          )}
+        >
+          <Clock className="h-4 w-4" />
+          Recientes
+        </button>
+        <button
+          onClick={() => setShowLegacy(true)}
+          className={cn(
+            "flex items-center gap-2 rounded-md px-4 py-2 text-sm font-medium transition-colors",
+            showLegacy
+              ? "bg-white dark:bg-gray-700 text-gray-900 dark:text-white shadow-sm"
+              : "text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300"
+          )}
+        >
+          <Archive className="h-4 w-4" />
+          Contexto historico
+        </button>
+      </div>
+
       {/* Filtros */}
       <FilterBar activeCount={activeFilterCount} onClear={handleClearFilters}>
         <FilterSelect
@@ -236,6 +267,7 @@ function MentionsPageContent() {
             url={mention.article.url}
             summary={mention.aiSummary}
             action={mention.aiAction}
+            isLegacy={mention.isLegacy}
           />
         ))}
         {mentions.data?.mentions.length === 0 && (

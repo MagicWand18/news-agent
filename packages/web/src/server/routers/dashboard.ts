@@ -39,10 +39,10 @@ export const dashboardRouter = router({
     ] = await Promise.all([
       prisma.client.count({ where: { ...orgFilter, active: true } }),
       prisma.mention.count({
-        where: { ...clientIdOrgFilter, createdAt: { gte: last24h } },
+        where: { ...clientIdOrgFilter, isLegacy: false, createdAt: { gte: last24h } },
       }),
       prisma.mention.count({
-        where: { ...clientIdOrgFilter, ...dateFilter },
+        where: { ...clientIdOrgFilter, isLegacy: false, ...dateFilter },
       }),
       prisma.task.count({
         where: {
@@ -103,12 +103,12 @@ export const dashboardRouter = router({
       const clientIdFilter = input?.clientId ? { clientId: input.clientId } : {};
 
       return prisma.mention.findMany({
-        where: { ...clientOrgFilter, ...clientIdFilter },
+        where: { ...clientOrgFilter, ...clientIdFilter, isLegacy: false },
         include: {
-          article: { select: { title: true, source: true, url: true } },
+          article: { select: { title: true, source: true, url: true, publishedAt: true } },
           client: { select: { name: true, org: ctx.user.isSuperAdmin ? { select: { name: true } } : false } },
         },
-        orderBy: { createdAt: "desc" },
+        orderBy: [{ article: { publishedAt: "desc" } }, { createdAt: "desc" }],
         take: 10,
       });
     }),

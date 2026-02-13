@@ -80,6 +80,10 @@ export const config = {
     rssIntervalMs: 10 * 60 * 1000,
     googleIntervalMs: 2 * 60 * 60 * 1000,
   },
+  // Filtro de edad para artículos de noticias
+  articles: {
+    maxAgeDays: optionalEnvInt("MAX_ARTICLE_AGE_DAYS", 30),
+  },
   // Social collection: filtro temporal para evitar datos viejos
   social: {
     maxAgeDays: optionalEnvInt("SOCIAL_MAX_AGE_DAYS", 7),

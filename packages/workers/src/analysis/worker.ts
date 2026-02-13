@@ -93,19 +93,24 @@ export function startAnalysisWorker() {
         }
       }
 
-      // Enqueue notification if urgent enough
-      if (urgency === "CRITICAL" || urgency === "HIGH") {
-        await notifyQueue.add("alert", { mentionId }, {
-          priority: urgency === "CRITICAL" ? 1 : 2,
-        });
-      }
+      // Skip notificaciones y crisis para menciones legacy (contexto histórico)
+      if (mention.isLegacy) {
+        console.log(`[Analysis] Mention ${mentionId} is legacy, skipping notification and crisis check`);
+      } else {
+        // Enqueue notification if urgent enough
+        if (urgency === "CRITICAL" || urgency === "HIGH") {
+          await notifyQueue.add("alert", { mentionId }, {
+            priority: urgency === "CRITICAL" ? 1 : 2,
+          });
+        }
 
-      // Check for crisis if mention is negative
-      if (analysis.sentiment === "NEGATIVE") {
-        try {
-          await processMentionForCrisis(mentionId);
-        } catch (error) {
-          console.error(`Crisis check failed for mention ${mentionId}:`, error);
+        // Check for crisis if mention is negative
+        if (analysis.sentiment === "NEGATIVE") {
+          try {
+            await processMentionForCrisis(mentionId);
+          } catch (error) {
+            console.error(`Crisis check failed for mention ${mentionId}:`, error);
+          }
         }
       }
 

@@ -218,6 +218,7 @@ export async function executeGroundingSearch(
     const clientData = await prisma.client.findUnique({
       where: { id: clientId },
       select: {
+        createdAt: true,
         description: true,
         keywords: {
           where: { active: true },
@@ -374,6 +375,11 @@ export async function executeGroundingSearch(
           }
         }
 
+        // Marcar como legacy si el artículo fue publicado antes de que el cliente fuera creado
+        const isLegacy = article.publishedAt && clientData?.createdAt
+          ? article.publishedAt < clientData.createdAt
+          : false;
+
         const mention = await prisma.mention.create({
           data: {
             articleId: article.id,
@@ -382,6 +388,7 @@ export async function executeGroundingSearch(
             snippet: article.snippet || null,
             sentiment: "NEUTRAL",
             relevance: 6,
+            isLegacy,
           },
         });
         mentionsCreated++;
