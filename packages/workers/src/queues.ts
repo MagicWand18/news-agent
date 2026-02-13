@@ -45,6 +45,8 @@ export const QUEUE_NAMES = {
   COLLECT_GNEWS_CLIENT: "collect-gnews-client",
   // Watchdog de menciones
   WATCHDOG_MENTIONS: "watchdog-mentions",
+  // Auto-archivado de menciones viejas
+  ARCHIVE_OLD_MENTIONS: "archive-old-mentions",
 } as const;
 
 export function setupQueues() {
@@ -79,6 +81,8 @@ export function setupQueues() {
     collectGnewsClient: new Queue(QUEUE_NAMES.COLLECT_GNEWS_CLIENT, { connection }),
     // Watchdog de menciones
     watchdogMentions: new Queue(QUEUE_NAMES.WATCHDOG_MENTIONS, { connection }),
+    // Auto-archivado de menciones viejas
+    archiveOldMentions: new Queue(QUEUE_NAMES.ARCHIVE_OLD_MENTIONS, { connection }),
   };
 
   // Schedule repeating jobs using cron patterns from config
@@ -198,6 +202,15 @@ export function setupQueues() {
     );
     console.log(`📅 Watchdog cron: ${config.watchdog.checkIntervalCron}`);
   }
+
+  // Auto-archivado de menciones viejas (diario a las 3:00 AM)
+  const archiveCron = process.env.ARCHIVE_OLD_MENTIONS_CRON || "0 3 * * *";
+  queues.archiveOldMentions.upsertJobScheduler(
+    "archive-old-mentions-cron",
+    { pattern: archiveCron },
+    { name: "archive-old-mentions" }
+  );
+  console.log(`📅 Archive Old Mentions cron: ${archiveCron}`);
 
   return {
     ...queues,

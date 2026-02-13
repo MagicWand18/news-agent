@@ -566,6 +566,9 @@ model SocialMention {
   createdAt      DateTime       @default(now())
   updatedAt      DateTime       @updatedAt
 
+  // Historial: mención archivada (> 30 días o anterior al cliente)
+  isLegacy            Boolean     @default(false)
+
   // Comments extraction (Sprint: Social Comments)
   commentsData        Json?       // Array de comentarios extraídos [{commentId, text, authorHandle, likes, postedAt}]
   commentsCount       Int?        // Cantidad de comentarios extraídos
@@ -575,6 +578,7 @@ model SocialMention {
 
   @@unique([platform, postId])
   @@index([clientId, createdAt])
+  @@index([clientId, isLegacy, createdAt])
   @@index([clientId, platform, createdAt])
   @@index([platform, postedAt])
   @@index([sentiment, createdAt])

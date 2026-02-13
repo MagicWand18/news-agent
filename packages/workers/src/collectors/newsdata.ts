@@ -33,6 +33,7 @@ export async function collectNewsdata(): Promise<NormalizedArticle[]> {
       q: query,
       language: "es",
       size: "10",
+      timeframe: `${config.articles.maxAgeDays}`,
     });
 
     try {

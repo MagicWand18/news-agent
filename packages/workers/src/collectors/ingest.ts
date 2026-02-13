@@ -5,16 +5,6 @@ import { getQueue, QUEUE_NAMES } from "../queues.js";
 import { preFilterArticle } from "../analysis/ai.js";
 
 export async function ingestArticle(article: NormalizedArticle) {
-  // Filtro de edad: rechazar artículos demasiado viejos
-  if (article.publishedAt) {
-    const maxAge = config.articles.maxAgeDays;
-    const cutoff = new Date(Date.now() - maxAge * 24 * 60 * 60 * 1000);
-    if (new Date(article.publishedAt) < cutoff) {
-      console.log(`⏭️ Skip (too old: ${new Date(article.publishedAt).toISOString().split("T")[0]}): ${article.title.slice(0, 50)}`);
-      return;
-    }
-  }
-
   // Dedup by URL
   const existing = await prisma.article.findUnique({
     where: { url: article.url },
@@ -135,9 +125,12 @@ async function matchArticle(
     const snippetEnd = Math.min(text.length, kwIndex + match.keyword.length + 200);
     const snippet = (article.content || article.title).slice(snippetStart, snippetEnd);
 
-    // Marcar como legacy si el artículo fue publicado antes de que el cliente fuera creado
-    const isLegacy = article.publishedAt
-      ? new Date(article.publishedAt) < match.client.createdAt
+    // Marcar como historial si el artículo fue publicado antes de que el cliente fuera creado
+    // o si el artículo es más viejo que maxAgeDays
+    const articleDate = article.publishedAt ? new Date(article.publishedAt) : null;
+    const maxAgeCutoff = new Date(Date.now() - config.articles.maxAgeDays * 24 * 60 * 60 * 1000);
+    const isLegacy = articleDate
+      ? (articleDate < match.client.createdAt || articleDate < maxAgeCutoff)
       : false;
 
     const mention = await prisma.mention.create({

@@ -30,6 +30,7 @@ export async function collectGoogle(): Promise<NormalizedArticle[]> {
       q: `"${word}" noticias`,
       lr: "lang_es",
       sort: "date",
+      dateRestrict: `d${config.articles.maxAgeDays}`,
       num: "5",
     });
 
@@ -52,17 +53,35 @@ export async function collectGoogle(): Promise<NormalizedArticle[]> {
           title: string;
           displayLink: string;
           snippet?: string;
+          pagemap?: {
+            metatags?: Array<{ [key: string]: string }>;
+          };
         }>;
       };
 
       if (!data.items) continue;
 
       for (const item of data.items) {
+        // Intentar extraer fecha de publicación de metatags
+        let publishedAt: Date | undefined;
+        const metatags = item.pagemap?.metatags?.[0];
+        if (metatags) {
+          const dateStr = metatags["article:published_time"]
+            || metatags["og:article:published_time"]
+            || metatags["date"]
+            || metatags["publisheddate"];
+          if (dateStr) {
+            const parsed = new Date(dateStr);
+            if (!isNaN(parsed.getTime())) publishedAt = parsed;
+          }
+        }
+
         articles.push({
           url: item.link,
           title: item.title,
           source: item.displayLink || "Google",
           content: item.snippet || undefined,
+          publishedAt,
         });
       }
     } catch (error) {

@@ -16,6 +16,7 @@ import {
 } from "./grounding/index.js";
 import { startCommentsExtractionWorker } from "./collectors/comments-worker.js";
 import { startWatchdogWorker } from "./workers/watchdog.js";
+import { startArchiveWorker } from "./workers/archive-worker.js";
 import { startHealthServer, stopHealthServer } from "./health.js";
 import { config } from "@mediabot/shared";
 
@@ -51,6 +52,9 @@ async function main() {
   if (config.watchdog.enabled) {
     startWatchdogWorker();
   }
+
+  // Auto-archivado de menciones viejas (diario)
+  startArchiveWorker();
 
   console.log("✅ All workers started");
 

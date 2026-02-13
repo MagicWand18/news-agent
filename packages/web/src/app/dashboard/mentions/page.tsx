@@ -197,7 +197,7 @@ function MentionsPageContent() {
           )}
         >
           <Archive className="h-4 w-4" />
-          Contexto historico
+          Historial
         </button>
       </div>
 
