@@ -125,13 +125,10 @@ async function matchArticle(
     const snippetEnd = Math.min(text.length, kwIndex + match.keyword.length + 200);
     const snippet = (article.content || article.title).slice(snippetStart, snippetEnd);
 
-    // Marcar como historial si el artículo fue publicado antes de que el cliente fuera creado
-    // o si el artículo es más viejo que maxAgeDays
+    // Marcar como historial si el artículo es más viejo que maxAgeDays
     const articleDate = article.publishedAt ? new Date(article.publishedAt) : null;
     const maxAgeCutoff = new Date(Date.now() - config.articles.maxAgeDays * 24 * 60 * 60 * 1000);
-    const isLegacy = articleDate
-      ? (articleDate < match.client.createdAt || articleDate < maxAgeCutoff)
-      : false;
+    const isLegacy = articleDate ? articleDate < maxAgeCutoff : false;
 
     const mention = await prisma.mention.create({
       data: {

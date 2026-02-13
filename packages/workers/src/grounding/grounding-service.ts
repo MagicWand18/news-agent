@@ -375,12 +375,9 @@ export async function executeGroundingSearch(
           }
         }
 
-        // Marcar como historial si el artículo fue publicado antes de que el cliente fuera creado
-        // o si es más viejo que maxAgeDays
+        // Marcar como historial si el artículo es más viejo que maxAgeDays
         const maxAgeCutoff = new Date(Date.now() - config.articles.maxAgeDays * 24 * 60 * 60 * 1000);
-        const isLegacy = article.publishedAt && clientData?.createdAt
-          ? (article.publishedAt < clientData.createdAt || article.publishedAt < maxAgeCutoff)
-          : false;
+        const isLegacy = article.publishedAt ? article.publishedAt < maxAgeCutoff : false;
 
         const mention = await prisma.mention.create({
           data: {

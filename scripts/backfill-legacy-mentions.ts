@@ -1,7 +1,7 @@
 /**
  * Script de migración: marca menciones existentes como historial.
- * Historial = artículo publicado antes del createdAt del cliente O más viejo de 30 días.
- * También archiva menciones sociales viejas.
+ * Historial = artículo con publishedAt > 30 días de antigüedad.
+ * También corrige menciones marcadas incorrectamente como legacy.
  *
  * Ejecutar después del deploy con: npx tsx scripts/backfill-legacy-mentions.ts
  */
@@ -14,16 +14,28 @@ async function main() {
   const cutoff = new Date(Date.now() - MAX_AGE_DAYS * 24 * 60 * 60 * 1000);
   console.log(`Iniciando backfill de menciones historial (cutoff: ${cutoff.toISOString().split("T")[0]}, ${MAX_AGE_DAYS} días)...`);
 
-  // === Mentions de noticias ===
+  // === PASO 1: Corregir menciones marcadas incorrectamente como legacy ===
+  // Desmarcar menciones cuyo artículo es reciente (< 30 días)
+  const fixedResult = await prisma.$executeRaw`
+    UPDATE "Mention" m
+    SET "isLegacy" = false
+    FROM "Article" a
+    WHERE m."articleId" = a.id
+      AND m."isLegacy" = true
+      AND a."publishedAt" IS NOT NULL
+      AND a."publishedAt" >= ${cutoff}
+  `;
+  console.log(`Menciones corregidas (desmarcadas de legacy): ${fixedResult}`);
+
+  // === PASO 2: Marcar como legacy las que sí son viejas ===
   const mentionResult = await prisma.$executeRaw`
     UPDATE "Mention" m
     SET "isLegacy" = true
-    FROM "Article" a, "Client" c
+    FROM "Article" a
     WHERE m."articleId" = a.id
-      AND m."clientId" = c.id
       AND m."isLegacy" = false
       AND (
-        (a."publishedAt" IS NOT NULL AND (a."publishedAt" < c."createdAt" OR a."publishedAt" < ${cutoff}))
+        (a."publishedAt" IS NOT NULL AND a."publishedAt" < ${cutoff})
         OR (a."publishedAt" IS NULL AND m."createdAt" < ${cutoff})
       )
   `;
