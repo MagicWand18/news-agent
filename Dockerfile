@@ -28,6 +28,9 @@ WORKDIR /app
 COPY --from=web-builder /app/node_modules ./node_modules
 COPY --from=web-builder /app/node_modules/.prisma ./node_modules/.prisma
 COPY --from=web-builder /app/packages/web/.next ./packages/web/.next
+# Copiar Prisma engine a todas las ubicaciones donde Next.js lo busca
+COPY --from=web-builder /app/node_modules/.prisma/client/libquery_engine-debian-openssl-3.0.x.so.node ./packages/web/.next/server/
+COPY --from=web-builder /app/node_modules/.prisma ./packages/web/node_modules/.prisma
 COPY --from=web-builder /app/packages/web/next.config.js ./packages/web/
 COPY --from=web-builder /app/packages/web/package.json ./packages/web/
 COPY --from=web-builder /app/packages/shared ./packages/shared
