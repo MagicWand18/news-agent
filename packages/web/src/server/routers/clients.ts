@@ -80,8 +80,9 @@ export const clientsRouter = router({
             orderBy: { createdAt: "asc" },
           },
           mentions: {
+            where: { isLegacy: false },
             include: { article: true },
-            orderBy: { createdAt: "desc" },
+            orderBy: [{ article: { publishedAt: "desc" } }, { createdAt: "desc" }],
             take: 50,
           },
           _count: { select: { mentions: true, tasks: true } },

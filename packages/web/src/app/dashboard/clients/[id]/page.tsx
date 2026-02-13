@@ -7,7 +7,7 @@ import { SocialMentionRow, SocialMentionRowSkeleton } from "@/components/social-
 import { InstagramIcon, TikTokIcon, YouTubeIcon } from "@/components/platform-icons";
 import { useParams, useRouter } from "next/navigation";
 import { useState } from "react";
-import { ArrowLeft, Plus, X, BarChart3, Target, TrendingUp, TrendingDown, Minus, Trash2, Settings, Search, Calendar, Loader2, MessageCircle, Building2, Users, User, RefreshCw, ArrowRightLeft } from "lucide-react";
+import { ArrowLeft, Plus, X, BarChart3, Target, TrendingUp, TrendingDown, Minus, Trash2, Settings, Search, Calendar, Loader2, MessageCircle, Building2, Users, User, RefreshCw, ArrowRightLeft, Clock, Archive } from "lucide-react";
 import { useSession } from "next-auth/react";
 import Link from "next/link";
 import {
@@ -77,6 +77,13 @@ export default function ClientDetailPage() {
   // Pagination state for mentions
   const [mentionPage, setMentionPage] = useState(1);
   const [mentionPageSize, setMentionPageSize] = useState(10);
+  const [showLegacyMentions, setShowLegacyMentions] = useState(false);
+
+  // Query de menciones historial (solo se carga cuando el tab está activo)
+  const legacyMentions = trpc.mentions.list.useQuery(
+    { clientId: id, isLegacy: true, limit: 50 },
+    { enabled: showLegacyMentions }
+  );
 
   if (client.isLoading) return <div className="text-gray-500 dark:text-gray-400">Cargando...</div>;
   if (!client.data) return <div className="text-gray-500 dark:text-gray-400">Cliente no encontrado</div>;
@@ -351,10 +358,35 @@ export default function ClientDetailPage() {
       {/* Social Mentions Section */}
       <SocialMentionsSection clientId={id} clientName={c.name} />
 
-      {/* Recent Mentions */}
+      {/* Mentions with Recientes / Historial tabs */}
       <div className="rounded-xl bg-white dark:bg-gray-800 p-6 shadow-sm dark:shadow-gray-900/20">
         <div className="mb-4 flex items-center justify-between">
-          <h3 className="font-semibold text-gray-900 dark:text-white">Menciones recientes</h3>
+          <div className="flex items-center gap-1 rounded-lg bg-gray-100 dark:bg-gray-700/50 p-1">
+            <button
+              onClick={() => { setShowLegacyMentions(false); setMentionPage(1); }}
+              className={cn(
+                "flex items-center gap-1.5 rounded-md px-3 py-1.5 text-sm font-medium transition-colors",
+                !showLegacyMentions
+                  ? "bg-white dark:bg-gray-600 text-gray-900 dark:text-white shadow-sm"
+                  : "text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300"
+              )}
+            >
+              <Clock className="h-3.5 w-3.5" />
+              Recientes
+            </button>
+            <button
+              onClick={() => { setShowLegacyMentions(true); setMentionPage(1); }}
+              className={cn(
+                "flex items-center gap-1.5 rounded-md px-3 py-1.5 text-sm font-medium transition-colors",
+                showLegacyMentions
+                  ? "bg-white dark:bg-gray-600 text-gray-900 dark:text-white shadow-sm"
+                  : "text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300"
+              )}
+            >
+              <Archive className="h-3.5 w-3.5" />
+              Historial
+            </button>
+          </div>
           <div className="flex items-center gap-4">
             <div className="flex items-center gap-2">
               <span className="text-sm text-gray-500 dark:text-gray-400">Mostrar:</span>
@@ -371,21 +403,34 @@ export default function ClientDetailPage() {
                 <option value={50}>50</option>
               </select>
             </div>
-            {c._count.mentions > 50 && (
-              <Link
-                href={`/dashboard/mentions?clientId=${id}`}
-                className="text-sm text-brand-600 hover:text-brand-700 dark:text-brand-400 dark:hover:text-brand-300"
-              >
-                Ver todas ({c._count.mentions})
-              </Link>
-            )}
+            <Link
+              href={`/dashboard/mentions?clientId=${id}`}
+              className="text-sm text-brand-600 hover:text-brand-700 dark:text-brand-400 dark:hover:text-brand-300"
+            >
+              Ver todas
+            </Link>
           </div>
         </div>
         {(() => {
+          // Seleccionar menciones según el tab activo
+          const mentionsToShow = showLegacyMentions
+            ? (legacyMentions.data?.mentions || [])
+            : c.mentions;
+          const isLoadingLegacy = showLegacyMentions && legacyMentions.isLoading;
+
+          if (isLoadingLegacy) {
+            return (
+              <div className="flex items-center justify-center py-8">
+                <Loader2 className="h-6 w-6 animate-spin text-gray-400" />
+                <span className="ml-2 text-sm text-gray-500 dark:text-gray-400">Cargando historial...</span>
+              </div>
+            );
+          }
+
           const startIndex = (mentionPage - 1) * mentionPageSize;
           const endIndex = startIndex + mentionPageSize;
-          const paginatedMentions = c.mentions.slice(startIndex, endIndex);
-          const totalPages = Math.ceil(c.mentions.length / mentionPageSize);
+          const paginatedMentions = mentionsToShow.slice(startIndex, endIndex);
+          const totalPages = Math.ceil(mentionsToShow.length / mentionPageSize);
 
           return (
             <>
@@ -399,18 +444,21 @@ export default function ClientDetailPage() {
                   sentiment={mention.sentiment}
                   relevance={mention.relevance}
                   urgency={mention.urgency}
-                  date={mention.createdAt}
+                  date={mention.article.publishedAt || mention.createdAt}
                   url={mention.article.url}
                   summary={mention.aiSummary}
+                  isLegacy={showLegacyMentions}
                 />
               ))}
-              {c.mentions.length === 0 && (
-                <p className="text-gray-500 dark:text-gray-400">No hay menciones aún.</p>
+              {mentionsToShow.length === 0 && (
+                <p className="text-gray-500 dark:text-gray-400">
+                  {showLegacyMentions ? "No hay menciones en historial." : "No hay menciones recientes."}
+                </p>
               )}
               {totalPages > 1 && (
                 <div className="mt-4 flex items-center justify-between border-t border-gray-200 pt-4 dark:border-gray-700">
                   <span className="text-sm text-gray-500 dark:text-gray-400">
-                    Mostrando {startIndex + 1}-{Math.min(endIndex, c.mentions.length)} de {c.mentions.length}
+                    Mostrando {startIndex + 1}-{Math.min(endIndex, mentionsToShow.length)} de {mentionsToShow.length}
                   </span>
                   <div className="flex items-center gap-2">
                     <button
