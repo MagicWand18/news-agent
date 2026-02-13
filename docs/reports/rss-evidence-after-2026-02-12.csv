@@ -1,0 +1,126 @@
+id,name,url,tier,type,state,active,errorCount
+"cmkytxbk4006i28wqed9j2nfu","El Financiero Turismo","https://www.elfinanciero.com.mx/turismo/rss/",1,"NATIONAL","",true,0
+"cmkytxb1g000428wq7u64be16","Reforma","https://www.reforma.com/rss/portada.xml",1,"NATIONAL","",true,0
+"cmkytxb2l000b28wqr5mg3edc","Sin Embargo","https://www.sinembargo.mx/feed/",1,"NATIONAL","",true,0
+"cmkytxbka006k28wqmi9jggnd","Animal Gourmet","https://www.animalgourmet.com/feed",3,"SPECIALIZED","",true,0
+"cmkytxbks006q28wq2k1dta6a","Energía Hoy","https://energiahoy.com/feed/",3,"SPECIALIZED","",true,0
+"cmkytxbjc006728wq51gk72b2","FayerWayer","https://www.fayerwayer.com/arc/outboundfeeds/rss/",3,"SPECIALIZED","",true,0
+"cmkytxbj4006528wqjmcrks74","Hipertextual","https://hipertextual.com/feed/",3,"SPECIALIZED","",true,0
+"cmkytxbl4006t28wqsbxfeczk","Inmobiliare","https://inmobiliare.com/feed/",3,"SPECIALIZED","",true,0
+"cmkytxbkm006o28wq1wvba8yv","T21 Logística","https://t21.com.mx/feed/",3,"SPECIALIZED","",true,0
+"cmkytxbj8006628wqrq87is31","Unocero","https://www.unocero.com/feed/",3,"SPECIALIZED","",true,0
+"cmkytxb3n000p28wqpzzdqeug","El Heraldo de Aguascalientes","https://www.heraldo.mx/feed/",2,"STATE","Aguascalientes",true,0
+"cmkytxb3q000q28wqmcxyfc44","Hidrocálido","https://www.hidrocalidodigital.com/feed/",2,"STATE","Aguascalientes",true,0
+"cmkytxb3s000r28wq2nnr33hm","LJA.mx","https://www.lja.mx/feed/",2,"STATE","Aguascalientes",true,0
+"cmliq95o9000e699ycuipgia3","El Sol de Tijuana","https://www.elsoldetijuana.com.mx/rss",2,"STATE","Baja California",true,0
+"cmliq95qq000f699yhsma9abg","La Voz de la Frontera","https://www.lavozdelafrontera.com.mx/rss",2,"STATE","Baja California",true,0
+"cmliq95sp000g699yxurmga37","San Diego Red","https://www.sandiegored.com/feed/",2,"STATE","Baja California",true,0
+"cmkytxb40000u28wqoxmi69wk","Semanario Zeta","https://zetatijuana.com/feed/",2,"STATE","Baja California",true,0
+"cmkytxb46000w28wq30dvsynt","Uniradio Noticias","https://www.uniradiosonora.com/feed/",2,"STATE","Baja California",true,0
+"cmkytxb4b000y28wqc05ekclg","BCS Noticias","https://www.bcsnoticias.mx/feed/",2,"STATE","Baja California Sur",true,0
+"cmkytxb4e000z28wqxjl8onzo","Diario El Independiente","https://www.diarioelindependiente.mx/feed",2,"STATE","Baja California Sur",true,0
+"cmkytxbee004f28wqwk2qxvcj","El Informante BCS","https://elinformantebcs.mx/feed/",2,"STATE","Baja California Sur",true,0
+"cmkytxb4h001028wq5zsnz25w","Tribuna Campeche","https://tribunacampeche.com/feed/",2,"STATE","Campeche",true,0
+"cmkytxbem004h28wqugqlsjhz","Alerta Chiapas","https://alertachiapas.com/feed/",2,"STATE","Chiapas",true,0
+"cmkytxb4t001528wq78oy0xoo","Cuarto Poder Chiapas","https://www.cuartopoder.mx/feedgooglenews/nacional",2,"STATE","Chiapas",true,0
+"cmkytxb4r001428wqmtddoknp","Diario de Chiapas","https://diariodechiapas.com/feed/",2,"STATE","Chiapas",true,0
+"cmlip9wbt000769qm5p7xkbd9","Diario de Chiapas","https://www.diariodechiapas.com/feed/",2,"STATE","Chiapas",true,0
+"cmkytxb50001828wq8l19vgek","El Diario de Chihuahua","https://diario.mx/rss/feed.xml",2,"STATE","Chihuahua",true,0
+"cmkytxb53001928wqlbf4llnc","El Pueblo","https://elpueblo.com/rss/feed.xml",2,"STATE","Chihuahua",true,0
+"cmlip9v2g000369qmbra2xxjs","Norte Digital","https://nortedigital.mx/feed/",2,"STATE","Chihuahua",true,0
+"cmkytxb5t001k28wqf5n5sx9u","Chilango","https://www.chilango.com/feed/",2,"STATE","Ciudad de México",true,0
+"cmliq96se000v699y72jmq76b","Contralínea","https://contralinea.com.mx/feed/",2,"STATE","Ciudad de México",true,0
+"cmkytxb5v001l28wqzuo97447","Más por Más CDMX","https://www.maspormas.com/feed/",2,"STATE","Ciudad de México",true,0
+"cmliq95hv000c699y2bavm48h","El Siglo de Torreón","https://elsiglodetorreon.com.mx/index.xml",2,"STATE","Coahuila",true,0
+"cmlip9v7a000469qmbj6q8oer","Vanguardia","https://vanguardia.com.mx/rss.xml",2,"STATE","Coahuila",true,0
+"cmliq95ki000d699y5z32o5fg","Vanguardia RSS","https://www.vanguardia.com.mx/rss",2,"STATE","Coahuila",true,0
+"cmkytxb5m001h28wqtk4mllha","AF Medios Colima","https://www.afmedios.com/feed/",2,"STATE","Colima",true,0
+"cmliq96np000u699y831c06sl","Colima Noticias","https://colimanoticias.com/feed/",2,"STATE","Colima",true,0
+"cmlip9vcm000569qmxaocbnqe","Contacto Hoy Durango","https://contactohoy.com.mx/feed/",2,"STATE","Durango",true,0
+"cmliq95un000h699ynfp9f0sa","El Sol de Durango","https://www.elsoldedurango.com.mx/rss",2,"STATE","Durango",true,0
+"cmkytxb6d001r28wqqyv78zq6","8 Columnas","https://8columnas.com.mx/feed/",2,"STATE","Estado de México",true,0
+"cmliq9611000j699y04s1si0g","AD Noticias","https://adnoticias.mx/feed/",2,"STATE","Estado de México",true,0
+"cmliq95z1000i699ypdvfc52j","El Sol de Toluca","https://www.elsoldetoluca.com.mx/rss",2,"STATE","Estado de México",true,0
+"cmkytxb69001q28wqjehvaneo","Quadratín Estado de México","https://edomex.quadratin.com.mx/feed/",2,"STATE","Estado de México",true,0
+"cmkytxb6l001u28wq6ms8aegw","AM León","https://www.am.com.mx/feed",2,"STATE","Guanajuato",true,0
+"cmkytxb6r001w28wqsk3oh2d2","Correo Guanajuato","https://periodicocorreo.com.mx/rss/feed.xml",2,"STATE","Guanajuato",true,0
+"cmkytxbfq004u28wqu7is9ryl","Diario 21 Guerrero","https://diario21.com.mx/feed/",2,"STATE","Guerrero",true,0
+"cmkytxb70001z28wqr0wnkb3n","El Sur de Acapulco","https://suracapulco.mx/feed/",2,"STATE","Guerrero",true,2
+"cmkytxb73002028wqaafzhqlc","Quadratín Guerrero","https://guerrero.quadratin.com.mx/feed/",2,"STATE","Guerrero",true,0
+"cmkytxbft004v28wqicy8zsvw","Independiente de Hidalgo","https://independientedehidalgo.com.mx/feed/",2,"STATE","Hidalgo",true,0
+"cmkytxb7h002528wqi9we04j1","Plaza Juárez Hidalgo","https://plazajuarez.mx/feed/",2,"STATE","Hidalgo",true,0
+"cmkytxb7e002428wqhlecj9uc","Quadratín Hidalgo","https://hidalgo.quadratin.com.mx/feed/",2,"STATE","Hidalgo",true,0
+"cmlip9xdj000869qm4fi64khe","Informador","https://www.informador.mx/rss/ultimas-noticias.xml",2,"STATE","Jalisco",true,0
+"cmlip9xhh000969qm20uzcwog","Quadratín Jalisco","https://jalisco.quadratin.com.mx/feed/",2,"STATE","Jalisco",true,0
+"cmkytxbg3004z28wq0sfulg0i","Tribune de la Bahía","https://tribunadelabahia.com.mx/feed/",2,"STATE","Jalisco",true,0
+"cmkytxbfy004x28wqgwno9pfw","Zona Guadalajara","https://zonaguadalajara.com/feed/",2,"STATE","Jalisco",true,0
+"cmkytxb82002d28wq08teuswr","Cambio de Michoacán","https://cambiodemichoacan.com.mx/feed/",2,"STATE","Michoacán",true,0
+"cmlip9xty000a69qm5v42472e","Cambio de Michoacán","https://www.cambiodemichoacan.com.mx/feed",2,"STATE","Michoacán",true,0
+"cmkytxbgg005328wqu7ujhki0","Costa Noticias","https://costanoticias.com/feed/",2,"STATE","Michoacán",true,0
+"cmkytxb7x002b28wqy2naadvd","La Voz de Michoacán","https://www.lavozdemichoacan.com.mx/feed/",2,"STATE","Michoacán",true,0
+"cmkytxb85002e28wqwg2mplzb","MiMorelia","https://prod-qt-images.s3.amazonaws.com/production/mimorelia/feed.xml",2,"STATE","Michoacán",true,0
+"cmkytxb7z002c28wqh7r0cwfs","Quadratín Michoacán","https://www.quadratin.com.mx/feed/",2,"STATE","Michoacán",true,0
+"cmliq94xg0003699y6fcvo5yp","24 Morelos","https://www.24morelos.com/feed/",2,"STATE","Morelos",true,0
+"cmliq94ti0001699y5kke99k3","El Sol de Cuautla","https://www.elsoldecuautla.com.mx/rss",2,"STATE","Morelos",true,0
+"cmliq94os0000699ytrmsvh7o","El Sol de Cuernavaca","https://www.elsoldecuernavaca.com.mx/rss",2,"STATE","Morelos",true,0
+"cmliq94vh0002699yiszxwvzz","Quadratín Morelos","https://morelos.quadratin.com.mx/feed/",2,"STATE","Morelos",true,0
+"cmlip9xxv000b69qmzmpqdylg","Meridiano Nayarit","https://www.meridiano.mx/feed/",2,"STATE","Nayarit",true,0
+"cmkytxb8g002i28wqfacr8rid","Meridiano Nayarit","https://meridiano.mx/feed/",2,"STATE","Nayarit",true,0
+"cmlip9y1r000c69qm6bzilkxx","NTV Nayarit","https://ntv.com.mx/feed/",2,"STATE","Nayarit",true,0
+"cmkytxb8o002l28wqh4sj1wvn","El Norte","https://www.elnorte.com/rss/portada.xml",2,"STATE","Nuevo León",true,0
+"cmliq94zg0004699yhpefu9lu","El Norte Local","https://www.elnorte.com/rss/local.xml",2,"STATE","Nuevo León",true,0
+"cmliq951e0005699yw9bwcq8k","Quadratín Nuevo León","https://nuevoleon.quadratin.com.mx/feed/",2,"STATE","Nuevo León",true,0
+"cmkytxb92002r28wq3gr5150h","El Imparcial Oaxaca","https://imparcialoaxaca.mx/feed/",2,"STATE","Oaxaca",true,0
+"cmkytxbgs005828wqkxfixfcn","Oaxaca Digital","https://oaxaca.digital/feed/",2,"STATE","Oaxaca",true,0
+"cmkytxb94002s28wqe3aspufp","Quadratín Oaxaca","https://oaxaca.quadratin.com.mx/feed/",2,"STATE","Oaxaca",true,0
+"cmliq9633000k699ygyctkw02","El Sol de Puebla","https://www.elsoldepuebla.com.mx/rss",2,"STATE","Puebla",true,0
+"cmkytxb9k002y28wqf0mmumpo","La Jornada de Oriente","https://www.lajornadadeoriente.com.mx/feed/",2,"STATE","Puebla",true,0
+"cmliq9652000l699yed2boq4d","Quadratín Puebla","https://puebla.quadratin.com.mx/feed/",2,"STATE","Puebla",true,0
+"cmkytxbgw005a28wqdcwama1p","Status Puebla","https://statuspuebla.com.mx/feed/",2,"STATE","Puebla",true,0
+"cmliq9671000m699yinv4wsjh","Diario de Querétaro","https://www.diariodequeretaro.com.mx/rss",2,"STATE","Querétaro",true,0
+"cmkytxbh1005c28wq1wkkycjl","Plaza de Armas Querétaro","https://plazadearmas.com.mx/feed/",2,"STATE","Querétaro",true,0
+"cmliq9692000n699ymcnqpg6a","Quadratín Querétaro","https://queretaro.quadratin.com.mx/feed/",2,"STATE","Querétaro",true,0
+"cmkytxbh5005e28wq2s812lb0","Cancún Mio","https://www.cancunmio.com/feed/",2,"STATE","Quintana Roo",true,0
+"cmlip9yj5000d69qmxq7nsthi","Luces del Siglo","https://lucesdelsiglo.com/feed/",2,"STATE","Quintana Roo",true,0
+"cmkytxbh3005d28wqahr1uvn3","Noticaribe","https://noticaribe.com.mx/feed/",2,"STATE","Quintana Roo",true,0
+"cmkytxbh9005g28wqrqwlbkaq","Noticias Chetumal","https://noticiaschetumal.com/feed/",2,"STATE","Quintana Roo",true,0
+"cmkytxbab003628wqny8gd2wb","Quadratín Quintana Roo","https://quintanaroo.quadratin.com.mx/feed/",2,"STATE","Quintana Roo",true,0
+"cmliq959v0008699ygh1kgufa","Astrolabio SLP","https://astrolabio.com.mx/feed/",2,"STATE","San Luis Potosí",true,0
+"cmkytxbap003b28wqf33l4pu5","Código San Luis","https://codigosanluis.com/feed/",2,"STATE","San Luis Potosí",true,2
+"cmliq953h0006699yyie7vrir","El Sol de San Luis","https://www.elsoldesanluis.com.mx/rss",2,"STATE","San Luis Potosí",true,0
+"cmliq957t0007699yajlrnea7","La Jornada San Luis","https://lajornadasanluis.com.mx/feed/",2,"STATE","San Luis Potosí",true,0
+"cmlip9vkk000669qmwazvfu8s","El Debate","https://www.debate.com.mx/rss/feed.xml",2,"STATE","Sinaloa",true,2
+"cmliq96do000p699ypmp0si42","El Sol de Mazatlán","https://www.elsoldemazatlan.com.mx/rss",2,"STATE","Sinaloa",true,0
+"cmliq96b1000o699y0iq781r8","El Sol de Sinaloa","https://www.elsoldesinaloa.com.mx/rss",2,"STATE","Sinaloa",true,0
+"cmliq96fp000q699yl93byg7x","La Pared Noticias","https://laparednoticias.com/feed/",2,"STATE","Sinaloa",true,0
+"cmkytxbay003e28wqyxktfrvx","Línea Directa","https://lineadirectaportal.com/feed",2,"STATE","Sinaloa",true,0
+"cmliq96hp000r699yhokfedmo","Quadratín Sinaloa","https://sinaloa.quadratin.com.mx/feed/",2,"STATE","Sinaloa",true,0
+"cmlip9yv7000e69qmt0fb1hsl","Dossier Político Sonora","https://dossierpolitico.com/feed/",2,"STATE","Sonora",true,1
+"cmkytxbhp005n28wqisfdyckl","El Imparcial Obregón","https://www.elimparcial.com/arc/outboundfeeds/msn/",2,"STATE","Sonora",true,0
+"cmkytxbba003j28wqpo6zlm2n","Proyecto Puente","https://proyectopuente.com.mx/feed/",2,"STATE","Sonora",true,0
+"cmliq96jp000s699y7a3gmbqu","El Heraldo de Tabasco","https://www.elheraldodetabasco.com.mx/rss",2,"STATE","Tabasco",true,0
+"cmkytxbbh003m28wqwqeuezgv","Tabasco Hoy","https://www.tabascohoy.com/feed/",2,"STATE","Tabasco",true,1
+"cmkytxbi2005s28wqqrjlfrnb","El Bravo Matamoros","https://www.elbravo.mx/feed/",2,"STATE","Tamaulipas",true,0
+"cmkytxbc3003s28wqy2jvwisy","Gaceta","https://gaceta.mx/feed/",2,"STATE","Tamaulipas",true,0
+"cmlip9z5j000f69qmv3nz95er","Hora Cero","https://www.horacero.com.mx/feed/",2,"STATE","Tamaulipas",true,0
+"cmkytxbhw005q28wqwcgmmuji","Hora Cero Tamaulipas","https://horacero.com.mx/feed",2,"STATE","Tamaulipas",true,0
+"cmliq96lp000t699yqch2se56","El Sol de Tlaxcala","https://www.elsoldetlaxcala.com.mx/rss",2,"STATE","Tlaxcala",true,0
+"cmkytxbcd003v28wqotr0szos","Quadratín Tlaxcala","https://tlaxcala.quadratin.com.mx/feed/",2,"STATE","Tlaxcala",true,0
+"cmliq95bu0009699y7uoyz7or","Diario de Xalapa","https://www.diariodexalapa.com.mx/rss",2,"STATE","Veracruz",true,0
+"cmliq95dt000a699yfk2r7ssb","El Sol de Córdoba","https://www.elsoldecordoba.com.mx/rss",2,"STATE","Veracruz",true,0
+"cmliq95fv000b699yuar4o06t","El Sol de Orizaba","https://www.elsoldeorizaba.com.mx/rss",2,"STATE","Veracruz",true,0
+"cmkytxbip005z28wq61a292zb","La Opinión de Poza Rica","https://laopinion.net/feed/",2,"STATE","Veracruz",true,0
+"cmlip9z9g000g69qmi3y5m6y9","Diario de Yucatán","https://www.yucatan.com.mx/feed/",2,"STATE","Yucatán",true,0
+"cmkytxbd5004228wqka9utkdk","Diario de Yucatán","https://www.yucatan.com.mx/feed",2,"STATE","Yucatán",true,0
+"cmkytxbis006028wqyfy6ibtz","El Diario de Yucatán Mérida","https://www.yucatan.com.mx/merida/feed",2,"STATE","Yucatán",true,0
+"cmlip9ze9000h69qmdm9vwhfh","La Verdad Yucatán","https://laverdadnoticias.com/feed",2,"STATE","Yucatán",true,0
+"cmkytxbdu004a28wqi6cckymm","Página 24 Zacatecas","https://pagina24zacatecas.com.mx/feed/",2,"STATE","Zacatecas",true,0
+"cmkytxb3g000m28wqd5v9g12u","BBC Mundo","https://feeds.bbci.co.uk/mundo/rss.xml",1,"NATIONAL","",true,0
+"cmkytxbkg006m28wqjvb6mcl2","El Financiero","https://www.elfinanciero.com.mx/arc/outboundfeeds/rss/?outputType=xml",1,"NATIONAL","",true,0
+"cmkytxb38000j28wq6l56wo90","Expansión","https://expansion.mx/rss",1,"NATIONAL","",true,0
+"cmkytxb1c000328wq5n36p5sg","La Jornada","https://www.jornada.com.mx/rss/edicion.xml",1,"NATIONAL","",true,0
+"cmlip9egy000069qmrbnmcti3","La Jornada - Política","https://www.jornada.com.mx/rss/politica.xml",1,"NATIONAL","",true,0
+"cmkytxb2y000f28wqxptbj9ow","López Dóriga Digital","https://lopezdoriga.com/feed/",1,"NATIONAL","",true,0
+"cmkytxb16000128wq4a8jwkjj","Milenio","https://www.milenio.com/rss",1,"NATIONAL","",true,0
+"cmlip9etk000169qmg17lh6e6","Sin Embargo","https://www.sinembargo.mx/feed",1,"NATIONAL","",true,0
+"cmlip9fim000269qm8is5t5gn","El CEO","https://elceo.com/feed/",3,"SPECIALIZED","",true,0

@@ -1,0 +1,1700 @@
+{
+  "timestamp": "2026-02-12T00:35:29.570Z",
+  "before": {
+    "total": 265,
+    "active": 112,
+    "inactive": 153
+  },
+  "actions": {
+    "deleted": 172,
+    "recategorized": 47,
+    "added": 32,
+    "kept": 46
+  },
+  "after": {
+    "totalActive": 125,
+    "statesWithCoverage": 32
+  },
+  "deletedSources": [
+    {
+      "name": "2000 Agro",
+      "url": "https://www.2000agro.com.mx/feed/",
+      "state": "",
+      "reason": "Inactive"
+    },
+    {
+      "name": "Animal Político",
+      "url": "https://www.animalpolitico.com/feed/",
+      "state": "",
+      "reason": "Inactive"
+    },
+    {
+      "name": "Aristegui Noticias",
+      "url": "https://aristeguinoticias.com/feed/",
+      "state": "",
+      "reason": "Not RSS"
+    },
+    {
+      "name": "Autocosmos México",
+      "url": "https://noticias.autocosmos.com.mx/feed/",
+      "state": "",
+      "reason": "Inactive"
+    },
+    {
+      "name": "CNN en Español",
+      "url": "https://cnnespanol.cnn.com/feed/",
+      "state": "",
+      "reason": "Inactive"
+    },
+    {
+      "name": "Ciencia UNAM",
+      "url": "https://ciencia.unam.mx/leer/feed/",
+      "state": "",
+      "reason": "Inactive"
+    },
+    {
+      "name": "Crónica",
+      "url": "https://www.cronica.com.mx/feed",
+      "state": "",
+      "reason": "Inactive"
+    },
+    {
+      "name": "Directo al Paladar México",
+      "url": "https://www.directoalpaladar.com.mx/feed/",
+      "state": "",
+      "reason": "Inactive"
+    },
+    {
+      "name": "ESPN México",
+      "url": "https://espndeportes.espn.com/rss/news",
+      "state": "",
+      "reason": "Inactive"
+    },
+    {
+      "name": "El Economista",
+      "url": "https://www.eleconomista.com.mx/rss/",
+      "state": "",
+      "reason": "Inactive"
+    },
+    {
+      "name": "El Economista Agrícola",
+      "url": "https://www.eleconomista.com.mx/campo/rss/",
+      "state": "",
+      "reason": "Inactive"
+    },
+    {
+      "name": "El Financiero",
+      "url": "https://www.elfinanciero.com.mx/arc/outboundfeeds/rss/",
+      "state": "",
+      "reason": "Not RSS"
+    },
+    {
+      "name": "El Sol de México",
+      "url": "https://www.elsoldemexico.com.mx/rss.xml",
+      "state": "",
+      "reason": "Inactive"
+    },
+    {
+      "name": "El Universal",
+      "url": "https://www.eluniversal.com.mx/rss.xml",
+      "state": "",
+      "reason": "Inactive"
+    },
+    {
+      "name": "Entrepreneur México",
+      "url": "https://www.entrepreneur.com/mx/feed",
+      "state": "",
+      "reason": "Inactive"
+    },
+    {
+      "name": "Excélsior",
+      "url": "https://www.excelsior.com.mx/rss.xml",
+      "state": "",
+      "reason": "Inactive"
+    },
+    {
+      "name": "Forbes México",
+      "url": "https://forbes.com.mx/feed/",
+      "state": "",
+      "reason": "Inactive"
+    },
+    {
+      "name": "Infobae México",
+      "url": "https://www.infobae.com/mexico/rss/",
+      "state": "",
+      "reason": "Inactive"
+    },
+    {
+      "name": "La Razón",
+      "url": "https://www.razon.com.mx/feed/",
+      "state": "",
+      "reason": "Not RSS"
+    },
+    {
+      "name": "Manufactura MX",
+      "url": "https://manufactura.mx/feed/",
+      "state": "",
+      "reason": "Inactive"
+    },
+    {
+      "name": "Medio Tiempo",
+      "url": "https://www.mediotiempo.com/feed/",
+      "state": "",
+      "reason": "Inactive"
+    },
+    {
+      "name": "Motor Pasión México",
+      "url": "https://www.motorpasion.com.mx/feed/",
+      "state": "",
+      "reason": "Inactive"
+    },
+    {
+      "name": "México Desconocido",
+      "url": "https://www.mexicodesconocido.com.mx/feed",
+      "state": "",
+      "reason": "Inactive"
+    },
+    {
+      "name": "Obras Web",
+      "url": "https://obrasweb.mx/feed/",
+      "state": "",
+      "reason": "Inactive"
+    },
+    {
+      "name": "Proceso",
+      "url": "https://www.proceso.com.mx/feed/",
+      "state": "",
+      "reason": "Inactive"
+    },
+    {
+      "name": "Publimetro Entretenimiento",
+      "url": "https://www.publimetro.com.mx/entretenimiento/feed/",
+      "state": "",
+      "reason": "Inactive"
+    },
+    {
+      "name": "Quién",
+      "url": "https://www.quien.com/feed/",
+      "state": "",
+      "reason": "Inactive"
+    },
+    {
+      "name": "Real Estate Market",
+      "url": "https://realestatemarket.com.mx/feed/",
+      "state": "",
+      "reason": "Not RSS"
+    },
+    {
+      "name": "Reuters América Latina",
+      "url": "https://www.reuters.com/arc/outboundfeeds/v3/all/rss.xml",
+      "state": "",
+      "reason": "Inactive"
+    },
+    {
+      "name": "Récord",
+      "url": "https://www.record.com.mx/rss.xml",
+      "state": "",
+      "reason": "Inactive"
+    },
+    {
+      "name": "SDP Noticias",
+      "url": "https://www.sdpnoticias.com/feed/",
+      "state": "",
+      "reason": "Inactive"
+    },
+    {
+      "name": "TUDN",
+      "url": "https://www.tudn.com/rss/",
+      "state": "",
+      "reason": "Inactive"
+    },
+    {
+      "name": "TVNotas",
+      "url": "https://www.tvnotas.com.mx/feed/",
+      "state": "",
+      "reason": "Inactive"
+    },
+    {
+      "name": "UnoTV",
+      "url": "https://www.unotv.com/rss/",
+      "state": "",
+      "reason": "Inactive"
+    },
+    {
+      "name": "Xataka México",
+      "url": "https://www.xataka.com.mx/feed",
+      "state": "",
+      "reason": "Inactive"
+    },
+    {
+      "name": "El Imparcial BC",
+      "url": "https://www.elimparcial.com/rss.xml",
+      "state": "Baja California",
+      "reason": "Inactive"
+    },
+    {
+      "name": "El Mexicano",
+      "url": "https://www.el-mexicano.com.mx/feed/",
+      "state": "Baja California",
+      "reason": "Inactive"
+    },
+    {
+      "name": "El Sol de Tijuana",
+      "url": "https://www.elsoldetijuana.com.mx/rss.xml",
+      "state": "Baja California",
+      "reason": "Inactive"
+    },
+    {
+      "name": "El Vigía Ensenada",
+      "url": "https://www.elvigia.net/feed/",
+      "state": "Baja California",
+      "reason": "Inactive"
+    },
+    {
+      "name": "Frontera",
+      "url": "https://www.frontera.info/rss.xml",
+      "state": "Baja California",
+      "reason": "Inactive"
+    },
+    {
+      "name": "Frontera Tijuana",
+      "url": "https://www.frontera.info/tijuana/feed/",
+      "state": "Baja California",
+      "reason": "Inactive"
+    },
+    {
+      "name": "La Voz de la Frontera",
+      "url": "https://www.lavozdelafrontera.com.mx/rss.xml",
+      "state": "Baja California",
+      "reason": "Inactive"
+    },
+    {
+      "name": "El Sudcaliforniano",
+      "url": "https://www.elsudcaliforniano.com.mx/rss.xml",
+      "state": "Baja California Sur",
+      "reason": "Inactive"
+    },
+    {
+      "name": "Tribuna de Los Cabos",
+      "url": "https://www.tribunadeloscabos.com.mx/feed/",
+      "state": "Baja California Sur",
+      "reason": "Inactive"
+    },
+    {
+      "name": "Campeche HOY",
+      "url": "https://campechehoy.mx/feed/",
+      "state": "Campeche",
+      "reason": "Inactive"
+    },
+    {
+      "name": "Portal Campeche",
+      "url": "https://portalcampeche.com/feed/",
+      "state": "Campeche",
+      "reason": "Inactive"
+    },
+    {
+      "name": "Aquí Noticias",
+      "url": "https://aquinoticias.mx/feed/",
+      "state": "Chiapas",
+      "reason": "Not RSS"
+    },
+    {
+      "name": "El Heraldo de Chiapas",
+      "url": "https://www.elheraldodechiapas.com.mx/rss.xml",
+      "state": "Chiapas",
+      "reason": "Inactive"
+    },
+    {
+      "name": "NVI Noticias Chiapas",
+      "url": "https://www.nvinoticias.com/feed/",
+      "state": "Chiapas",
+      "reason": "Inactive"
+    },
+    {
+      "name": "El Diario de Juárez",
+      "url": "https://diario.mx/juarez/feed/",
+      "state": "Chihuahua",
+      "reason": "Not RSS"
+    },
+    {
+      "name": "El Heraldo de Chihuahua",
+      "url": "https://www.elheraldodechihuahua.com.mx/rss.xml",
+      "state": "Chihuahua",
+      "reason": "Inactive"
+    },
+    {
+      "name": "Net Noticias Chihuahua",
+      "url": "https://netnoticias.mx/feed/",
+      "state": "Chihuahua",
+      "reason": "Inactive"
+    },
+    {
+      "name": "Net Noticias Juárez",
+      "url": "https://netnoticias.mx/juarez/feed/",
+      "state": "Chihuahua",
+      "reason": "Inactive"
+    },
+    {
+      "name": "24 Horas",
+      "url": "https://24-horas.mx/feed/",
+      "state": "Ciudad de México",
+      "reason": "Inactive"
+    },
+    {
+      "name": "La Prensa CDMX",
+      "url": "https://www.la-prensa.com.mx/feed/",
+      "state": "Ciudad de México",
+      "reason": "Inactive"
+    },
+    {
+      "name": "El Diario de Coahuila Saltillo",
+      "url": "https://www.eldiariodecoahuila.com.mx/feed/",
+      "state": "Coahuila",
+      "reason": "Inactive"
+    },
+    {
+      "name": "El Siglo de Torreón",
+      "url": "https://www.elsiglodetorreon.com.mx/feed/",
+      "state": "Coahuila",
+      "reason": "Inactive"
+    },
+    {
+      "name": "Milenio Laguna",
+      "url": "https://www.milenio.com/region/laguna/rss",
+      "state": "Coahuila",
+      "reason": "Inactive"
+    },
+    {
+      "name": "Noticias del Sol de la Laguna",
+      "url": "https://www.noticiasdelsol.com.mx/feed/",
+      "state": "Coahuila",
+      "reason": "Inactive"
+    },
+    {
+      "name": "Vanguardia",
+      "url": "https://vanguardia.com.mx/feed/",
+      "state": "Coahuila",
+      "reason": "Inactive"
+    },
+    {
+      "name": "Zócalo Saltillo",
+      "url": "https://www.zocalo.com.mx/feed/",
+      "state": "Coahuila",
+      "reason": "Not RSS"
+    },
+    {
+      "name": "Diario de Colima",
+      "url": "https://www.diariodecolima.com/feed/",
+      "state": "Colima",
+      "reason": "Inactive"
+    },
+    {
+      "name": "Diario de Colima Manzanillo",
+      "url": "https://www.diariodecolima.com/manzanillo/feed/",
+      "state": "Colima",
+      "reason": "Inactive"
+    },
+    {
+      "name": "El Comentario",
+      "url": "https://elcomentario.ucol.mx/feed/",
+      "state": "Colima",
+      "reason": "Inactive"
+    },
+    {
+      "name": "El Siglo de Durango",
+      "url": "https://www.elsiglodedurango.com.mx/feed/",
+      "state": "Durango",
+      "reason": "Inactive"
+    },
+    {
+      "name": "El Sol de Durango",
+      "url": "https://www.elsoldedurango.com.mx/rss.xml",
+      "state": "Durango",
+      "reason": "Inactive"
+    },
+    {
+      "name": "Victoria de Durango",
+      "url": "https://victoriadedurango.com/feed/",
+      "state": "Durango",
+      "reason": "Inactive"
+    },
+    {
+      "name": "Digital Naucalpan",
+      "url": "https://digitalnaucalpan.com.mx/feed/",
+      "state": "Estado de México",
+      "reason": "Inactive"
+    },
+    {
+      "name": "El Sol de Toluca",
+      "url": "https://www.elsoldetoluca.com.mx/rss.xml",
+      "state": "Estado de México",
+      "reason": "Inactive"
+    },
+    {
+      "name": "Heraldo Estado de México",
+      "url": "https://heraldodemexico.com.mx/feed/",
+      "state": "Estado de México",
+      "reason": "Inactive"
+    },
+    {
+      "name": "Valle de México",
+      "url": "https://www.valledemexico.mx/feed/",
+      "state": "Estado de México",
+      "reason": "Inactive"
+    },
+    {
+      "name": "El Sol de Irapuato",
+      "url": "https://www.elsoldeirapuato.com.mx/rss.xml",
+      "state": "Guanajuato",
+      "reason": "Inactive"
+    },
+    {
+      "name": "El Sol de León",
+      "url": "https://www.elsoldeleon.com.mx/rss.xml",
+      "state": "Guanajuato",
+      "reason": "Inactive"
+    },
+    {
+      "name": "El Sol de Salamanca",
+      "url": "https://www.elsoldesalamanca.com.mx/rss.xml",
+      "state": "Guanajuato",
+      "reason": "Inactive"
+    },
+    {
+      "name": "El Sol del Bajío Celaya",
+      "url": "https://www.elsoldelbajio.com.mx/rss.xml",
+      "state": "Guanajuato",
+      "reason": "Inactive"
+    },
+    {
+      "name": "Zona Franca GTO",
+      "url": "https://zonafranca.mx/gto/feed/",
+      "state": "Guanajuato",
+      "reason": "Not RSS"
+    },
+    {
+      "name": "Zona Franca Guanajuato",
+      "url": "https://zonafranca.mx/feed/",
+      "state": "Guanajuato",
+      "reason": "Not RSS"
+    },
+    {
+      "name": "El Sol de Acapulco",
+      "url": "https://www.elsoldeacapulco.com.mx/rss.xml",
+      "state": "Guerrero",
+      "reason": "Inactive"
+    },
+    {
+      "name": "El Sur Acapulco",
+      "url": "https://suracapulco.mx/acapulco/feed/",
+      "state": "Guerrero",
+      "reason": "Inactive"
+    },
+    {
+      "name": "Novedades Acapulco",
+      "url": "https://novedadesacapulco.mx/feed/",
+      "state": "Guerrero",
+      "reason": "Inactive"
+    },
+    {
+      "name": "Criterio Hidalgo",
+      "url": "https://www.criteriohidalgo.com/feed/",
+      "state": "Hidalgo",
+      "reason": "Not RSS"
+    },
+    {
+      "name": "El Sol de Hidalgo",
+      "url": "https://www.elsoldehidalgo.com.mx/rss.xml",
+      "state": "Hidalgo",
+      "reason": "Inactive"
+    },
+    {
+      "name": "El Diario NTR Zapopan",
+      "url": "https://www.ntrguadalajara.com/zapopan/feed/",
+      "state": "Jalisco",
+      "reason": "Inactive"
+    },
+    {
+      "name": "El Informador",
+      "url": "https://www.informador.mx/rss/",
+      "state": "Jalisco",
+      "reason": "Not RSS"
+    },
+    {
+      "name": "El Occidental",
+      "url": "https://www.eloccidental.com.mx/rss.xml",
+      "state": "Jalisco",
+      "reason": "Inactive"
+    },
+    {
+      "name": "Gdl Noticias",
+      "url": "https://gdlnoticias.com/feed/",
+      "state": "Jalisco",
+      "reason": "Inactive"
+    },
+    {
+      "name": "Milenio Jalisco",
+      "url": "https://www.milenio.com/region/jalisco/rss",
+      "state": "Jalisco",
+      "reason": "Inactive"
+    },
+    {
+      "name": "Mural",
+      "url": "https://www.mural.com/rss/portada.xml",
+      "state": "Jalisco",
+      "reason": "Inactive"
+    },
+    {
+      "name": "NTR Guadalajara",
+      "url": "https://www.ntrguadalajara.com/feed/",
+      "state": "Jalisco",
+      "reason": "Inactive"
+    },
+    {
+      "name": "Vallarta Opina",
+      "url": "https://www.vallartaopina.net/feed/",
+      "state": "Jalisco",
+      "reason": "Inactive"
+    },
+    {
+      "name": "El Sol de Uruapan",
+      "url": "https://www.elsoldeuruapan.com.mx/rss.xml",
+      "state": "Michoacán",
+      "reason": "Inactive"
+    },
+    {
+      "name": "Noventa Grados Morelia",
+      "url": "https://www.noventagrados.com.mx/feed/",
+      "state": "Michoacán",
+      "reason": "Inactive"
+    },
+    {
+      "name": "Diario de Morelos",
+      "url": "https://www.diariodemorelos.com/feed/",
+      "state": "Morelos",
+      "reason": "Inactive"
+    },
+    {
+      "name": "El Sol de Cuernavaca",
+      "url": "https://www.elsoldecuernavaca.com.mx/rss.xml",
+      "state": "Morelos",
+      "reason": "Inactive"
+    },
+    {
+      "name": "La Unión de Morelos",
+      "url": "https://www.launion.com.mx/feed/",
+      "state": "Morelos",
+      "reason": "Inactive"
+    },
+    {
+      "name": "Zona Centro Cuernavaca",
+      "url": "https://www.zonacentronoticias.com/feed/",
+      "state": "Morelos",
+      "reason": "Inactive"
+    },
+    {
+      "name": "El Sol de Nayarit",
+      "url": "https://www.elsoldenayarit.mx/feed/",
+      "state": "Nayarit",
+      "reason": "Inactive"
+    },
+    {
+      "name": "Express Nayarit",
+      "url": "https://www.nayaritexpress.com/feed/",
+      "state": "Nayarit",
+      "reason": "Inactive"
+    },
+    {
+      "name": "ABC Noticias",
+      "url": "https://www.abcnoticias.mx/feed/",
+      "state": "Nuevo León",
+      "reason": "Inactive"
+    },
+    {
+      "name": "El Horizonte",
+      "url": "https://www.elhorizonte.mx/feed/",
+      "state": "Nuevo León",
+      "reason": "Inactive"
+    },
+    {
+      "name": "Info7",
+      "url": "https://www.info7.mx/feed/",
+      "state": "Nuevo León",
+      "reason": "Inactive"
+    },
+    {
+      "name": "Milenio Monterrey",
+      "url": "https://www.milenio.com/region/monterrey/rss",
+      "state": "Nuevo León",
+      "reason": "Inactive"
+    },
+    {
+      "name": "Milenio Monterrey",
+      "url": "https://www.milenio.com/monterrey/feed/",
+      "state": "Nuevo León",
+      "reason": "Inactive"
+    },
+    {
+      "name": "Reporte Índigo NL",
+      "url": "https://www.reporteindigo.com/regio/feed/",
+      "state": "Nuevo León",
+      "reason": "Inactive"
+    },
+    {
+      "name": "San Nicolás Digital",
+      "url": "https://sannicolasdigital.mx/feed/",
+      "state": "Nuevo León",
+      "reason": "Inactive"
+    },
+    {
+      "name": "Telediario",
+      "url": "https://www.telediario.mx/feed/",
+      "state": "Nuevo León",
+      "reason": "Inactive"
+    },
+    {
+      "name": "NVI Noticias Oaxaca",
+      "url": "https://www.nvinoticias.com/oaxaca/feed/",
+      "state": "Oaxaca",
+      "reason": "Inactive"
+    },
+    {
+      "name": "Tiempo Oaxaca",
+      "url": "https://tiempooaxaca.com/feed/",
+      "state": "Oaxaca",
+      "reason": "Inactive"
+    },
+    {
+      "name": "E-Consulta Puebla",
+      "url": "https://www.e-consulta.com/feed/",
+      "state": "Puebla",
+      "reason": "Inactive"
+    },
+    {
+      "name": "El Mundo de Tehuacán",
+      "url": "https://elmundodetehuacan.com/feed/",
+      "state": "Puebla",
+      "reason": "Inactive"
+    },
+    {
+      "name": "El Sol de Puebla",
+      "url": "https://www.elsoldepuebla.com.mx/rss.xml",
+      "state": "Puebla",
+      "reason": "Inactive"
+    },
+    {
+      "name": "Intolerancia Diario",
+      "url": "https://intoleranciadiario.com/feed/",
+      "state": "Puebla",
+      "reason": "Inactive"
+    },
+    {
+      "name": "Milenio Puebla",
+      "url": "https://www.milenio.com/region/puebla/rss",
+      "state": "Puebla",
+      "reason": "Inactive"
+    },
+    {
+      "name": "Ángulo 7 Puebla",
+      "url": "https://www.angulo7.com.mx/feed/",
+      "state": "Puebla",
+      "reason": "Inactive"
+    },
+    {
+      "name": "AM Querétaro",
+      "url": "https://amqueretaro.com/feed/",
+      "state": "Querétaro",
+      "reason": "Inactive"
+    },
+    {
+      "name": "Diario de Querétaro",
+      "url": "https://www.diariodequeretaro.com.mx/rss.xml",
+      "state": "Querétaro",
+      "reason": "Inactive"
+    },
+    {
+      "name": "El Universal Querétaro",
+      "url": "https://www.eluniversalqueretaro.mx/feed/",
+      "state": "Querétaro",
+      "reason": "Inactive"
+    },
+    {
+      "name": "Noticias de Querétaro",
+      "url": "https://www.noticiasdequeretaro.com.mx/feed/",
+      "state": "Querétaro",
+      "reason": "HTTP 405"
+    },
+    {
+      "name": "Novedades Quintana Roo",
+      "url": "https://sipse.com/novedades/feed/",
+      "state": "Quintana Roo",
+      "reason": "Inactive"
+    },
+    {
+      "name": "Playa News",
+      "url": "https://playanews.mx/feed/",
+      "state": "Quintana Roo",
+      "reason": "Inactive"
+    },
+    {
+      "name": "Por Esto! Quintana Roo",
+      "url": "https://www.poresto.net/quintana-roo/feed/",
+      "state": "Quintana Roo",
+      "reason": "Inactive"
+    },
+    {
+      "name": "Riviera Maya News",
+      "url": "https://www.rivieramaya.news/feed/",
+      "state": "Quintana Roo",
+      "reason": "Not RSS"
+    },
+    {
+      "name": "El Sol de San Luis",
+      "url": "https://www.elsoldesanluis.com.mx/rss.xml",
+      "state": "San Luis Potosí",
+      "reason": "Inactive"
+    },
+    {
+      "name": "Huasteca Hoy",
+      "url": "https://huastecahoy.com/feed/",
+      "state": "San Luis Potosí",
+      "reason": "Inactive"
+    },
+    {
+      "name": "Plano Informativo",
+      "url": "https://planoinformativo.com/feed/",
+      "state": "San Luis Potosí",
+      "reason": "Inactive"
+    },
+    {
+      "name": "Pulso SLP",
+      "url": "https://pulsoslp.com.mx/feed/",
+      "state": "San Luis Potosí",
+      "reason": "Inactive"
+    },
+    {
+      "name": "El Debate",
+      "url": "https://www.debate.com.mx/feed/",
+      "state": "Sinaloa",
+      "reason": "Inactive"
+    },
+    {
+      "name": "El Debate Los Mochis",
+      "url": "https://www.debate.com.mx/losmochis/feed/",
+      "state": "Sinaloa",
+      "reason": "Inactive"
+    },
+    {
+      "name": "El Sol de Mazatlán",
+      "url": "https://www.elsoldemazatlan.com.mx/rss.xml",
+      "state": "Sinaloa",
+      "reason": "Inactive"
+    },
+    {
+      "name": "El Sol de Sinaloa",
+      "url": "https://www.elsoldesinaloa.com.mx/rss.xml",
+      "state": "Sinaloa",
+      "reason": "Inactive"
+    },
+    {
+      "name": "El Sol de Sinaloa Culiacán",
+      "url": "https://www.elsoldesinaloa.com.mx/culiacan/feed/",
+      "state": "Sinaloa",
+      "reason": "Inactive"
+    },
+    {
+      "name": "Noroeste",
+      "url": "https://www.noroeste.com.mx/feed/",
+      "state": "Sinaloa",
+      "reason": "Inactive"
+    },
+    {
+      "name": "Noroeste Mazatlán",
+      "url": "https://www.noroeste.com.mx/mazatlan/feed/",
+      "state": "Sinaloa",
+      "reason": "Inactive"
+    },
+    {
+      "name": "Ríodoce",
+      "url": "https://riodoce.mx/feed/",
+      "state": "Sinaloa",
+      "reason": "Inactive"
+    },
+    {
+      "name": "El Imparcial Sonora",
+      "url": "https://www.elimparcial.com/sonora/feed/",
+      "state": "Sonora",
+      "reason": "Not RSS"
+    },
+    {
+      "name": "El Sol de Hermosillo",
+      "url": "https://www.elsoldehermosillo.com.mx/rss.xml",
+      "state": "Sonora",
+      "reason": "Inactive"
+    },
+    {
+      "name": "Expreso Hermosillo",
+      "url": "https://www.expreso.com.mx/hermosillo/feed/",
+      "state": "Sonora",
+      "reason": "Inactive"
+    },
+    {
+      "name": "Expreso Sonora",
+      "url": "https://www.expreso.com.mx/feed/",
+      "state": "Sonora",
+      "reason": "Inactive"
+    },
+    {
+      "name": "Nuevo Día Nogales",
+      "url": "https://www.nuevodia.com.mx/feed/",
+      "state": "Sonora",
+      "reason": "Inactive"
+    },
+    {
+      "name": "Diario Presente Villahermosa",
+      "url": "https://www.diariopresente.mx/feed/",
+      "state": "Tabasco",
+      "reason": "Inactive"
+    },
+    {
+      "name": "El Heraldo de Tabasco",
+      "url": "https://www.elheraldodetabasco.com.mx/rss.xml",
+      "state": "Tabasco",
+      "reason": "Inactive"
+    },
+    {
+      "name": "Presente",
+      "url": "https://www.presentediario.com/feed/",
+      "state": "Tabasco",
+      "reason": "Inactive"
+    },
+    {
+      "name": "Rumbo Nuevo Tabasco",
+      "url": "https://www.rumbonuevo.com.mx/feed/",
+      "state": "Tabasco",
+      "reason": "Not RSS"
+    },
+    {
+      "name": "Conexión Total Reynosa",
+      "url": "https://conexiontotal.mx/feed/",
+      "state": "Tamaulipas",
+      "reason": "Inactive"
+    },
+    {
+      "name": "El Mañana",
+      "url": "https://www.elmanana.com/feed/",
+      "state": "Tamaulipas",
+      "reason": "Inactive"
+    },
+    {
+      "name": "El Mañana Nuevo Laredo",
+      "url": "https://www.elmanana.com/nuevo-laredo/feed/",
+      "state": "Tamaulipas",
+      "reason": "Inactive"
+    },
+    {
+      "name": "El Sol de Tampico",
+      "url": "https://www.elsoldetampico.com.mx/rss.xml",
+      "state": "Tamaulipas",
+      "reason": "Inactive"
+    },
+    {
+      "name": "Expreso Tamaulipas",
+      "url": "https://www.expresotamaulipas.com/feed/",
+      "state": "Tamaulipas",
+      "reason": "Inactive"
+    },
+    {
+      "name": "Hoy Tamaulipas",
+      "url": "https://www.hoytamaulipas.net/feed/",
+      "state": "Tamaulipas",
+      "reason": "Inactive"
+    },
+    {
+      "name": "E-Tlaxcala",
+      "url": "https://e-tlaxcala.mx/feed/",
+      "state": "Tlaxcala",
+      "reason": "Inactive"
+    },
+    {
+      "name": "El Sol de Tlaxcala",
+      "url": "https://www.elsoldetlaxcala.com.mx/rss.xml",
+      "state": "Tlaxcala",
+      "reason": "Inactive"
+    },
+    {
+      "name": "Al Calor Político",
+      "url": "https://www.alcalorpolitico.com/feed/",
+      "state": "Veracruz",
+      "reason": "Inactive"
+    },
+    {
+      "name": "Diario de Xalapa",
+      "url": "https://www.diariodexalapa.com.mx/rss.xml",
+      "state": "Veracruz",
+      "reason": "Inactive"
+    },
+    {
+      "name": "Diario del Istmo",
+      "url": "https://www.diarioistmo.com/feed/",
+      "state": "Veracruz",
+      "reason": "Inactive"
+    },
+    {
+      "name": "El Dictamen",
+      "url": "https://www.eldictamen.mx/feed/",
+      "state": "Veracruz",
+      "reason": "Inactive"
+    },
+    {
+      "name": "El Sol de Córdoba",
+      "url": "https://www.elsoldecordoba.com.mx/rss.xml",
+      "state": "Veracruz",
+      "reason": "Inactive"
+    },
+    {
+      "name": "El Sol de Orizaba",
+      "url": "https://www.elsoldeorizaba.com.mx/rss.xml",
+      "state": "Veracruz",
+      "reason": "Inactive"
+    },
+    {
+      "name": "Imagen del Golfo",
+      "url": "https://imagendelgolfo.mx/feed/",
+      "state": "Veracruz",
+      "reason": "Inactive"
+    },
+    {
+      "name": "Notiver",
+      "url": "https://www.notiver.com.mx/feed/",
+      "state": "Veracruz",
+      "reason": "Inactive"
+    },
+    {
+      "name": "Notiver Veracruz",
+      "url": "https://www.notiver.com.mx/veracruz/feed/",
+      "state": "Veracruz",
+      "reason": "Inactive"
+    },
+    {
+      "name": "XEU Noticias",
+      "url": "https://www.xeu.mx/feed/",
+      "state": "Veracruz",
+      "reason": "Inactive"
+    },
+    {
+      "name": "La Jornada Maya",
+      "url": "https://www.lajornadamaya.mx/feed/",
+      "state": "Yucatán",
+      "reason": "Not RSS"
+    },
+    {
+      "name": "Milenio Novedades",
+      "url": "https://www.milenio.com/region/yucatan/rss",
+      "state": "Yucatán",
+      "reason": "Inactive"
+    },
+    {
+      "name": "Novedades Yucatán",
+      "url": "https://sipse.com/novedades-yucatan/feed/",
+      "state": "Yucatán",
+      "reason": "Inactive"
+    },
+    {
+      "name": "Por Esto! Yucatán",
+      "url": "https://www.poresto.net/yucatan/feed/",
+      "state": "Yucatán",
+      "reason": "Inactive"
+    },
+    {
+      "name": "Punto Medio Valladolid",
+      "url": "https://puntomedio.mx/feed/",
+      "state": "Yucatán",
+      "reason": "Inactive"
+    },
+    {
+      "name": "Reporteros Hoy",
+      "url": "https://reporteroshoy.mx/feed/",
+      "state": "Yucatán",
+      "reason": "Inactive"
+    },
+    {
+      "name": "El Sol de Zacatecas",
+      "url": "https://www.elsoldezacatecas.com.mx/rss.xml",
+      "state": "Zacatecas",
+      "reason": "Inactive"
+    },
+    {
+      "name": "Imagen Fresnillo",
+      "url": "https://imagenzac.com.mx/fresnillo/feed/",
+      "state": "Zacatecas",
+      "reason": "Not RSS"
+    },
+    {
+      "name": "Imagen Zacatecas",
+      "url": "https://imagenzac.com.mx/feed/",
+      "state": "Zacatecas",
+      "reason": "Not RSS"
+    },
+    {
+      "name": "NTR Zacatecas",
+      "url": "https://ntrzacatecas.com/feed/",
+      "state": "Zacatecas",
+      "reason": "Inactive"
+    },
+    {
+      "name": "Alto Nivel",
+      "url": "https://www.altonivel.com.mx/feed/",
+      "state": null,
+      "reason": "Timeout"
+    }
+  ],
+  "recategorized": [
+    {
+      "name": "Animal Gourmet",
+      "from": "NATIONAL T3",
+      "to": "SPECIALIZED T3",
+      "state": ""
+    },
+    {
+      "name": "El Financiero Turismo",
+      "from": "NATIONAL T3",
+      "to": "NATIONAL T1",
+      "state": ""
+    },
+    {
+      "name": "Energía Hoy",
+      "from": "NATIONAL T3",
+      "to": "SPECIALIZED T3",
+      "state": ""
+    },
+    {
+      "name": "FayerWayer",
+      "from": "NATIONAL T3",
+      "to": "SPECIALIZED T3",
+      "state": ""
+    },
+    {
+      "name": "Hipertextual",
+      "from": "NATIONAL T3",
+      "to": "SPECIALIZED T3",
+      "state": ""
+    },
+    {
+      "name": "Inmobiliare",
+      "from": "NATIONAL T3",
+      "to": "SPECIALIZED T3",
+      "state": ""
+    },
+    {
+      "name": "Reforma",
+      "from": "NATIONAL T3",
+      "to": "NATIONAL T1",
+      "state": ""
+    },
+    {
+      "name": "Sin Embargo",
+      "from": "NATIONAL T3",
+      "to": "NATIONAL T1",
+      "state": ""
+    },
+    {
+      "name": "T21 Logística",
+      "from": "NATIONAL T3",
+      "to": "SPECIALIZED T3",
+      "state": ""
+    },
+    {
+      "name": "Unocero",
+      "from": "NATIONAL T3",
+      "to": "SPECIALIZED T3",
+      "state": ""
+    },
+    {
+      "name": "El Heraldo de Aguascalientes",
+      "from": "NATIONAL T3",
+      "to": "STATE T2",
+      "state": "Aguascalientes"
+    },
+    {
+      "name": "Semanario Zeta",
+      "from": "NATIONAL T3",
+      "to": "STATE T2",
+      "state": "Baja California"
+    },
+    {
+      "name": "Uniradio Noticias",
+      "from": "NATIONAL T3",
+      "to": "STATE T2",
+      "state": "Baja California"
+    },
+    {
+      "name": "El Informante BCS",
+      "from": "NATIONAL T3",
+      "to": "STATE T2",
+      "state": "Baja California Sur"
+    },
+    {
+      "name": "Alerta Chiapas",
+      "from": "NATIONAL T3",
+      "to": "STATE T2",
+      "state": "Chiapas"
+    },
+    {
+      "name": "Cuarto Poder Chiapas",
+      "from": "NATIONAL T3",
+      "to": "STATE T2",
+      "state": "Chiapas"
+    },
+    {
+      "name": "Diario de Chiapas",
+      "from": "NATIONAL T3",
+      "to": "STATE T2",
+      "state": "Chiapas"
+    },
+    {
+      "name": "El Diario de Chihuahua",
+      "from": "NATIONAL T3",
+      "to": "STATE T2",
+      "state": "Chihuahua"
+    },
+    {
+      "name": "El Pueblo",
+      "from": "NATIONAL T3",
+      "to": "STATE T2",
+      "state": "Chihuahua"
+    },
+    {
+      "name": "Más por Más CDMX",
+      "from": "NATIONAL T3",
+      "to": "STATE T2",
+      "state": "Ciudad de México"
+    },
+    {
+      "name": "Quadratín Estado de México",
+      "from": "NATIONAL T3",
+      "to": "STATE T2",
+      "state": "Estado de México"
+    },
+    {
+      "name": "Correo Guanajuato",
+      "from": "NATIONAL T3",
+      "to": "STATE T2",
+      "state": "Guanajuato"
+    },
+    {
+      "name": "Diario 21 Guerrero",
+      "from": "NATIONAL T3",
+      "to": "STATE T2",
+      "state": "Guerrero"
+    },
+    {
+      "name": "Independiente de Hidalgo",
+      "from": "NATIONAL T3",
+      "to": "STATE T2",
+      "state": "Hidalgo"
+    },
+    {
+      "name": "Tribune de la Bahía",
+      "from": "NATIONAL T3",
+      "to": "STATE T2",
+      "state": "Jalisco"
+    },
+    {
+      "name": "Zona Guadalajara",
+      "from": "NATIONAL T3",
+      "to": "STATE T2",
+      "state": "Jalisco"
+    },
+    {
+      "name": "Cambio de Michoacán",
+      "from": "NATIONAL T3",
+      "to": "STATE T2",
+      "state": "Michoacán"
+    },
+    {
+      "name": "Costa Noticias",
+      "from": "NATIONAL T3",
+      "to": "STATE T2",
+      "state": "Michoacán"
+    },
+    {
+      "name": "MiMorelia",
+      "from": "NATIONAL T3",
+      "to": "STATE T2",
+      "state": "Michoacán"
+    },
+    {
+      "name": "Meridiano Nayarit",
+      "from": "NATIONAL T3",
+      "to": "STATE T2",
+      "state": "Nayarit"
+    },
+    {
+      "name": "El Norte",
+      "from": "NATIONAL T3",
+      "to": "STATE T2",
+      "state": "Nuevo León"
+    },
+    {
+      "name": "Oaxaca Digital",
+      "from": "NATIONAL T3",
+      "to": "STATE T2",
+      "state": "Oaxaca"
+    },
+    {
+      "name": "La Jornada de Oriente",
+      "from": "NATIONAL T3",
+      "to": "STATE T2",
+      "state": "Puebla"
+    },
+    {
+      "name": "Status Puebla",
+      "from": "NATIONAL T3",
+      "to": "STATE T2",
+      "state": "Puebla"
+    },
+    {
+      "name": "Cancún Mio",
+      "from": "NATIONAL T3",
+      "to": "STATE T2",
+      "state": "Quintana Roo"
+    },
+    {
+      "name": "Noticias Chetumal",
+      "from": "NATIONAL T3",
+      "to": "STATE T2",
+      "state": "Quintana Roo"
+    },
+    {
+      "name": "Quadratín Quintana Roo",
+      "from": "NATIONAL T3",
+      "to": "STATE T2",
+      "state": "Quintana Roo"
+    },
+    {
+      "name": "Línea Directa",
+      "from": "NATIONAL T3",
+      "to": "STATE T2",
+      "state": "Sinaloa"
+    },
+    {
+      "name": "El Imparcial Obregón",
+      "from": "NATIONAL T3",
+      "to": "STATE T2",
+      "state": "Sonora"
+    },
+    {
+      "name": "El Bravo Matamoros",
+      "from": "NATIONAL T3",
+      "to": "STATE T2",
+      "state": "Tamaulipas"
+    },
+    {
+      "name": "Gaceta",
+      "from": "NATIONAL T3",
+      "to": "STATE T2",
+      "state": "Tamaulipas"
+    },
+    {
+      "name": "Hora Cero Tamaulipas",
+      "from": "NATIONAL T3",
+      "to": "STATE T2",
+      "state": "Tamaulipas"
+    },
+    {
+      "name": "Quadratín Tlaxcala",
+      "from": "NATIONAL T3",
+      "to": "STATE T2",
+      "state": "Tlaxcala"
+    },
+    {
+      "name": "La Opinión de Poza Rica",
+      "from": "NATIONAL T3",
+      "to": "STATE T2",
+      "state": "Veracruz"
+    },
+    {
+      "name": "Diario de Yucatán",
+      "from": "NATIONAL T3",
+      "to": "STATE T2",
+      "state": "Yucatán"
+    },
+    {
+      "name": "El Diario de Yucatán Mérida",
+      "from": "NATIONAL T3",
+      "to": "STATE T2",
+      "state": "Yucatán"
+    },
+    {
+      "name": "El CEO",
+      "from": "SPECIALIZED T1",
+      "to": "SPECIALIZED T3",
+      "state": null
+    }
+  ],
+  "addedSources": [
+    {
+      "name": "El Sol de Cuernavaca",
+      "url": "https://www.elsoldecuernavaca.com.mx/rss",
+      "state": "Morelos"
+    },
+    {
+      "name": "El Sol de Cuautla",
+      "url": "https://www.elsoldecuautla.com.mx/rss",
+      "state": "Morelos"
+    },
+    {
+      "name": "Quadratín Morelos",
+      "url": "https://morelos.quadratin.com.mx/feed/",
+      "state": "Morelos"
+    },
+    {
+      "name": "24 Morelos",
+      "url": "https://www.24morelos.com/feed/",
+      "state": "Morelos"
+    },
+    {
+      "name": "El Norte Local",
+      "url": "https://www.elnorte.com/rss/local.xml",
+      "state": "Nuevo León"
+    },
+    {
+      "name": "Quadratín Nuevo León",
+      "url": "https://nuevoleon.quadratin.com.mx/feed/",
+      "state": "Nuevo León"
+    },
+    {
+      "name": "El Sol de San Luis",
+      "url": "https://www.elsoldesanluis.com.mx/rss",
+      "state": "San Luis Potosí"
+    },
+    {
+      "name": "La Jornada San Luis",
+      "url": "https://lajornadasanluis.com.mx/feed/",
+      "state": "San Luis Potosí"
+    },
+    {
+      "name": "Astrolabio SLP",
+      "url": "https://astrolabio.com.mx/feed/",
+      "state": "San Luis Potosí"
+    },
+    {
+      "name": "Diario de Xalapa",
+      "url": "https://www.diariodexalapa.com.mx/rss",
+      "state": "Veracruz"
+    },
+    {
+      "name": "El Sol de Córdoba",
+      "url": "https://www.elsoldecordoba.com.mx/rss",
+      "state": "Veracruz"
+    },
+    {
+      "name": "El Sol de Orizaba",
+      "url": "https://www.elsoldeorizaba.com.mx/rss",
+      "state": "Veracruz"
+    },
+    {
+      "name": "El Siglo de Torreón",
+      "url": "https://elsiglodetorreon.com.mx/index.xml",
+      "state": "Coahuila"
+    },
+    {
+      "name": "Vanguardia RSS",
+      "url": "https://www.vanguardia.com.mx/rss",
+      "state": "Coahuila"
+    },
+    {
+      "name": "El Sol de Tijuana",
+      "url": "https://www.elsoldetijuana.com.mx/rss",
+      "state": "Baja California"
+    },
+    {
+      "name": "La Voz de la Frontera",
+      "url": "https://www.lavozdelafrontera.com.mx/rss",
+      "state": "Baja California"
+    },
+    {
+      "name": "San Diego Red",
+      "url": "https://www.sandiegored.com/feed/",
+      "state": "Baja California"
+    },
+    {
+      "name": "El Sol de Durango",
+      "url": "https://www.elsoldedurango.com.mx/rss",
+      "state": "Durango"
+    },
+    {
+      "name": "El Sol de Toluca",
+      "url": "https://www.elsoldetoluca.com.mx/rss",
+      "state": "Estado de México"
+    },
+    {
+      "name": "AD Noticias",
+      "url": "https://adnoticias.mx/feed/",
+      "state": "Estado de México"
+    },
+    {
+      "name": "El Sol de Puebla",
+      "url": "https://www.elsoldepuebla.com.mx/rss",
+      "state": "Puebla"
+    },
+    {
+      "name": "Quadratín Puebla",
+      "url": "https://puebla.quadratin.com.mx/feed/",
+      "state": "Puebla"
+    },
+    {
+      "name": "Diario de Querétaro",
+      "url": "https://www.diariodequeretaro.com.mx/rss",
+      "state": "Querétaro"
+    },
+    {
+      "name": "Quadratín Querétaro",
+      "url": "https://queretaro.quadratin.com.mx/feed/",
+      "state": "Querétaro"
+    },
+    {
+      "name": "El Sol de Sinaloa",
+      "url": "https://www.elsoldesinaloa.com.mx/rss",
+      "state": "Sinaloa"
+    },
+    {
+      "name": "El Sol de Mazatlán",
+      "url": "https://www.elsoldemazatlan.com.mx/rss",
+      "state": "Sinaloa"
+    },
+    {
+      "name": "La Pared Noticias",
+      "url": "https://laparednoticias.com/feed/",
+      "state": "Sinaloa"
+    },
+    {
+      "name": "Quadratín Sinaloa",
+      "url": "https://sinaloa.quadratin.com.mx/feed/",
+      "state": "Sinaloa"
+    },
+    {
+      "name": "El Heraldo de Tabasco",
+      "url": "https://www.elheraldodetabasco.com.mx/rss",
+      "state": "Tabasco"
+    },
+    {
+      "name": "El Sol de Tlaxcala",
+      "url": "https://www.elsoldetlaxcala.com.mx/rss",
+      "state": "Tlaxcala"
+    },
+    {
+      "name": "Colima Noticias",
+      "url": "https://colimanoticias.com/feed/",
+      "state": "Colima"
+    },
+    {
+      "name": "Contralínea",
+      "url": "https://contralinea.com.mx/feed/",
+      "state": "Ciudad de México"
+    }
+  ],
+  "invalidNewSources": [],
+  "coverage": {
+    "Campeche": {
+      "total": 1,
+      "byType": {
+        "STATE": 1
+      }
+    },
+    "Yucatán": {
+      "total": 4,
+      "byType": {
+        "STATE": 4
+      }
+    },
+    "San Luis Potosí": {
+      "total": 4,
+      "byType": {
+        "STATE": 4
+      }
+    },
+    "Tabasco": {
+      "total": 2,
+      "byType": {
+        "STATE": 2
+      }
+    },
+    "Sonora": {
+      "total": 3,
+      "byType": {
+        "STATE": 3
+      }
+    },
+    "Guanajuato": {
+      "total": 2,
+      "byType": {
+        "STATE": 2
+      }
+    },
+    "Nacional": {
+      "total": 19,
+      "byType": {
+        "NATIONAL": 11,
+        "SPECIALIZED": 8
+      }
+    },
+    "Colima": {
+      "total": 2,
+      "byType": {
+        "STATE": 2
+      }
+    },
+    "Sinaloa": {
+      "total": 6,
+      "byType": {
+        "STATE": 6
+      }
+    },
+    "Chiapas": {
+      "total": 4,
+      "byType": {
+        "STATE": 4
+      }
+    },
+    "Quintana Roo": {
+      "total": 5,
+      "byType": {
+        "STATE": 5
+      }
+    },
+    "Durango": {
+      "total": 2,
+      "byType": {
+        "STATE": 2
+      }
+    },
+    "Nayarit": {
+      "total": 3,
+      "byType": {
+        "STATE": 3
+      }
+    },
+    "Veracruz": {
+      "total": 4,
+      "byType": {
+        "STATE": 4
+      }
+    },
+    "Guerrero": {
+      "total": 3,
+      "byType": {
+        "STATE": 3
+      }
+    },
+    "Michoacán": {
+      "total": 6,
+      "byType": {
+        "STATE": 6
+      }
+    },
+    "Tamaulipas": {
+      "total": 4,
+      "byType": {
+        "STATE": 4
+      }
+    },
+    "Zacatecas": {
+      "total": 1,
+      "byType": {
+        "STATE": 1
+      }
+    },
+    "Baja California Sur": {
+      "total": 3,
+      "byType": {
+        "STATE": 3
+      }
+    },
+    "Oaxaca": {
+      "total": 3,
+      "byType": {
+        "STATE": 3
+      }
+    },
+    "Tlaxcala": {
+      "total": 2,
+      "byType": {
+        "STATE": 2
+      }
+    },
+    "Chihuahua": {
+      "total": 3,
+      "byType": {
+        "STATE": 3
+      }
+    },
+    "Coahuila": {
+      "total": 3,
+      "byType": {
+        "STATE": 3
+      }
+    },
+    "Jalisco": {
+      "total": 4,
+      "byType": {
+        "STATE": 4
+      }
+    },
+    "Puebla": {
+      "total": 4,
+      "byType": {
+        "STATE": 4
+      }
+    },
+    "Nuevo León": {
+      "total": 3,
+      "byType": {
+        "STATE": 3
+      }
+    },
+    "Baja California": {
+      "total": 5,
+      "byType": {
+        "STATE": 5
+      }
+    },
+    "Aguascalientes": {
+      "total": 3,
+      "byType": {
+        "STATE": 3
+      }
+    },
+    "Querétaro": {
+      "total": 3,
+      "byType": {
+        "STATE": 3
+      }
+    },
+    "Ciudad de México": {
+      "total": 3,
+      "byType": {
+        "STATE": 3
+      }
+    },
+    "Estado de México": {
+      "total": 4,
+      "byType": {
+        "STATE": 4
+      }
+    },
+    "Hidalgo": {
+      "total": 3,
+      "byType": {
+        "STATE": 3
+      }
+    },
+    "Morelos": {
+      "total": 4,
+      "byType": {
+        "STATE": 4
+      }
+    }
+  }
+}

@@ -288,6 +288,17 @@ Genera:
       const orgId = getEffectiveOrgId(ctx.user, input.orgId);
       const clientOrgFilter = orgId ? { client: { orgId } } : {};
 
+      // Combinar dateFrom y dateTo en un solo objeto createdAt
+      // (spreads separados con la misma key se sobreescriben)
+      const createdAtFilter = (input.dateFrom || input.dateTo)
+        ? {
+            createdAt: {
+              ...(input.dateFrom && { gte: input.dateFrom }),
+              ...(input.dateTo && { lte: input.dateTo }),
+            },
+          }
+        : {};
+
       const mentions = await prisma.socialMention.findMany({
         where: {
           ...clientOrgFilter,
@@ -295,8 +306,7 @@ Genera:
           ...(input.platform && { platform: input.platform }),
           ...(input.sentiment && { sentiment: input.sentiment }),
           ...(input.sourceType && { sourceType: input.sourceType }),
-          ...(input.dateFrom && { createdAt: { gte: input.dateFrom } }),
-          ...(input.dateTo && { createdAt: { lte: input.dateTo } }),
+          ...createdAtFilter,
           ...(input.cursor && { id: { lt: input.cursor } }),
         },
         include: {

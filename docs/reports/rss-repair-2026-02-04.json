@@ -1,0 +1,1659 @@
+{
+  "timestamp": "2026-02-04T08:18:06.462Z",
+  "dryRun": false,
+  "totalProcessed": 199,
+  "successful": 105,
+  "failed": 94,
+  "results": [
+    {
+      "id": "cmkytxb43000v28wq7br5i446",
+      "name": "El Imparcial BC",
+      "state": "Baja California",
+      "action": "DELETE",
+      "success": true,
+      "message": "Marcada como inactiva permanentemente"
+    },
+    {
+      "id": "cmkytxb3v000s28wqj7jpc1dz",
+      "name": "El Mexicano",
+      "state": "Baja California",
+      "action": "DELETE",
+      "success": true,
+      "message": "Marcada como inactiva permanentemente"
+    },
+    {
+      "id": "cmkytxbdx004b28wq3n4hzmc6",
+      "name": "El Sol de Tijuana",
+      "state": "Baja California",
+      "action": "UPDATE_URL",
+      "success": false,
+      "message": "Nueva URL no responde: no válida"
+    },
+    {
+      "id": "cmkytxbeb004e28wq78090v9t",
+      "name": "El Vigía Ensenada",
+      "state": "Baja California",
+      "action": "DELETE",
+      "success": true,
+      "message": "Marcada como inactiva permanentemente"
+    },
+    {
+      "id": "cmkytxb3y000t28wqz2i77637",
+      "name": "Frontera",
+      "state": "Baja California",
+      "action": "INVESTIGATE",
+      "success": false,
+      "message": "Requiere investigación manual"
+    },
+    {
+      "id": "cmkytxbe2004c28wqzx0pn21r",
+      "name": "Frontera Tijuana",
+      "state": "Baja California",
+      "action": "INVESTIGATE",
+      "success": false,
+      "message": "Requiere investigación manual"
+    },
+    {
+      "id": "cmkytxbe6004d28wqi998vtfm",
+      "name": "La Voz de la Frontera",
+      "state": "Baja California",
+      "action": "UPDATE_URL",
+      "success": false,
+      "message": "Nueva URL no responde: no válida"
+    },
+    {
+      "id": "cmkytxb46000w28wq30dvsynt",
+      "name": "Uniradio Noticias",
+      "state": "Baja California",
+      "action": "UPDATE_URL",
+      "success": true,
+      "message": "URL actualizada exitosamente",
+      "oldUrl": "https://www.uniradionoticias.com/feed/",
+      "newUrl": "https://www.uniradiosonora.com/feed/"
+    },
+    {
+      "id": "cmkytxb4e000z28wqxjl8onzo",
+      "name": "Diario El Independiente",
+      "state": "Baja California Sur",
+      "action": "UPDATE_URL",
+      "success": true,
+      "message": "URL actualizada exitosamente",
+      "oldUrl": "https://www.diarioelindependiente.mx/feed/",
+      "newUrl": "https://www.diarioelindependiente.mx/feed"
+    },
+    {
+      "id": "cmkytxb49000x28wqi1w61c35",
+      "name": "El Sudcaliforniano",
+      "state": "Baja California Sur",
+      "action": "UPDATE_URL",
+      "success": false,
+      "message": "Nueva URL no responde: no válida"
+    },
+    {
+      "id": "cmkytxbei004g28wq6lazs0un",
+      "name": "Tribuna de Los Cabos",
+      "state": "Baja California Sur",
+      "action": "DELETE",
+      "success": true,
+      "message": "Marcada como inactiva permanentemente"
+    },
+    {
+      "id": "cmkytxb4j001128wqgtw0w109",
+      "name": "Campeche HOY",
+      "state": "Campeche",
+      "action": "INVESTIGATE",
+      "success": false,
+      "message": "Requiere investigación manual"
+    },
+    {
+      "id": "cmkytxb4m001228wqum5fv6b6",
+      "name": "Portal Campeche",
+      "state": "Campeche",
+      "action": "INVESTIGATE",
+      "success": false,
+      "message": "Requiere investigación manual"
+    },
+    {
+      "id": "cmkytxbep004i28wqnwjq9cmu",
+      "name": "Aquí Noticias",
+      "state": "Chiapas",
+      "action": "UPDATE_URL",
+      "success": false,
+      "message": "Nueva URL no responde: no válida"
+    },
+    {
+      "id": "cmkytxb4t001528wq78oy0xoo",
+      "name": "Cuarto Poder Chiapas",
+      "state": "Chiapas",
+      "action": "UPDATE_URL",
+      "success": true,
+      "message": "URL actualizada exitosamente",
+      "oldUrl": "https://www.cuartopoder.mx/feed/",
+      "newUrl": "https://www.cuartopoder.mx/feedgooglenews/nacional"
+    },
+    {
+      "id": "cmkytxb4r001428wqmtddoknp",
+      "name": "Diario de Chiapas",
+      "state": "Chiapas",
+      "action": "UPDATE_URL",
+      "success": true,
+      "message": "URL actualizada exitosamente",
+      "oldUrl": "https://www.diariodechiapas.com/feed/",
+      "newUrl": "https://diariodechiapas.com/feed/"
+    },
+    {
+      "id": "cmkytxb4p001328wqi9s312kh",
+      "name": "El Heraldo de Chiapas",
+      "state": "Chiapas",
+      "action": "UPDATE_URL",
+      "success": false,
+      "message": "Nueva URL no responde: no válida"
+    },
+    {
+      "id": "cmkytxb4w001628wq4a67ctgp",
+      "name": "NVI Noticias Chiapas",
+      "state": "Chiapas",
+      "action": "DELETE",
+      "success": true,
+      "message": "Marcada como inactiva permanentemente"
+    },
+    {
+      "id": "cmkytxb50001828wq8l19vgek",
+      "name": "El Diario de Chihuahua",
+      "state": "Chihuahua",
+      "action": "UPDATE_URL",
+      "success": true,
+      "message": "URL actualizada exitosamente",
+      "oldUrl": "https://diario.mx/feed/",
+      "newUrl": "https://diario.mx/rss/feed.xml"
+    },
+    {
+      "id": "cmkytxbes004j28wq9vnj8jih",
+      "name": "El Diario de Juárez",
+      "state": "Chihuahua",
+      "action": "UPDATE_URL",
+      "success": false,
+      "message": "\nInvalid `prisma.rssSource.update()` invocation:\n\n\nUnique constraint failed on the fields: (`url`)"
+    },
+    {
+      "id": "cmkytxb4y001728wq2mv7mnuo",
+      "name": "El Heraldo de Chihuahua",
+      "state": "Chihuahua",
+      "action": "UPDATE_URL",
+      "success": false,
+      "message": "Nueva URL no responde: no válida"
+    },
+    {
+      "id": "cmkytxb53001928wqlbf4llnc",
+      "name": "El Pueblo",
+      "state": "Chihuahua",
+      "action": "UPDATE_URL",
+      "success": true,
+      "message": "URL actualizada exitosamente",
+      "oldUrl": "https://elpueblo.com/feed/",
+      "newUrl": "https://elpueblo.com/rss/feed.xml"
+    },
+    {
+      "id": "cmkytxb55001a28wqwdlwghyu",
+      "name": "Net Noticias Chihuahua",
+      "state": "Chihuahua",
+      "action": "DELETE",
+      "success": true,
+      "message": "Marcada como inactiva permanentemente"
+    },
+    {
+      "id": "cmkytxbev004k28wqtqlk5w13",
+      "name": "Net Noticias Juárez",
+      "state": "Chihuahua",
+      "action": "DELETE",
+      "success": true,
+      "message": "Marcada como inactiva permanentemente"
+    },
+    {
+      "id": "cmkytxb5q001j28wqwqeqzsfa",
+      "name": "24 Horas",
+      "state": "Ciudad de México",
+      "action": "UPDATE_URL",
+      "success": true,
+      "message": "URL actualizada exitosamente",
+      "oldUrl": "https://www.24-horas.mx/feed/",
+      "newUrl": "https://24-horas.mx/feed/"
+    },
+    {
+      "id": "cmkytxb5o001i28wqqa5bnnag",
+      "name": "La Prensa CDMX",
+      "state": "Ciudad de México",
+      "action": "UPDATE_URL",
+      "success": false,
+      "message": "Nueva URL no responde: no válida"
+    },
+    {
+      "id": "cmkytxbey004l28wqhi1s09gq",
+      "name": "El Diario de Coahuila Saltillo",
+      "state": "Coahuila",
+      "action": "INVESTIGATE",
+      "success": false,
+      "message": "Requiere investigación manual"
+    },
+    {
+      "id": "cmkytxb5c001d28wqfjw2011d",
+      "name": "El Siglo de Torreón",
+      "state": "Coahuila",
+      "action": "DELETE",
+      "success": true,
+      "message": "Marcada como inactiva permanentemente"
+    },
+    {
+      "id": "cmkytxb5f001e28wqoje3824r",
+      "name": "Milenio Laguna",
+      "state": "Coahuila",
+      "action": "DELETE",
+      "success": true,
+      "message": "Marcada como inactiva permanentemente"
+    },
+    {
+      "id": "cmkytxbf2004m28wqn4bmrha1",
+      "name": "Noticias del Sol de la Laguna",
+      "state": "Coahuila",
+      "action": "INVESTIGATE",
+      "success": false,
+      "message": "Requiere investigación manual"
+    },
+    {
+      "id": "cmkytxb5a001c28wqm6ks3sop",
+      "name": "Vanguardia",
+      "state": "Coahuila",
+      "action": "DELETE",
+      "success": true,
+      "message": "Marcada como inactiva permanentemente"
+    },
+    {
+      "id": "cmkytxb57001b28wql52cncqg",
+      "name": "Zócalo Saltillo",
+      "state": "Coahuila",
+      "action": "UPDATE_URL",
+      "success": false,
+      "message": "Nueva URL no responde: no válida"
+    },
+    {
+      "id": "cmkytxb5h001f28wq9ftaune6",
+      "name": "Diario de Colima",
+      "state": "Colima",
+      "action": "INVESTIGATE",
+      "success": false,
+      "message": "Requiere investigación manual"
+    },
+    {
+      "id": "cmkytxbf5004n28wqhsc9w3ky",
+      "name": "Diario de Colima Manzanillo",
+      "state": "Colima",
+      "action": "INVESTIGATE",
+      "success": false,
+      "message": "Requiere investigación manual"
+    },
+    {
+      "id": "cmkytxb5j001g28wqtsn6ckas",
+      "name": "El Comentario",
+      "state": "Colima",
+      "action": "INVESTIGATE",
+      "success": false,
+      "message": "Requiere investigación manual"
+    },
+    {
+      "id": "cmkytxb5x001m28wq299pu2dc",
+      "name": "El Siglo de Durango",
+      "state": "Durango",
+      "action": "DELETE",
+      "success": true,
+      "message": "Marcada como inactiva permanentemente"
+    },
+    {
+      "id": "cmkytxb60001n28wq68to8umc",
+      "name": "El Sol de Durango",
+      "state": "Durango",
+      "action": "UPDATE_URL",
+      "success": false,
+      "message": "Nueva URL no responde: no válida"
+    },
+    {
+      "id": "cmkytxb63001o28wqhtqrflt1",
+      "name": "Victoria de Durango",
+      "state": "Durango",
+      "action": "INVESTIGATE",
+      "success": false,
+      "message": "Requiere investigación manual"
+    },
+    {
+      "id": "cmkytxbfc004p28wqnskvsnzy",
+      "name": "Digital Naucalpan",
+      "state": "Estado de México",
+      "action": "INVESTIGATE",
+      "success": false,
+      "message": "Requiere investigación manual"
+    },
+    {
+      "id": "cmkytxb66001p28wq6qmspx52",
+      "name": "El Sol de Toluca",
+      "state": "Estado de México",
+      "action": "UPDATE_URL",
+      "success": false,
+      "message": "Nueva URL no responde: no válida"
+    },
+    {
+      "id": "cmkytxb6f001s28wqc8a7stkh",
+      "name": "Heraldo Estado de México",
+      "state": "Estado de México",
+      "action": "DELETE",
+      "success": true,
+      "message": "Marcada como inactiva permanentemente"
+    },
+    {
+      "id": "cmkytxbf9004o28wqyt02xqrd",
+      "name": "Valle de México",
+      "state": "Estado de México",
+      "action": "INVESTIGATE",
+      "success": false,
+      "message": "Requiere investigación manual"
+    },
+    {
+      "id": "cmkytxb6r001w28wqsk3oh2d2",
+      "name": "Correo Guanajuato",
+      "state": "Guanajuato",
+      "action": "UPDATE_URL",
+      "success": true,
+      "message": "URL actualizada exitosamente",
+      "oldUrl": "https://periodicocorreo.com.mx/feed/",
+      "newUrl": "https://periodicocorreo.com.mx/rss/feed.xml"
+    },
+    {
+      "id": "cmkytxb6o001v28wq9nsibxru",
+      "name": "El Sol de Irapuato",
+      "state": "Guanajuato",
+      "action": "UPDATE_URL",
+      "success": false,
+      "message": "Nueva URL no responde: no válida"
+    },
+    {
+      "id": "cmkytxb6j001t28wq0pzbh6l2",
+      "name": "El Sol de León",
+      "state": "Guanajuato",
+      "action": "UPDATE_URL",
+      "success": false,
+      "message": "Nueva URL no responde: no válida"
+    },
+    {
+      "id": "cmkytxbfi004r28wqzfgfxrsx",
+      "name": "El Sol de Salamanca",
+      "state": "Guanajuato",
+      "action": "UPDATE_URL",
+      "success": false,
+      "message": "Nueva URL no responde: no válida"
+    },
+    {
+      "id": "cmkytxbff004q28wqt4l5mg91",
+      "name": "El Sol del Bajío Celaya",
+      "state": "Guanajuato",
+      "action": "UPDATE_URL",
+      "success": false,
+      "message": "Nueva URL no responde: no válida"
+    },
+    {
+      "id": "cmkytxb6l001u28wq6ms8aegw",
+      "name": "Periódico AM",
+      "state": "Guanajuato",
+      "action": "UPDATE_URL",
+      "success": true,
+      "message": "URL actualizada exitosamente",
+      "oldUrl": "https://www.am.com.mx/feed/",
+      "newUrl": "https://www.am.com.mx/feed"
+    },
+    {
+      "id": "cmkytxbfl004s28wq82oi5vvd",
+      "name": "Zona Franca GTO",
+      "state": "Guanajuato",
+      "action": "UPDATE_URL",
+      "success": false,
+      "message": "Nueva URL no responde: no válida"
+    },
+    {
+      "id": "cmkytxb6u001x28wq0uju0jxj",
+      "name": "Zona Franca Guanajuato",
+      "state": "Guanajuato",
+      "action": "UPDATE_URL",
+      "success": false,
+      "message": "Nueva URL no responde: no válida"
+    },
+    {
+      "id": "cmkytxb6x001y28wqrz43kybd",
+      "name": "El Sol de Acapulco",
+      "state": "Guerrero",
+      "action": "UPDATE_URL",
+      "success": false,
+      "message": "Nueva URL no responde: no válida"
+    },
+    {
+      "id": "cmkytxbfo004t28wqv6wtdfqp",
+      "name": "El Sur Acapulco",
+      "state": "Guerrero",
+      "action": "INVESTIGATE",
+      "success": false,
+      "message": "Requiere investigación manual"
+    },
+    {
+      "id": "cmkytxb70001z28wqr0wnkb3n",
+      "name": "El Sur Guerrero",
+      "state": "Guerrero",
+      "action": "INVESTIGATE",
+      "success": false,
+      "message": "Requiere investigación manual"
+    },
+    {
+      "id": "cmkytxb76002128wqp53so3yy",
+      "name": "Novedades Acapulco",
+      "state": "Guerrero",
+      "action": "DELETE",
+      "success": true,
+      "message": "Marcada como inactiva permanentemente"
+    },
+    {
+      "id": "cmkytxb7b002328wqsmr51nfg",
+      "name": "Criterio Hidalgo",
+      "state": "Hidalgo",
+      "action": "UPDATE_URL",
+      "success": false,
+      "message": "Nueva URL no responde: no válida"
+    },
+    {
+      "id": "cmkytxb79002228wqi3rj0hy1",
+      "name": "El Sol de Hidalgo",
+      "state": "Hidalgo",
+      "action": "UPDATE_URL",
+      "success": false,
+      "message": "Nueva URL no responde: no válida"
+    },
+    {
+      "id": "cmkytxbft004v28wqicy8zsvw",
+      "name": "Independiente de Hidalgo",
+      "state": "Hidalgo",
+      "action": "UPDATE_URL",
+      "success": true,
+      "message": "URL actualizada exitosamente",
+      "oldUrl": "https://www.independientedehidalgo.com.mx/feed/",
+      "newUrl": "https://independientedehidalgo.com.mx/feed/"
+    },
+    {
+      "id": "cmkytxbg6005028wqtqlr0a6k",
+      "name": "El Diario NTR Zapopan",
+      "state": "Jalisco",
+      "action": "DELETE",
+      "success": true,
+      "message": "Marcada como inactiva permanentemente"
+    },
+    {
+      "id": "cmkytxb7j002628wqe7ts2347",
+      "name": "El Informador",
+      "state": "Jalisco",
+      "action": "UPDATE_URL",
+      "success": false,
+      "message": "Nueva URL no responde: HTTP 404"
+    },
+    {
+      "id": "cmkytxb7o002828wq3epsyw08",
+      "name": "El Occidental",
+      "state": "Jalisco",
+      "action": "UPDATE_URL",
+      "success": false,
+      "message": "Nueva URL no responde: no válida"
+    },
+    {
+      "id": "cmkytxbfv004w28wq37k66yu9",
+      "name": "Gdl Noticias",
+      "state": "Jalisco",
+      "action": "INVESTIGATE",
+      "success": false,
+      "message": "Requiere investigación manual"
+    },
+    {
+      "id": "cmkytxb7u002a28wqd0hmscr0",
+      "name": "Milenio Jalisco",
+      "state": "Jalisco",
+      "action": "DELETE",
+      "success": true,
+      "message": "Marcada como inactiva permanentemente"
+    },
+    {
+      "id": "cmkytxb7m002728wq926hp9e7",
+      "name": "Mural",
+      "state": "Jalisco",
+      "action": "DELETE",
+      "success": true,
+      "message": "Marcada como inactiva permanentemente"
+    },
+    {
+      "id": "cmkytxb7r002928wqy3pdg79n",
+      "name": "NTR Guadalajara",
+      "state": "Jalisco",
+      "action": "DELETE",
+      "success": true,
+      "message": "Marcada como inactiva permanentemente"
+    },
+    {
+      "id": "cmkytxbg3004z28wq0sfulg0i",
+      "name": "Tribune de la Bahía",
+      "state": "Jalisco",
+      "action": "UPDATE_URL",
+      "success": true,
+      "message": "URL actualizada exitosamente",
+      "oldUrl": "https://www.tribunadelabahia.com.mx/feed/",
+      "newUrl": "https://tribunadelabahia.com.mx/feed/"
+    },
+    {
+      "id": "cmkytxbg0004y28wqd169h2mx",
+      "name": "Vallarta Opina",
+      "state": "Jalisco",
+      "action": "INVESTIGATE",
+      "success": false,
+      "message": "Requiere investigación manual"
+    },
+    {
+      "id": "cmkytxb82002d28wq08teuswr",
+      "name": "Cambio de Michoacán",
+      "state": "Michoacán",
+      "action": "UPDATE_URL",
+      "success": true,
+      "message": "URL actualizada exitosamente",
+      "oldUrl": "https://www.cambiodemichoacan.com.mx/feed/",
+      "newUrl": "https://cambiodemichoacan.com.mx/feed/"
+    },
+    {
+      "id": "cmkytxbgc005228wqq0v53mrz",
+      "name": "El Sol de Uruapan",
+      "state": "Michoacán",
+      "action": "INVESTIGATE",
+      "success": false,
+      "message": "Requiere investigación manual"
+    },
+    {
+      "id": "cmkytxb85002e28wqwg2mplzb",
+      "name": "MiMorelia",
+      "state": "Michoacán",
+      "action": "UPDATE_URL",
+      "success": true,
+      "message": "URL actualizada exitosamente",
+      "oldUrl": "https://www.mimorelia.com/feed/",
+      "newUrl": "https://prod-qt-images.s3.amazonaws.com/production/mimorelia/feed.xml"
+    },
+    {
+      "id": "cmkytxbg9005128wqz5uu7hyd",
+      "name": "Noventa Grados Morelia",
+      "state": "Michoacán",
+      "action": "DELETE",
+      "success": true,
+      "message": "Marcada como inactiva permanentemente"
+    },
+    {
+      "id": "cmkytxb8a002g28wqjel84hfm",
+      "name": "Diario de Morelos",
+      "state": "Morelos",
+      "action": "DELETE",
+      "success": true,
+      "message": "Marcada como inactiva permanentemente"
+    },
+    {
+      "id": "cmkytxb87002f28wqmwr1ccfq",
+      "name": "El Sol de Cuernavaca",
+      "state": "Morelos",
+      "action": "UPDATE_URL",
+      "success": false,
+      "message": "Nueva URL no responde: no válida"
+    },
+    {
+      "id": "cmkytxb8c002h28wqh2pplde7",
+      "name": "La Unión de Morelos",
+      "state": "Morelos",
+      "action": "DELETE",
+      "success": true,
+      "message": "Marcada como inactiva permanentemente"
+    },
+    {
+      "id": "cmkytxbgj005428wq0a7hkd94",
+      "name": "Zona Centro Cuernavaca",
+      "state": "Morelos",
+      "action": "UPDATE_URL",
+      "success": false,
+      "message": "Nueva URL no responde: no válida"
+    },
+    {
+      "id": "cmkytxb8l002k28wqma2se7hl",
+      "name": "El Sol de Nayarit",
+      "state": "Nayarit",
+      "action": "UPDATE_URL",
+      "success": false,
+      "message": "Nueva URL no responde: no válida"
+    },
+    {
+      "id": "cmkytxb8j002j28wqnz9dt76h",
+      "name": "Express Nayarit",
+      "state": "Nayarit",
+      "action": "INVESTIGATE",
+      "success": false,
+      "message": "Requiere investigación manual"
+    },
+    {
+      "id": "cmkytxb8g002i28wqfacr8rid",
+      "name": "Meridiano Nayarit",
+      "state": "Nayarit",
+      "action": "UPDATE_URL",
+      "success": true,
+      "message": "URL actualizada exitosamente",
+      "oldUrl": "https://www.meridiano.mx/feed/",
+      "newUrl": "https://meridiano.mx/feed/"
+    },
+    {
+      "id": "cmkytxb8x002p28wqxb4jag4c",
+      "name": "ABC Noticias",
+      "state": "Nuevo León",
+      "action": "DELETE",
+      "success": true,
+      "message": "Marcada como inactiva permanentemente"
+    },
+    {
+      "id": "cmkytxb8s002n28wqu5lbzt9w",
+      "name": "El Horizonte",
+      "state": "Nuevo León",
+      "action": "INVESTIGATE",
+      "success": false,
+      "message": "Requiere investigación manual"
+    },
+    {
+      "id": "cmkytxb8q002m28wqb8efu019",
+      "name": "Info7",
+      "state": "Nuevo León",
+      "action": "DELETE",
+      "success": true,
+      "message": "Marcada como inactiva permanentemente"
+    },
+    {
+      "id": "cmkytxb8z002q28wqt6mewgmf",
+      "name": "Milenio Monterrey",
+      "state": "Nuevo León",
+      "action": "DELETE",
+      "success": false,
+      "message": "\nInvalid `prisma.rssSource.update()` invocation:\n\n\nAn operation failed because it depends on one or more records that were required but not found. Record to update not found."
+    },
+    {
+      "id": "cmkytxbgn005628wqeog6134l",
+      "name": "Milenio Monterrey",
+      "state": "Nuevo León",
+      "action": "DELETE",
+      "success": false,
+      "message": "\nInvalid `prisma.rssSource.update()` invocation:\n\n\nAn operation failed because it depends on one or more records that were required but not found. Record to update not found."
+    },
+    {
+      "id": "cmkytxbgl005528wqm9cvqcqd",
+      "name": "Reporte Índigo NL",
+      "state": "Nuevo León",
+      "action": "INVESTIGATE",
+      "success": false,
+      "message": "Requiere investigación manual"
+    },
+    {
+      "id": "cmkytxbgp005728wqiduf8jss",
+      "name": "San Nicolás Digital",
+      "state": "Nuevo León",
+      "action": "INVESTIGATE",
+      "success": false,
+      "message": "Requiere investigación manual"
+    },
+    {
+      "id": "cmkytxb8v002o28wq8eb624kv",
+      "name": "Telediario",
+      "state": "Nuevo León",
+      "action": "DELETE",
+      "success": true,
+      "message": "Marcada como inactiva permanentemente"
+    },
+    {
+      "id": "cmkytxb96002t28wqsgtfjjfw",
+      "name": "NVI Noticias Oaxaca",
+      "state": "Oaxaca",
+      "action": "DELETE",
+      "success": true,
+      "message": "Marcada como inactiva permanentemente"
+    },
+    {
+      "id": "cmkytxb99002u28wq1pwfff9b",
+      "name": "Tiempo Oaxaca",
+      "state": "Oaxaca",
+      "action": "INVESTIGATE",
+      "success": false,
+      "message": "Requiere investigación manual"
+    },
+    {
+      "id": "cmkytxb9h002x28wqw5npvl53",
+      "name": "E-Consulta Puebla",
+      "state": "Puebla",
+      "action": "DELETE",
+      "success": true,
+      "message": "Marcada como inactiva permanentemente"
+    },
+    {
+      "id": "cmkytxbgy005b28wqfg0sut9g",
+      "name": "El Mundo de Tehuacán",
+      "state": "Puebla",
+      "action": "DELETE",
+      "success": true,
+      "message": "Marcada como inactiva permanentemente"
+    },
+    {
+      "id": "cmkytxb9b002v28wqsmanhzyx",
+      "name": "El Sol de Puebla",
+      "state": "Puebla",
+      "action": "UPDATE_URL",
+      "success": false,
+      "message": "Nueva URL no responde: no válida"
+    },
+    {
+      "id": "cmkytxb9n002z28wqjwgu28j1",
+      "name": "Intolerancia Diario",
+      "state": "Puebla",
+      "action": "DELETE",
+      "success": true,
+      "message": "Marcada como inactiva permanentemente"
+    },
+    {
+      "id": "cmkytxb9e002w28wq5z69cflr",
+      "name": "Milenio Puebla",
+      "state": "Puebla",
+      "action": "DELETE",
+      "success": true,
+      "message": "Marcada como inactiva permanentemente"
+    },
+    {
+      "id": "cmkytxb9v003128wquoz2sxli",
+      "name": "AM Querétaro",
+      "state": "Querétaro",
+      "action": "DELETE",
+      "success": true,
+      "message": "Marcada como inactiva permanentemente"
+    },
+    {
+      "id": "cmkytxb9r003028wqxih9d5jk",
+      "name": "Diario de Querétaro",
+      "state": "Querétaro",
+      "action": "UPDATE_URL",
+      "success": false,
+      "message": "Nueva URL no responde: no válida"
+    },
+    {
+      "id": "cmkytxba1003328wqawte6faz",
+      "name": "El Universal Querétaro",
+      "state": "Querétaro",
+      "action": "DELETE",
+      "success": true,
+      "message": "Marcada como inactiva permanentemente"
+    },
+    {
+      "id": "cmkytxb9x003228wqtsgyop81",
+      "name": "Noticias de Querétaro",
+      "state": "Querétaro",
+      "action": "INVESTIGATE",
+      "success": false,
+      "message": "Requiere investigación manual"
+    },
+    {
+      "id": "cmkytxbh1005c28wq1wkkycjl",
+      "name": "Plaza de Armas QRO",
+      "state": "Querétaro",
+      "action": "UPDATE_URL",
+      "success": true,
+      "message": "URL actualizada exitosamente",
+      "oldUrl": "https://www.plazadearmas.com.mx/feed/",
+      "newUrl": "https://plazadearmas.com.mx/feed/"
+    },
+    {
+      "id": "cmkytxbh5005e28wq2s812lb0",
+      "name": "Cancún Mio",
+      "state": "Quintana Roo",
+      "action": "UPDATE_URL",
+      "success": true,
+      "message": "URL actualizada exitosamente",
+      "oldUrl": "https://cancunmio.com/feed/",
+      "newUrl": "https://www.cancunmio.com/feed/"
+    },
+    {
+      "id": "cmkytxba4003428wqgk9di029",
+      "name": "Novedades Quintana Roo",
+      "state": "Quintana Roo",
+      "action": "DELETE",
+      "success": true,
+      "message": "Marcada como inactiva permanentemente"
+    },
+    {
+      "id": "cmkytxbh7005f28wqqwxjzazh",
+      "name": "Playa News",
+      "state": "Quintana Roo",
+      "action": "INVESTIGATE",
+      "success": false,
+      "message": "Requiere investigación manual"
+    },
+    {
+      "id": "cmkytxba7003528wqyjw83ap3",
+      "name": "Por Esto! Quintana Roo",
+      "state": "Quintana Roo",
+      "action": "DELETE",
+      "success": true,
+      "message": "Marcada como inactiva permanentemente"
+    },
+    {
+      "id": "cmkytxbad003728wq8pzdf2zf",
+      "name": "Riviera Maya News",
+      "state": "Quintana Roo",
+      "action": "UPDATE_URL",
+      "success": false,
+      "message": "Nueva URL no responde: no válida"
+    },
+    {
+      "id": "cmkytxbap003b28wqf33l4pu5",
+      "name": "Código San Luis",
+      "state": "San Luis Potosí",
+      "action": "INVESTIGATE",
+      "success": false,
+      "message": "Requiere investigación manual"
+    },
+    {
+      "id": "cmkytxbag003828wql6zjqx2i",
+      "name": "El Sol de San Luis",
+      "state": "San Luis Potosí",
+      "action": "UPDATE_URL",
+      "success": false,
+      "message": "Nueva URL no responde: no válida"
+    },
+    {
+      "id": "cmkytxbhb005h28wqqc9t2mce",
+      "name": "Huasteca Hoy",
+      "state": "San Luis Potosí",
+      "action": "INVESTIGATE",
+      "success": false,
+      "message": "Requiere investigación manual"
+    },
+    {
+      "id": "cmkytxbaj003928wqlb04sip5",
+      "name": "Plano Informativo",
+      "state": "San Luis Potosí",
+      "action": "DELETE",
+      "success": true,
+      "message": "Marcada como inactiva permanentemente"
+    },
+    {
+      "id": "cmkytxbam003a28wqgfue8mut",
+      "name": "Pulso SLP",
+      "state": "San Luis Potosí",
+      "action": "DELETE",
+      "success": true,
+      "message": "Marcada como inactiva permanentemente"
+    },
+    {
+      "id": "cmkytxbas003c28wqel68aeab",
+      "name": "El Debate",
+      "state": "Sinaloa",
+      "action": "INVESTIGATE",
+      "success": false,
+      "message": "Requiere investigación manual"
+    },
+    {
+      "id": "cmkytxbhk005l28wq3l2inyv6",
+      "name": "El Debate Los Mochis",
+      "state": "Sinaloa",
+      "action": "INVESTIGATE",
+      "success": false,
+      "message": "Requiere investigación manual"
+    },
+    {
+      "id": "cmkytxbhg005j28wqz0edj88t",
+      "name": "El Sol de Mazatlán",
+      "state": "Sinaloa",
+      "action": "UPDATE_URL",
+      "success": false,
+      "message": "Nueva URL no responde: no válida"
+    },
+    {
+      "id": "cmkytxbb1003f28wqhdgbpz4q",
+      "name": "El Sol de Sinaloa",
+      "state": "Sinaloa",
+      "action": "UPDATE_URL",
+      "success": false,
+      "message": "Nueva URL no responde: no válida"
+    },
+    {
+      "id": "cmkytxbhe005i28wqvo01wqqm",
+      "name": "El Sol de Sinaloa Culiacán",
+      "state": "Sinaloa",
+      "action": "UPDATE_URL",
+      "success": false,
+      "message": "Nueva URL no responde: no válida"
+    },
+    {
+      "id": "cmkytxbay003e28wqyxktfrvx",
+      "name": "Línea Directa",
+      "state": "Sinaloa",
+      "action": "UPDATE_URL",
+      "success": true,
+      "message": "URL actualizada exitosamente",
+      "oldUrl": "https://www.lineadirectaportal.com/feed/",
+      "newUrl": "https://lineadirectaportal.com/feed"
+    },
+    {
+      "id": "cmkytxbav003d28wq7utt64bs",
+      "name": "Noroeste",
+      "state": "Sinaloa",
+      "action": "DELETE",
+      "success": true,
+      "message": "Marcada como inactiva permanentemente"
+    },
+    {
+      "id": "cmkytxbhi005k28wq64xthcr7",
+      "name": "Noroeste Mazatlán",
+      "state": "Sinaloa",
+      "action": "DELETE",
+      "success": true,
+      "message": "Marcada como inactiva permanentemente"
+    },
+    {
+      "id": "cmkytxbb3003g28wqqm4j9jt7",
+      "name": "Ríodoce",
+      "state": "Sinaloa",
+      "action": "INVESTIGATE",
+      "success": false,
+      "message": "Requiere investigación manual"
+    },
+    {
+      "id": "cmkytxbhp005n28wqisfdyckl",
+      "name": "El Imparcial Obregón",
+      "state": "Sonora",
+      "action": "UPDATE_URL",
+      "success": true,
+      "message": "URL actualizada exitosamente",
+      "oldUrl": "https://www.elimparcial.com/obregon/feed/",
+      "newUrl": "https://www.elimparcial.com/rss/feed.xml"
+    },
+    {
+      "id": "cmkytxbb5003h28wqtb1mhrzw",
+      "name": "El Imparcial Sonora",
+      "state": "Sonora",
+      "action": "UPDATE_URL",
+      "success": false,
+      "message": "\nInvalid `prisma.rssSource.update()` invocation:\n\n\nUnique constraint failed on the fields: (`url`)"
+    },
+    {
+      "id": "cmkytxbb8003i28wqytzu3rug",
+      "name": "El Sol de Hermosillo",
+      "state": "Sonora",
+      "action": "UPDATE_URL",
+      "success": false,
+      "message": "Nueva URL no responde: no válida"
+    },
+    {
+      "id": "cmkytxbhn005m28wqyqfuycrf",
+      "name": "Expreso Hermosillo",
+      "state": "Sonora",
+      "action": "DELETE",
+      "success": true,
+      "message": "Marcada como inactiva permanentemente"
+    },
+    {
+      "id": "cmkytxbbd003k28wqhivjom85",
+      "name": "Expreso Sonora",
+      "state": "Sonora",
+      "action": "DELETE",
+      "success": true,
+      "message": "Marcada como inactiva permanentemente"
+    },
+    {
+      "id": "cmkytxbhr005o28wq5j6e5fmt",
+      "name": "Nuevo Día Nogales",
+      "state": "Sonora",
+      "action": "INVESTIGATE",
+      "success": false,
+      "message": "Requiere investigación manual"
+    },
+    {
+      "id": "cmkytxbht005p28wq0caytcb3",
+      "name": "Diario Presente Villahermosa",
+      "state": "Tabasco",
+      "action": "DELETE",
+      "success": true,
+      "message": "Marcada como inactiva permanentemente"
+    },
+    {
+      "id": "cmkytxbbf003l28wqfu91ht1i",
+      "name": "El Heraldo de Tabasco",
+      "state": "Tabasco",
+      "action": "UPDATE_URL",
+      "success": false,
+      "message": "Nueva URL no responde: no válida"
+    },
+    {
+      "id": "cmkytxbbk003n28wqyux9npn9",
+      "name": "Presente",
+      "state": "Tabasco",
+      "action": "INVESTIGATE",
+      "success": false,
+      "message": "Requiere investigación manual"
+    },
+    {
+      "id": "cmkytxbbn003o28wqf64hxf1e",
+      "name": "Rumbo Nuevo Tabasco",
+      "state": "Tabasco",
+      "action": "UPDATE_URL",
+      "success": false,
+      "message": "Nueva URL no responde: no válida"
+    },
+    {
+      "id": "cmkytxbhz005r28wqwun4jr46",
+      "name": "Conexión Total Reynosa",
+      "state": "Tamaulipas",
+      "action": "INVESTIGATE",
+      "success": false,
+      "message": "Requiere investigación manual"
+    },
+    {
+      "id": "cmkytxbbq003p28wqzr457bhf",
+      "name": "El Mañana",
+      "state": "Tamaulipas",
+      "action": "DELETE",
+      "success": true,
+      "message": "Marcada como inactiva permanentemente"
+    },
+    {
+      "id": "cmkytxbi5005t28wqns1pn71y",
+      "name": "El Mañana Nuevo Laredo",
+      "state": "Tamaulipas",
+      "action": "DELETE",
+      "success": true,
+      "message": "Marcada como inactiva permanentemente"
+    },
+    {
+      "id": "cmkytxbi8005u28wq3o6ahc4c",
+      "name": "El Sol de Tampico",
+      "state": "Tamaulipas",
+      "action": "UPDATE_URL",
+      "success": false,
+      "message": "Nueva URL no responde: no válida"
+    },
+    {
+      "id": "cmkytxbby003r28wqfv5f66z7",
+      "name": "Expreso Tamaulipas",
+      "state": "Tamaulipas",
+      "action": "INVESTIGATE",
+      "success": false,
+      "message": "Requiere investigación manual"
+    },
+    {
+      "id": "cmkytxbc3003s28wqy2jvwisy",
+      "name": "Gaceta",
+      "state": "Tamaulipas",
+      "action": "UPDATE_URL",
+      "success": true,
+      "message": "URL actualizada exitosamente",
+      "oldUrl": "https://www.gaceta.mx/feed/",
+      "newUrl": "https://gaceta.mx/feed/"
+    },
+    {
+      "id": "cmkytxbhw005q28wqwcgmmuji",
+      "name": "Hora Cero Tamaulipas",
+      "state": "Tamaulipas",
+      "action": "UPDATE_URL",
+      "success": true,
+      "message": "URL actualizada exitosamente",
+      "oldUrl": "https://www.horacero.com.mx/feed/",
+      "newUrl": "https://horacero.com.mx/feed"
+    },
+    {
+      "id": "cmkytxbbt003q28wqogar4hib",
+      "name": "Hoy Tamaulipas",
+      "state": "Tamaulipas",
+      "action": "DELETE",
+      "success": true,
+      "message": "Marcada como inactiva permanentemente"
+    },
+    {
+      "id": "cmkytxbca003u28wqzpnwq8rr",
+      "name": "E-Tlaxcala",
+      "state": "Tlaxcala",
+      "action": "DELETE",
+      "success": true,
+      "message": "Marcada como inactiva permanentemente"
+    },
+    {
+      "id": "cmkytxbc7003t28wq4jepnqbv",
+      "name": "El Sol de Tlaxcala",
+      "state": "Tlaxcala",
+      "action": "UPDATE_URL",
+      "success": false,
+      "message": "Nueva URL no responde: no válida"
+    },
+    {
+      "id": "cmkytxbd0004128wql0edinai",
+      "name": "Al Calor Político",
+      "state": "Veracruz",
+      "action": "DELETE",
+      "success": true,
+      "message": "Marcada como inactiva permanentemente"
+    },
+    {
+      "id": "cmkytxbch003w28wq7snohbo4",
+      "name": "Diario de Xalapa",
+      "state": "Veracruz",
+      "action": "UPDATE_URL",
+      "success": false,
+      "message": "Nueva URL no responde: no válida"
+    },
+    {
+      "id": "cmkytxbij005x28wqjsz660fa",
+      "name": "Diario del Istmo",
+      "state": "Veracruz",
+      "action": "INVESTIGATE",
+      "success": false,
+      "message": "Requiere investigación manual"
+    },
+    {
+      "id": "cmkytxbig005w28wq79vj93yr",
+      "name": "El Dictamen",
+      "state": "Veracruz",
+      "action": "INVESTIGATE",
+      "success": false,
+      "message": "Requiere investigación manual"
+    },
+    {
+      "id": "cmkytxbim005y28wqge3x3f6q",
+      "name": "El Sol de Córdoba",
+      "state": "Veracruz",
+      "action": "UPDATE_URL",
+      "success": false,
+      "message": "Nueva URL no responde: no válida"
+    },
+    {
+      "id": "cmkytxbcv004028wqer8ajta6",
+      "name": "El Sol de Orizaba",
+      "state": "Veracruz",
+      "action": "UPDATE_URL",
+      "success": false,
+      "message": "Nueva URL no responde: no válida"
+    },
+    {
+      "id": "cmkytxbcr003z28wqokgkrcld",
+      "name": "Imagen del Golfo",
+      "state": "Veracruz",
+      "action": "INVESTIGATE",
+      "success": false,
+      "message": "Requiere investigación manual"
+    },
+    {
+      "id": "cmkytxbip005z28wq61a292zb",
+      "name": "La Opinión de Poza Rica",
+      "state": "Veracruz",
+      "action": "UPDATE_URL",
+      "success": true,
+      "message": "URL actualizada exitosamente",
+      "oldUrl": "https://www.laopinion.net/feed/",
+      "newUrl": "https://laopinion.net/feed/"
+    },
+    {
+      "id": "cmkytxbcl003x28wq9fm3etbx",
+      "name": "Notiver",
+      "state": "Veracruz",
+      "action": "INVESTIGATE",
+      "success": false,
+      "message": "Requiere investigación manual"
+    },
+    {
+      "id": "cmkytxbid005v28wq7klve32i",
+      "name": "Notiver Veracruz",
+      "state": "Veracruz",
+      "action": "INVESTIGATE",
+      "success": false,
+      "message": "Requiere investigación manual"
+    },
+    {
+      "id": "cmkytxbco003y28wqp0nd65oe",
+      "name": "XEU Noticias",
+      "state": "Veracruz",
+      "action": "DELETE",
+      "success": true,
+      "message": "Marcada como inactiva permanentemente"
+    },
+    {
+      "id": "cmkytxbd5004228wqka9utkdk",
+      "name": "Diario de Yucatán",
+      "state": "Yucatán",
+      "action": "UPDATE_URL",
+      "success": true,
+      "message": "URL actualizada exitosamente",
+      "oldUrl": "https://www.yucatan.com.mx/feed/",
+      "newUrl": "https://www.yucatan.com.mx/feed"
+    },
+    {
+      "id": "cmkytxbis006028wqyfy6ibtz",
+      "name": "El Diario de Yucatán Mérida",
+      "state": "Yucatán",
+      "action": "UPDATE_URL",
+      "success": true,
+      "message": "URL actualizada exitosamente",
+      "oldUrl": "https://www.yucatan.com.mx/merida/feed/",
+      "newUrl": "https://www.yucatan.com.mx/merida/feed"
+    },
+    {
+      "id": "cmkytxbdc004428wqua352215",
+      "name": "La Jornada Maya",
+      "state": "Yucatán",
+      "action": "UPDATE_URL",
+      "success": false,
+      "message": "Nueva URL no responde: no válida"
+    },
+    {
+      "id": "cmkytxbdj004628wq5fsg4cui",
+      "name": "Milenio Novedades",
+      "state": "Yucatán",
+      "action": "DELETE",
+      "success": true,
+      "message": "Marcada como inactiva permanentemente"
+    },
+    {
+      "id": "cmkytxbdf004528wqlwcobm9l",
+      "name": "Novedades Yucatán",
+      "state": "Yucatán",
+      "action": "DELETE",
+      "success": true,
+      "message": "Marcada como inactiva permanentemente"
+    },
+    {
+      "id": "cmkytxbd9004328wqdaxueac0",
+      "name": "Por Esto! Yucatán",
+      "state": "Yucatán",
+      "action": "DELETE",
+      "success": true,
+      "message": "Marcada como inactiva permanentemente"
+    },
+    {
+      "id": "cmkytxbix006228wqdzu24rov",
+      "name": "Punto Medio Valladolid",
+      "state": "Yucatán",
+      "action": "REACTIVATE",
+      "success": true,
+      "message": "Fuente reactivada exitosamente"
+    },
+    {
+      "id": "cmkytxbiv006128wqs4pdq458",
+      "name": "Reporteros Hoy",
+      "state": "Yucatán",
+      "action": "DELETE",
+      "success": true,
+      "message": "Marcada como inactiva permanentemente"
+    },
+    {
+      "id": "cmkytxbdm004728wqgrqzzldg",
+      "name": "El Sol de Zacatecas",
+      "state": "Zacatecas",
+      "action": "UPDATE_URL",
+      "success": false,
+      "message": "Nueva URL no responde: no válida"
+    },
+    {
+      "id": "cmkytxbiz006328wqek5lmrm3",
+      "name": "Imagen Fresnillo",
+      "state": "Zacatecas",
+      "action": "UPDATE_URL",
+      "success": false,
+      "message": "Nueva URL no responde: no válida"
+    },
+    {
+      "id": "cmkytxbdr004928wqioup5h5r",
+      "name": "Imagen Zacatecas",
+      "state": "Zacatecas",
+      "action": "UPDATE_URL",
+      "success": false,
+      "message": "Nueva URL no responde: no válida"
+    },
+    {
+      "id": "cmkytxbdp004828wq64liqsd2",
+      "name": "NTR Zacatecas",
+      "state": "Zacatecas",
+      "action": "UPDATE_URL",
+      "success": false,
+      "message": "Nueva URL no responde: no válida"
+    },
+    {
+      "id": "cmkytxbl0006s28wq4lznzfv2",
+      "name": "2000 Agro",
+      "state": null,
+      "action": "INVESTIGATE",
+      "success": false,
+      "message": "Requiere investigación manual"
+    },
+    {
+      "id": "cmkytxbka006k28wqmi9jggnd",
+      "name": "Animal Gourmet",
+      "state": null,
+      "action": "UPDATE_URL",
+      "success": true,
+      "message": "URL actualizada exitosamente",
+      "oldUrl": "https://www.animalgourmet.com/feed/",
+      "newUrl": "https://www.animalgourmet.com/feed"
+    },
+    {
+      "id": "cmkytxb2i000a28wqf7ktcnut",
+      "name": "Animal Político",
+      "state": null,
+      "action": "DELETE",
+      "success": true,
+      "message": "Marcada como inactiva permanentemente"
+    },
+    {
+      "id": "cmkytxb2p000c28wq9zsan0yh",
+      "name": "Aristegui Noticias",
+      "state": null,
+      "action": "UPDATE_URL",
+      "success": false,
+      "message": "Nueva URL no responde: no válida"
+    },
+    {
+      "id": "cmkytxbjx006f28wq4wi9cers",
+      "name": "Autocosmos México",
+      "state": null,
+      "action": "DELETE",
+      "success": true,
+      "message": "Marcada como inactiva permanentemente"
+    },
+    {
+      "id": "cmkytxbkd006l28wqzvm84nr7",
+      "name": "Ciencia UNAM",
+      "state": null,
+      "action": "DELETE",
+      "success": true,
+      "message": "Marcada como inactiva permanentemente"
+    },
+    {
+      "id": "cmkytxb2c000828wq8emhiren",
+      "name": "Crónica",
+      "state": null,
+      "action": "DELETE",
+      "success": true,
+      "message": "Marcada como inactiva permanentemente"
+    },
+    {
+      "id": "cmkytxbk7006j28wqs83v6ypq",
+      "name": "Directo al Paladar México",
+      "state": null,
+      "action": "DELETE",
+      "success": true,
+      "message": "Marcada como inactiva permanentemente"
+    },
+    {
+      "id": "cmkytxbjf006828wqkngwzrr9",
+      "name": "ESPN México",
+      "state": null,
+      "action": "INVESTIGATE",
+      "success": true,
+      "message": "Feed funciona, reactivada"
+    },
+    {
+      "id": "cmkytxb25000628wqnmtjdxcb",
+      "name": "El Economista",
+      "state": null,
+      "action": "INVESTIGATE",
+      "success": false,
+      "message": "Requiere investigación manual"
+    },
+    {
+      "id": "cmkytxbkw006r28wqb3sx1arh",
+      "name": "El Economista Agrícola",
+      "state": null,
+      "action": "DELETE",
+      "success": true,
+      "message": "Marcada como inactiva permanentemente"
+    },
+    {
+      "id": "cmkytxb22000528wqik76io3g",
+      "name": "El Financiero",
+      "state": null,
+      "action": "UPDATE_URL",
+      "success": false,
+      "message": "Nueva URL no responde: HTTP 404"
+    },
+    {
+      "id": "cmkytxbkg006m28wqjvb6mcl2",
+      "name": "El Financiero Salud",
+      "state": null,
+      "action": "UPDATE_URL",
+      "success": true,
+      "message": "URL actualizada exitosamente",
+      "oldUrl": "https://www.elfinanciero.com.mx/salud/rss/",
+      "newUrl": "https://www.elfinanciero.com.mx/arc/outboundfeeds/rss/?outputType=xml"
+    },
+    {
+      "id": "cmkytxbk4006i28wqed9j2nfu",
+      "name": "El Financiero Turismo",
+      "state": null,
+      "action": "UPDATE_URL",
+      "success": false,
+      "message": "\nInvalid `prisma.rssSource.update()` invocation:\n\n\nUnique constraint failed on the fields: (`url`)"
+    },
+    {
+      "id": "cmkytxb2f000928wqbgx1of2w",
+      "name": "El Sol de México",
+      "state": null,
+      "action": "UPDATE_URL",
+      "success": false,
+      "message": "Nueva URL no responde: no válida"
+    },
+    {
+      "id": "cmkytxb10000028wqtbit6wjh",
+      "name": "El Universal",
+      "state": null,
+      "action": "DELETE",
+      "success": true,
+      "message": "Marcada como inactiva permanentemente"
+    },
+    {
+      "id": "cmkytxb3d000l28wqb38fcniw",
+      "name": "Entrepreneur México",
+      "state": null,
+      "action": "DELETE",
+      "success": true,
+      "message": "Marcada como inactiva permanentemente"
+    },
+    {
+      "id": "cmkytxb19000228wqf2jj52ed",
+      "name": "Excélsior",
+      "state": null,
+      "action": "DELETE",
+      "success": true,
+      "message": "Marcada como inactiva permanentemente"
+    },
+    {
+      "id": "cmkytxbjc006728wq51gk72b2",
+      "name": "FayerWayer",
+      "state": null,
+      "action": "UPDATE_URL",
+      "success": true,
+      "message": "URL actualizada exitosamente",
+      "oldUrl": "https://www.fayerwayer.com/feed/",
+      "newUrl": "https://www.fayerwayer.com/arc/outboundfeeds/rss/"
+    },
+    {
+      "id": "cmkytxb36000i28wqgrlxqdqj",
+      "name": "Forbes México",
+      "state": null,
+      "action": "UPDATE_URL",
+      "success": true,
+      "message": "URL actualizada exitosamente",
+      "oldUrl": "https://www.forbes.com.mx/feed/",
+      "newUrl": "https://forbes.com.mx/feed/"
+    },
+    {
+      "id": "cmkytxbj4006528wqjmcrks74",
+      "name": "Hipertextual",
+      "state": null,
+      "action": "UPDATE_URL",
+      "success": true,
+      "message": "URL actualizada exitosamente",
+      "oldUrl": "https://hipertextual.com/feed",
+      "newUrl": "https://hipertextual.com/feed/"
+    },
+    {
+      "id": "cmkytxb33000h28wq71l0jr96",
+      "name": "Infobae México",
+      "state": null,
+      "action": "DELETE",
+      "success": true,
+      "message": "Marcada como inactiva permanentemente"
+    },
+    {
+      "id": "cmkytxb28000728wqlgg0wq0o",
+      "name": "La Razón",
+      "state": null,
+      "action": "UPDATE_URL",
+      "success": false,
+      "message": "Nueva URL no responde: no válida"
+    },
+    {
+      "id": "cmkytxbkj006n28wqh9au7riu",
+      "name": "Manufactura MX",
+      "state": null,
+      "action": "DELETE",
+      "success": true,
+      "message": "Marcada como inactiva permanentemente"
+    },
+    {
+      "id": "cmkytxbjk006a28wq7p3xhxir",
+      "name": "Medio Tiempo",
+      "state": null,
+      "action": "DELETE",
+      "success": true,
+      "message": "Marcada como inactiva permanentemente"
+    },
+    {
+      "id": "cmkytxb16000128wq4a8jwkjj",
+      "name": "Milenio",
+      "state": null,
+      "action": "REACTIVATE",
+      "success": true,
+      "message": "Fuente reactivada exitosamente"
+    },
+    {
+      "id": "cmkytxbjz006g28wqypd3mwek",
+      "name": "Motor Pasión México",
+      "state": null,
+      "action": "DELETE",
+      "success": true,
+      "message": "Marcada como inactiva permanentemente"
+    },
+    {
+      "id": "cmkytxbk1006h28wqcg8micid",
+      "name": "México Desconocido",
+      "state": null,
+      "action": "UPDATE_URL",
+      "success": true,
+      "message": "URL actualizada exitosamente",
+      "oldUrl": "https://www.mexicodesconocido.com.mx/feed/",
+      "newUrl": "https://www.mexicodesconocido.com.mx/feed"
+    },
+    {
+      "id": "cmkytxbkp006p28wqa46znzb2",
+      "name": "Obras Web",
+      "state": null,
+      "action": "DELETE",
+      "success": true,
+      "message": "Marcada como inactiva permanentemente"
+    },
+    {
+      "id": "cmkytxb2s000d28wqllzmwn3k",
+      "name": "Proceso",
+      "state": null,
+      "action": "DELETE",
+      "success": true,
+      "message": "Marcada como inactiva permanentemente"
+    },
+    {
+      "id": "cmkytxbju006e28wqozsod826",
+      "name": "Publimetro Entretenimiento",
+      "state": null,
+      "action": "DELETE",
+      "success": true,
+      "message": "Marcada como inactiva permanentemente"
+    },
+    {
+      "id": "cmkytxbjp006c28wqajciu2pt",
+      "name": "Quién",
+      "state": null,
+      "action": "DELETE",
+      "success": true,
+      "message": "Marcada como inactiva permanentemente"
+    },
+    {
+      "id": "cmkytxbl9006u28wqxnpabsro",
+      "name": "Real Estate Market",
+      "state": null,
+      "action": "UPDATE_URL",
+      "success": false,
+      "message": "Nueva URL no responde: no válida"
+    },
+    {
+      "id": "cmkytxb3l000o28wqqe2fz41s",
+      "name": "Reuters América Latina",
+      "state": null,
+      "action": "DELETE",
+      "success": true,
+      "message": "Marcada como inactiva permanentemente"
+    },
+    {
+      "id": "cmkytxbjh006928wq4t0nfncs",
+      "name": "Récord",
+      "state": null,
+      "action": "DELETE",
+      "success": true,
+      "message": "Marcada como inactiva permanentemente"
+    },
+    {
+      "id": "cmkytxb2v000e28wqt73im4n9",
+      "name": "SDP Noticias",
+      "state": null,
+      "action": "DELETE",
+      "success": true,
+      "message": "Marcada como inactiva permanentemente"
+    },
+    {
+      "id": "cmkytxbjn006b28wqxpaxpe9q",
+      "name": "TUDN",
+      "state": null,
+      "action": "DELETE",
+      "success": true,
+      "message": "Marcada como inactiva permanentemente"
+    },
+    {
+      "id": "cmkytxbjs006d28wqmkevm86a",
+      "name": "TVNotas",
+      "state": null,
+      "action": "DELETE",
+      "success": true,
+      "message": "Marcada como inactiva permanentemente"
+    },
+    {
+      "id": "cmkytxb30000g28wqkukl3c6j",
+      "name": "UnoTV",
+      "state": null,
+      "action": "DELETE",
+      "success": true,
+      "message": "Marcada como inactiva permanentemente"
+    },
+    {
+      "id": "cmkytxbj1006428wqxiyj7vio",
+      "name": "Xataka México",
+      "state": null,
+      "action": "DELETE",
+      "success": true,
+      "message": "Marcada como inactiva permanentemente"
+    }
+  ]
+}

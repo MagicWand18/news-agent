@@ -63,7 +63,7 @@ export function FilterDateRange({
 
   return (
     <div className={cn("space-y-2", className)}>
-      <label className="mb-1 block text-xs font-medium text-gray-500">
+      <label className="mb-1 block text-xs font-medium text-gray-500 dark:text-gray-400">
         <Calendar className="mr-1 inline h-3.5 w-3.5" />
         Periodo
       </label>
@@ -76,7 +76,7 @@ export function FilterDateRange({
               "rounded-full px-3 py-1 text-xs font-medium transition-colors",
               isActivePreset(preset.days)
                 ? "bg-brand-500 text-white"
-                : "bg-white text-gray-600 hover:bg-gray-100"
+                : "bg-white text-gray-600 hover:bg-gray-100 dark:bg-gray-800 dark:text-gray-300 dark:hover:bg-gray-700"
             )}
           >
             {preset.label}
@@ -88,7 +88,7 @@ export function FilterDateRange({
             "rounded-full px-3 py-1 text-xs font-medium transition-colors",
             showCustom || (startDate && !presets.some((p) => isActivePreset(p.days)))
               ? "bg-brand-500 text-white"
-              : "bg-white text-gray-600 hover:bg-gray-100"
+              : "bg-white text-gray-600 hover:bg-gray-100 dark:bg-gray-800 dark:text-gray-300 dark:hover:bg-gray-700"
           )}
         >
           Personalizado
@@ -96,7 +96,7 @@ export function FilterDateRange({
         {(startDate || endDate) && (
           <button
             onClick={handleClear}
-            className="rounded-full bg-gray-200 px-3 py-1 text-xs font-medium text-gray-600 transition-colors hover:bg-gray-300"
+            className="rounded-full bg-gray-200 px-3 py-1 text-xs font-medium text-gray-600 transition-colors hover:bg-gray-300 dark:bg-gray-700 dark:text-gray-300 dark:hover:bg-gray-600"
           >
             Limpiar
           </button>
@@ -108,14 +108,14 @@ export function FilterDateRange({
             type="date"
             value={startDate || ""}
             onChange={(e) => onChange(e.target.value || null, endDate)}
-            className="rounded-lg border border-gray-200 bg-white px-3 py-1.5 text-sm focus:border-brand-500 focus:outline-none focus:ring-1 focus:ring-brand-500"
+            className="rounded-lg border border-gray-200 bg-white px-3 py-1.5 text-sm focus:border-brand-500 focus:outline-none focus:ring-1 focus:ring-brand-500 dark:border-gray-600 dark:bg-gray-800 dark:text-gray-100"
           />
-          <span className="text-gray-400">-</span>
+          <span className="text-gray-400 dark:text-gray-500">-</span>
           <input
             type="date"
             value={endDate || ""}
             onChange={(e) => onChange(startDate, e.target.value || null)}
-            className="rounded-lg border border-gray-200 bg-white px-3 py-1.5 text-sm focus:border-brand-500 focus:outline-none focus:ring-1 focus:ring-brand-500"
+            className="rounded-lg border border-gray-200 bg-white px-3 py-1.5 text-sm focus:border-brand-500 focus:outline-none focus:ring-1 focus:ring-brand-500 dark:border-gray-600 dark:bg-gray-800 dark:text-gray-100"
           />
         </div>
       )}
