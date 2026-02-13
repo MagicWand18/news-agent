@@ -26,6 +26,7 @@ FROM node:20-slim AS web
 RUN apt-get update -qq && apt-get install -y openssl && rm -rf /var/lib/apt/lists/*
 WORKDIR /app
 COPY --from=web-builder /app/node_modules ./node_modules
+COPY --from=web-builder /app/node_modules/.prisma ./node_modules/.prisma
 COPY --from=web-builder /app/packages/web/.next ./packages/web/.next
 COPY --from=web-builder /app/packages/web/next.config.js ./packages/web/
 COPY --from=web-builder /app/packages/web/package.json ./packages/web/
