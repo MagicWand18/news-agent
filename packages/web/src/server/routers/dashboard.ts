@@ -1,7 +1,40 @@
 import { z } from "zod";
 import { router, protectedProcedure, getEffectiveOrgId } from "../trpc";
 import { prisma } from "@mediabot/shared";
-import { Prisma } from "@prisma/client";
+
+/**
+ * Construye una query SQL dinámica con parámetros posicionales ($1, $2, ...).
+ * Evita usar Prisma.empty que causa errores de sintaxis en $queryRaw.
+ */
+function buildRawQuery(
+  baseSelect: string,
+  baseFrom: string,
+  baseWhere: string,
+  filters: { sql: string; params: unknown[] }[],
+  groupBy: string,
+  orderBy: string,
+  limit?: number
+): { sql: string; params: unknown[] } {
+  const allParams: unknown[] = [];
+  let paramIndex = 1;
+  let whereClause = baseWhere;
+
+  for (const filter of filters) {
+    // Reemplazar $N placeholders con el índice correcto
+    let filterSql = filter.sql;
+    for (const param of filter.params) {
+      filterSql = filterSql.replace(`$P`, `$${paramIndex}`);
+      allParams.push(param);
+      paramIndex++;
+    }
+    whereClause += ` ${filterSql}`;
+  }
+
+  let sql = `${baseSelect} ${baseFrom} WHERE ${whereClause} ${groupBy} ${orderBy}`;
+  if (limit) sql += ` LIMIT ${limit}`;
+
+  return { sql, params: allParams };
+}
 
 export const dashboardRouter = router({
   stats: protectedProcedure
@@ -52,20 +85,25 @@ export const dashboardRouter = router({
       }),
       // Query raw para menciones por día
       (() => {
-        const orgSql = orgId ? Prisma.sql`AND "clientId" IN (SELECT id FROM "Client" WHERE "orgId" = ${orgId})` : Prisma.empty;
-        const clientSql = input?.clientId ? Prisma.sql`AND "clientId" = ${input.clientId}` : Prisma.empty;
-        const dateSql = since ? Prisma.sql`AND "createdAt" >= ${since}` : Prisma.sql`AND "createdAt" >= ${new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000)}`;
+        const filters: { sql: string; params: unknown[] }[] = [];
+        if (orgId) {
+          filters.push({ sql: `AND "clientId" IN (SELECT id FROM "Client" WHERE "orgId" = $P)`, params: [orgId] });
+        }
+        if (input?.clientId) {
+          filters.push({ sql: `AND "clientId" = $P`, params: [input.clientId] });
+        }
+        const dateSince = since || new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000);
+        filters.push({ sql: `AND "createdAt" >= $P`, params: [dateSince] });
 
-        return prisma.$queryRaw<{ date: string; count: number }[]>`
-          SELECT CAST(DATE("createdAt") AS TEXT) as date, CAST(COUNT(*) AS INTEGER) as count
-          FROM "Mention"
-          WHERE 1=1
-          ${orgSql}
-          ${clientSql}
-          ${dateSql}
-          GROUP BY DATE("createdAt")
-          ORDER BY date ASC
-        `;
+        const { sql, params } = buildRawQuery(
+          `SELECT CAST(DATE("createdAt") AS TEXT) as date, CAST(COUNT(*) AS INTEGER) as count`,
+          `FROM "Mention"`,
+          `1=1`,
+          filters,
+          `GROUP BY DATE("createdAt")`,
+          `ORDER BY date ASC`
+        );
+        return prisma.$queryRawUnsafe<{ date: string; count: number }[]>(sql, ...params);
       })(),
       prisma.mention.groupBy({
         by: ["sentiment"],
@@ -127,12 +165,7 @@ export const dashboardRouter = router({
       const effectiveDays = input.days === 0 ? 365 : input.days;
       const since = new Date(Date.now() - effectiveDays * 24 * 60 * 60 * 1000);
 
-      // Build client filter
-      const clientFilter = input.clientId
-        ? Prisma.sql`AND m."clientId" = ${input.clientId}`
-        : Prisma.empty;
-
-      // Build where clause depending on whether we have orgId filter
+      // Build where clause for Prisma ORM queries
       const clientWhereClause = input.clientId
         ? orgId
           ? { clientId: input.clientId, client: { orgId } }
@@ -141,51 +174,65 @@ export const dashboardRouter = router({
           ? { client: { orgId } }
           : {};
 
-      // Filtro de organización para raw queries (vacío si Super Admin ve todo)
-      const orgFilterSql = orgId
-        ? Prisma.sql`AND c."orgId" = ${orgId}`
-        : Prisma.empty;
+      // Construir filtros SQL dinámicos
+      const mentionFilters: { sql: string; params: unknown[] }[] = [
+        { sql: `AND m."createdAt" >= $P`, params: [since] },
+      ];
+      if (orgId) {
+        mentionFilters.push({ sql: `AND c."orgId" = $P`, params: [orgId] });
+      }
+      if (input.clientId) {
+        mentionFilters.push({ sql: `AND m."clientId" = $P`, params: [input.clientId] });
+      }
 
       try {
         const [mentionsByDay, sentimentByWeek, topSources, topKeywords, urgencyBreakdown] =
           await Promise.all([
             // 1. Mentions by day
-            prisma.$queryRaw<{ date: string; count: number }[]>`
-              SELECT CAST(DATE(m."createdAt") AS TEXT) as date, CAST(COUNT(*) AS INTEGER) as count
-              FROM "Mention" m
-              JOIN "Client" c ON m."clientId" = c.id
-              WHERE m."createdAt" >= ${since}
-              ${orgFilterSql}
-              ${clientFilter}
-              GROUP BY DATE(m."createdAt")
-              ORDER BY date ASC
-            `,
+            (() => {
+              const { sql, params } = buildRawQuery(
+                `SELECT CAST(DATE(m."createdAt") AS TEXT) as date, CAST(COUNT(*) AS INTEGER) as count`,
+                `FROM "Mention" m JOIN "Client" c ON m."clientId" = c.id`,
+                `1=1`,
+                mentionFilters,
+                `GROUP BY DATE(m."createdAt")`,
+                `ORDER BY date ASC`
+              );
+              return prisma.$queryRawUnsafe<{ date: string; count: number }[]>(sql, ...params);
+            })(),
 
             // 2. Sentiment trend by week
-            prisma.$queryRaw<{ week: string; sentiment: string; count: number }[]>`
-              SELECT CAST(DATE_TRUNC('week', m."createdAt") AS TEXT) as week, m.sentiment, CAST(COUNT(*) AS INTEGER) as count
-              FROM "Mention" m
-              JOIN "Client" c ON m."clientId" = c.id
-              WHERE m."createdAt" >= ${since}
-              ${orgFilterSql}
-              ${clientFilter}
-              GROUP BY DATE_TRUNC('week', m."createdAt"), m.sentiment
-              ORDER BY week ASC
-            `,
+            (() => {
+              const { sql, params } = buildRawQuery(
+                `SELECT CAST(DATE_TRUNC('week', m."createdAt") AS TEXT) as week, m.sentiment, CAST(COUNT(*) AS INTEGER) as count`,
+                `FROM "Mention" m JOIN "Client" c ON m."clientId" = c.id`,
+                `1=1`,
+                mentionFilters,
+                `GROUP BY DATE_TRUNC('week', m."createdAt"), m.sentiment`,
+                `ORDER BY week ASC`
+              );
+              return prisma.$queryRawUnsafe<{ week: string; sentiment: string; count: number }[]>(sql, ...params);
+            })(),
 
             // 3. Top sources
-            prisma.$queryRaw<{ source: string; count: number }[]>`
-              SELECT a.source, CAST(COUNT(*) AS INTEGER) as count
-              FROM "Mention" m
-              JOIN "Article" a ON m."articleId" = a.id
-              JOIN "Client" c ON m."clientId" = c.id
-              WHERE m."createdAt" >= ${since}
-              ${orgFilterSql}
-              ${clientFilter}
-              GROUP BY a.source
-              ORDER BY count DESC
-              LIMIT 10
-            `,
+            (() => {
+              const sourceFilters: { sql: string; params: unknown[] }[] = [
+                { sql: `AND m."createdAt" >= $P`, params: [since] },
+              ];
+              if (orgId) sourceFilters.push({ sql: `AND c."orgId" = $P`, params: [orgId] });
+              if (input.clientId) sourceFilters.push({ sql: `AND m."clientId" = $P`, params: [input.clientId] });
+
+              const { sql, params } = buildRawQuery(
+                `SELECT a.source, CAST(COUNT(*) AS INTEGER) as count`,
+                `FROM "Mention" m JOIN "Article" a ON m."articleId" = a.id JOIN "Client" c ON m."clientId" = c.id`,
+                `1=1`,
+                sourceFilters,
+                `GROUP BY a.source`,
+                `ORDER BY count DESC`,
+                10
+              );
+              return prisma.$queryRawUnsafe<{ source: string; count: number }[]>(sql, ...params);
+            })(),
 
             // 4. Top keywords
             prisma.mention.groupBy({
@@ -317,15 +364,6 @@ export const dashboardRouter = router({
       const effectiveDays = input.days === 0 ? 365 : input.days;
       const since = new Date(Date.now() - effectiveDays * 24 * 60 * 60 * 1000);
 
-      const clientFilter = input.clientId
-        ? Prisma.sql`AND sm."clientId" = ${input.clientId}`
-        : Prisma.empty;
-
-      // Filtro de organización para raw queries
-      const orgFilterSql = orgId
-        ? Prisma.sql`AND c."orgId" = ${orgId}`
-        : Prisma.empty;
-
       const clientWhereClause = input.clientId
         ? orgId
           ? { clientId: input.clientId, client: { orgId } }
@@ -334,18 +372,26 @@ export const dashboardRouter = router({
           ? { client: { orgId } }
           : {};
 
+      // Filtros SQL dinámicos para social
+      const socialFilters: { sql: string; params: unknown[] }[] = [
+        { sql: `AND sm."createdAt" >= $P`, params: [since] },
+      ];
+      if (orgId) socialFilters.push({ sql: `AND c."orgId" = $P`, params: [orgId] });
+      if (input.clientId) socialFilters.push({ sql: `AND sm."clientId" = $P`, params: [input.clientId] });
+
       const [mentionsByDay, byPlatform, bySentiment, topAuthors] = await Promise.all([
         // Menciones por día
-        prisma.$queryRaw<{ date: string; count: number }[]>`
-          SELECT CAST(DATE(sm."createdAt") AS TEXT) as date, CAST(COUNT(*) AS INTEGER) as count
-          FROM "SocialMention" sm
-          JOIN "Client" c ON sm."clientId" = c.id
-          WHERE sm."createdAt" >= ${since}
-          ${orgFilterSql}
-          ${clientFilter}
-          GROUP BY DATE(sm."createdAt")
-          ORDER BY date ASC
-        `,
+        (() => {
+          const { sql, params } = buildRawQuery(
+            `SELECT CAST(DATE(sm."createdAt") AS TEXT) as date, CAST(COUNT(*) AS INTEGER) as count`,
+            `FROM "SocialMention" sm JOIN "Client" c ON sm."clientId" = c.id`,
+            `1=1`,
+            socialFilters,
+            `GROUP BY DATE(sm."createdAt")`,
+            `ORDER BY date ASC`
+          );
+          return prisma.$queryRawUnsafe<{ date: string; count: number }[]>(sql, ...params);
+        })(),
         // Por plataforma
         prisma.socialMention.groupBy({
           by: ["platform"],
@@ -365,19 +411,25 @@ export const dashboardRouter = router({
           _count: { id: true },
         }),
         // Top autores por engagement
-        prisma.$queryRaw<{ handle: string; platform: string; count: number; totalEngagement: number }[]>`
-          SELECT sm."authorHandle" as handle, sm.platform, CAST(COUNT(*) AS INTEGER) as count,
-                 CAST(SUM(COALESCE(sm.likes, 0) + COALESCE(sm.comments, 0) + COALESCE(sm.shares, 0)) AS INTEGER) as "totalEngagement"
-          FROM "SocialMention" sm
-          JOIN "Client" c ON sm."clientId" = c.id
-          WHERE sm."createdAt" >= ${since}
-          AND sm."authorHandle" IS NOT NULL
-          ${orgFilterSql}
-          ${clientFilter}
-          GROUP BY sm."authorHandle", sm.platform
-          ORDER BY "totalEngagement" DESC, count DESC
-          LIMIT 10
-        `,
+        (() => {
+          const authorFilters: { sql: string; params: unknown[] }[] = [
+            { sql: `AND sm."createdAt" >= $P`, params: [since] },
+            { sql: `AND sm."authorHandle" IS NOT NULL`, params: [] },
+          ];
+          if (orgId) authorFilters.push({ sql: `AND c."orgId" = $P`, params: [orgId] });
+          if (input.clientId) authorFilters.push({ sql: `AND sm."clientId" = $P`, params: [input.clientId] });
+
+          const { sql, params } = buildRawQuery(
+            `SELECT sm."authorHandle" as handle, sm.platform, CAST(COUNT(*) AS INTEGER) as count, CAST(SUM(COALESCE(sm.likes, 0) + COALESCE(sm.comments, 0) + COALESCE(sm.shares, 0)) AS INTEGER) as "totalEngagement"`,
+            `FROM "SocialMention" sm JOIN "Client" c ON sm."clientId" = c.id`,
+            `1=1`,
+            authorFilters,
+            `GROUP BY sm."authorHandle", sm.platform`,
+            `ORDER BY "totalEngagement" DESC, count DESC`,
+            10
+          );
+          return prisma.$queryRawUnsafe<{ handle: string; platform: string; count: number; totalEngagement: number }[]>(sql, ...params);
+        })(),
       ]);
 
       return {

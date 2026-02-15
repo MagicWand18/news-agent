@@ -11,8 +11,8 @@ from datetime import datetime
 
 # Configuration
 BASE_URL = "http://159.65.97.78:3000"
-EMAIL = "admin@mediabot.local"
-PASSWORD = "admin123"
+EMAIL = "admin@example.com"
+PASSWORD = "6lB5/A1NOVFOkOWG"
 SCREENSHOT_DIR = "/Users/master/Downloads/news-agent/screenshots/e2e"
 
 # Menu items to test
