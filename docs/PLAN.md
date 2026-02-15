@@ -551,7 +551,7 @@ Mejorar estados vacios con:
 
 ---
 
-## Sprint 10: Notificaciones In-App + Mejoras UX
+## Sprint 10: Notificaciones In-App + Mejoras UX (Completado)
 
 ### Objetivo
 Sistema de notificaciones en tiempo real dentro del dashboard, sin depender de Telegram.
@@ -593,12 +593,12 @@ enum NotificationType {
 | `/dashboard/notifications` | Página completa con filtros |
 
 ### Funcionalidades
-- [ ] Badge con contador de no leídas
-- [ ] Dropdown con últimas 10 notificaciones
-- [ ] Marcar como leída al hacer click
-- [ ] Marcar todas como leídas
-- [ ] Página completa con filtros y paginación
-- [ ] Polling cada 30s para actualizaciones
+- [x] Badge con contador de no leídas
+- [x] Dropdown con últimas 10 notificaciones
+- [x] Marcar como leída al hacer click
+- [x] Marcar todas como leídas
+- [x] Página completa con filtros y paginación (`/dashboard/notifications`)
+- [x] Polling cada 30s para actualizaciones
 
 ### Integraciones Automáticas
 Crear notificación cuando:
@@ -662,6 +662,10 @@ Sistema multi-tenant para gestionar múltiples agencias:
 | Router organizations | OK | `packages/web/src/server/routers/organizations.ts` |
 | Super Admin role | OK | Campo `isSuperAdmin` en User |
 | Límites por agencia | OK | Campo `maxClients` en Organization |
+| Auto-archivado menciones viejas | OK | Menciones >30 días marcadas como `isLegacy` |
+| isLegacy basado en edad del artículo | OK | Solo basado en edad del artículo, no en `client.createdAt` |
+| Tabs Recientes/Historial en detalle cliente | OK | Página detalle de cliente con tabs para separar menciones |
+| Correcciones Prisma engine Next.js | OK | Copiar engine a todas las ubicaciones que Next.js busca |
 
 ### Pendiente
 - [ ] Dashboard ejecutivo para Super Admin
@@ -681,6 +685,259 @@ Sistema multi-tenant para gestionar múltiples agencias:
 7. **Multi-idioma**: i18n para expansión internacional
 
 **Nota**: Twitter/X ahora soportado via EnsembleData API (costo razonable vs $5000+/mes de API oficial).
+
+---
+
+## Sprint 13: Pipeline de Acción (En progreso - ~75%)
+
+### Objetivo
+Cerrar el ciclo dato → insight → tarea → acción → medición
+
+### Implementado
+
+| Feature | Estado | Archivos |
+|---------|--------|----------|
+| Modelos Prisma (ResponseDraft, CrisisNote, ActionItem, AlertRule) | ✅ OK | `prisma/schema.prisma` |
+| Router responses.ts (list, getById, create, update, updateStatus, regenerate) | ✅ OK | `packages/web/src/server/routers/responses.ts` |
+| Router crisis.ts (list, getById, updateStatus, addNote, assignResponsible, getActiveCrisisCount) | ✅ OK | `packages/web/src/server/routers/crisis.ts` |
+| Página /dashboard/responses (KPIs, tabs status, workflow completo) | ✅ OK | `packages/web/src/app/dashboard/responses/` |
+| Página /dashboard/crisis (KPIs, tabla, filtros severidad/status) | ✅ OK | `packages/web/src/app/dashboard/crisis/` |
+| Página /dashboard/crisis/[id] (timeline, notas, asignación, menciones relacionadas) | ✅ OK | `packages/web/src/app/dashboard/crisis/[id]/` |
+| Sidebar: "Crisis" con badge activas + "Respuestas" | ✅ OK | `packages/web/src/components/sidebar.tsx` |
+| Tasks: acepta socialMentionId | ✅ OK | `packages/web/src/server/routers/tasks.ts` |
+| Mentions/[id]: botón "Crear tarea" + "Generar Comunicado" + guardar borrador | ✅ OK | `packages/web/src/app/dashboard/mentions/[id]/` |
+| Intelligence: sección "Acciones Recomendadas" con status updates | ✅ OK | `packages/web/src/app/dashboard/intelligence/` |
+| alert-rules-worker (evaluación NEGATIVE_SPIKE, VOLUME_SURGE, NO_MENTIONS) | ✅ OK | `packages/workers/src/workers/alert-rules-worker.ts` |
+| insights-worker: crea ActionItems desde recommendedActions | ✅ OK | `packages/workers/src/analysis/insights-worker.ts` |
+| crisis-detector: auto-creación de CrisisAlert en spike negativo | ✅ OK | `packages/workers/src/analysis/crisis-detector.ts` |
+
+### Pendiente Sprint 13
+
+| Feature | Prioridad | Descripción |
+|---------|-----------|-------------|
+| Generar Comunicado en social-mentions/[id] | Alta | Botón "Generar Comunicado" + guardar ResponseDraft desde detalle de mención social |
+| AlertRule Config UI | Alta | Página para crear, editar y gestionar reglas de alerta por cliente |
+| AlertRule evaluaciones avanzadas | Media | Completar stubs de SOV_DROP, COMPETITOR_SPIKE, SENTIMENT_SHIFT |
+| Weekly Insights UI dedicada | Media | Sección/página para ver insights semanales con acciones vinculadas |
+| Reportes bajo demanda | Baja | Generación manual de reportes JSON/PDF desde UI |
+
+---
+
+## Sprint 14: Completar Action Pipeline + Portal de Cliente
+
+### Objetivo
+Cerrar gaps del Sprint 13 y crear un portal de solo lectura para que los clientes finales de la agencia vean su cobertura mediática.
+
+### Parte 1: Cerrar Sprint 13
+
+| Feature | Prioridad | Descripción |
+|---------|-----------|-------------|
+| Generar Comunicado en social-mentions/[id] | Alta | Reutilizar flujo de mentions/[id]: botón, modal de tono, guardar ResponseDraft |
+| AlertRule CRUD UI | Alta | Página `/dashboard/alert-rules` con create/edit/delete, condiciones configurables por tipo |
+| AlertRule evaluaciones completas | Media | Implementar SOV_DROP (comparar SOV actual vs histórico), COMPETITOR_SPIKE (misma lógica que NEGATIVE_SPIKE pero para competidores), SENTIMENT_SHIFT (drift en distribución de sentimiento) |
+| Insights Timeline | Media | Sección en Intelligence con historial de insights semanales, expandible, con links a ActionItems generados |
+
+### Parte 2: Portal de Cliente (Stakeholder Portal)
+
+Portal de solo lectura para que los clientes finales de la agencia vean su cobertura sin acceso al dashboard completo.
+
+| Feature | Prioridad | Descripción |
+|---------|-----------|-------------|
+| Modelo ClientPortalAccess | Alta | Token de acceso por cliente con expiración, permisos granulares |
+| Autenticación por token | Alta | Login con token único (sin email/password), sesión de solo lectura |
+| Página pública de resumen | Alta | KPIs, sentimiento, SOV, menciones recientes — solo del cliente vinculado |
+| Exportar PDF desde portal | Media | Botón para descargar reporte del periodo actual |
+| Branding personalizable | Baja | Logo y colores del cliente en el portal |
+
+### Archivos a crear/modificar
+
+| Archivo | Propósito |
+|---------|-----------|
+| `prisma/schema.prisma` | Modelo ClientPortalAccess (token, clientId, expiresAt, permissions) |
+| `packages/web/src/app/portal/` | Páginas del portal público |
+| `packages/web/src/app/portal/[token]/page.tsx` | Dashboard de solo lectura |
+| `packages/web/src/server/routers/portal.ts` | API del portal con validación de token |
+| `packages/web/src/app/dashboard/alert-rules/page.tsx` | CRUD de reglas de alerta |
+
+---
+
+## Sprint 15: Email Reports + AI Media Brief
+
+### Objetivo
+Diversificar canales de notificación (más allá de Telegram) y generar briefings diarios inteligentes que un ejecutivo de PR pueda leer en 2 minutos.
+
+### Parte 1: Reportes por Email
+
+| Feature | Prioridad | Descripción |
+|---------|-----------|-------------|
+| Servicio de email (Resend/SMTP) | Alta | Integración con Resend para envío transaccional |
+| Template HTML de reporte | Alta | Email responsive con KPIs, top menciones, sentimiento, SOV |
+| Digest diario por email | Alta | Cron 8:00 AM similar a Telegram pero vía email |
+| Reporte semanal por email | Media | Versión email del reporte PDF semanal (HTML inline) |
+| Configuración por usuario | Media | Cada usuario elige: Telegram, Email, Ambos, Ninguno |
+| Unsubscribe link | Baja | Link para desactivar emails sin login |
+
+### Parte 2: AI Media Brief (Daily Intelligence)
+
+Briefing diario generado por IA que resume todo lo relevante del día anterior en un formato ejecutivo.
+
+| Feature | Prioridad | Descripción |
+|---------|-----------|-------------|
+| Generador de brief | Alta | Claude genera resumen ejecutivo de 5-10 bullet points por cliente |
+| Contexto enriquecido | Alta | Incluye: menciones clave, cambios de sentimiento, temas emergentes, acciones pendientes |
+| Comparativa día anterior | Media | "Ayer vs. anteayer": delta de menciones, sentimiento, SOV |
+| Sección "Qué vigilar hoy" | Media | IA sugiere 2-3 cosas a las que prestar atención |
+| Delivery multi-canal | Media | Brief enviado por Telegram + Email + disponible en dashboard |
+| Página /dashboard/briefs | Baja | Historial de briefs con búsqueda |
+
+### Archivos a crear/modificar
+
+| Archivo | Propósito |
+|---------|-----------|
+| `packages/shared/src/email-client.ts` | Cliente de email (Resend SDK) |
+| `packages/workers/src/notifications/email.ts` | Templates y envío de emails |
+| `packages/workers/src/analysis/daily-brief.ts` | Generador de AI Media Brief |
+| `packages/web/src/app/dashboard/briefs/page.tsx` | Historial de briefs |
+| `prisma/schema.prisma` | Modelo DailyBrief, preferencias de notificación en User |
+
+---
+
+## Sprint 16: Campaign Tracking + Media Contacts
+
+### Objetivo
+Permitir que las agencias tracken campañas de PR con métricas de impacto, y mantengan un CRM ligero de contactos en medios.
+
+### Parte 1: Tracking de Campañas
+
+| Feature | Prioridad | Descripción |
+|---------|-----------|-------------|
+| Modelo Campaign | Alta | Nombre, descripción, cliente, fechas inicio/fin, objetivos, status |
+| Vincular menciones a campaña | Alta | Tag manual o automático (por keywords/periodo) de menciones a una campaña |
+| Dashboard de campaña | Alta | KPIs específicos: menciones generadas, alcance, sentimiento, SOV durante campaña |
+| Comparativa pre/post campaña | Media | Métricas del periodo antes vs durante la campaña |
+| ROI estimado (AVE) | Media | Advertising Value Equivalency basado en tier de fuente y alcance |
+| Timeline de campaña | Baja | Vista cronológica de eventos y menciones de la campaña |
+
+### Parte 2: CRM de Medios (Media Contacts)
+
+| Feature | Prioridad | Descripción |
+|---------|-----------|-------------|
+| Modelo MediaContact | Alta | Nombre, medio, beat/sección, email, teléfono, notas |
+| Vinculación automática | Media | Detectar autor de artículo y sugerir vinculación con contacto existente |
+| Historial de cobertura | Media | Ver artículos publicados por cada contacto que mencionan a clientes |
+| Scoring de contacto | Baja | Puntuación basada en frecuencia de cobertura y sentimiento promedio |
+| Exportar lista de prensa | Baja | CSV/Excel de contactos filtrados por beat, medio, scoring |
+
+### Archivos a crear/modificar
+
+| Archivo | Propósito |
+|---------|-----------|
+| `prisma/schema.prisma` | Modelos Campaign, CampaignMention, MediaContact |
+| `packages/web/src/server/routers/campaigns.ts` | CRUD + analytics de campañas |
+| `packages/web/src/server/routers/media-contacts.ts` | CRUD de contactos |
+| `packages/web/src/app/dashboard/campaigns/` | Páginas de campañas |
+| `packages/web/src/app/dashboard/media-contacts/` | Páginas de contactos |
+
+---
+
+## Sprint 17: Dashboard Ejecutivo + Métricas Avanzadas
+
+### Objetivo
+Dashboard de alto nivel para Super Admins y directores de agencia con métricas agregadas multi-cliente, benchmarking e indicadores de negocio.
+
+### Implementar
+
+| Feature | Prioridad | Descripción |
+|---------|-----------|-------------|
+| Dashboard ejecutivo multi-org | Alta | Vista agregada de todas las organizaciones (Super Admin) |
+| Métricas por organización | Alta | Clientes activos, menciones totales, sentiment distribution, crisis activas |
+| Health Score por cliente | Alta | Puntuación 0-100 basada en: volumen de menciones, sentiment ratio, SOV, crisis, response time |
+| Alertas de inactividad | Media | Detectar clientes sin menciones recientes o con drops significativos |
+| Benchmark por industria | Media | Comparar métricas de un cliente contra promedio de su industria |
+| Heatmap de actividad | Media | Mapa de calor por hora/día de la semana mostrando cuándo llegan menciones |
+| Informe de uso de plataforma | Baja | Métricas de uso del sistema: usuarios activos, tareas completadas, briefs leídos |
+
+### Archivos a crear/modificar
+
+| Archivo | Propósito |
+|---------|-----------|
+| `packages/web/src/app/dashboard/executive/page.tsx` | Dashboard ejecutivo |
+| `packages/web/src/server/routers/executive.ts` | Queries agregadas multi-org |
+| `packages/workers/src/analysis/health-score.ts` | Cálculo de health score por cliente |
+
+---
+
+## Sprint 18: Real-time + Integraciones Externas
+
+### Objetivo
+Llevar el sistema a tiempo real y abrir integraciones con herramientas externas que las agencias ya usan.
+
+### Parte 1: Real-time Dashboard
+
+| Feature | Prioridad | Descripción |
+|---------|-----------|-------------|
+| Server-Sent Events (SSE) | Alta | Stream de menciones nuevas en tiempo real al dashboard |
+| Live mention feed | Alta | Feed tipo Twitter con menciones apareciendo en vivo |
+| Contador en vivo | Media | KPIs que se actualizan sin reload (menciones hoy, sentiment) |
+| Sonido de notificación | Baja | Audio alert configurable para menciones CRITICAL |
+
+### Parte 2: Integraciones
+
+| Feature | Prioridad | Descripción |
+|---------|-----------|-------------|
+| Webhook outbound | Alta | Enviar eventos (nueva mención, crisis, insight) a URLs configurables |
+| Slack integration | Media | Bot de Slack como alternativa a Telegram |
+| Google Sheets export | Media | Sync automático de menciones a Google Sheets |
+| Zapier/Make trigger | Baja | Webhook compatible con Zapier para integraciones sin código |
+| API REST pública | Baja | Endpoints documentados con API key para integraciones custom |
+
+### Parte 3: Mejoras UX
+
+| Feature | Prioridad | Descripción |
+|---------|-----------|-------------|
+| View Transitions API | Media | Animaciones fluidas entre páginas del dashboard |
+| Loading skeletons | Media | Skeletons en todas las tablas y listas principales |
+| Keyboard shortcuts | Baja | Atajos de teclado para navegación y acciones rápidas (j/k navegar, r responder) |
+| Command palette (⌘K) | Baja | Búsqueda global rápida de clientes, menciones, tareas |
+
+---
+
+## Backlog (Sin priorizar)
+
+| Feature | Descripción | Complejidad |
+|---------|-------------|-------------|
+| App móvil (React Native) | Push notifications nativas, vista resumida | Alta |
+| Multi-idioma (i18n) | Internacionalización para expansión | Media |
+| White-label | Dashboard personalizable por agencia (logo, colores, dominio) | Alta |
+| YouTube Data API directa | Cuota gratuita de 10,000 units/día (complementar EnsembleData) | Media |
+| Google Alerts RSS | Alternativa sin costo a Google CSE | Baja |
+| AI Sentiment Fine-tuning | Entrenar modelo específico para PR mexicano | Alta |
+| Análisis de imágenes | OCR + análisis visual de posts sociales con imágenes | Media |
+| Detección de bots | Identificar menciones generadas por bots en redes sociales | Media |
+| Predicción de tendencias | ML para predecir picos de menciones o cambios de sentimiento | Alta |
+| Integración con CRMs | Sync bidireccional con HubSpot/Salesforce | Media |
+
+---
+
+## Orden de Prioridad Sugerido
+
+```
+Sprint 13 (cerrar) → Sprint 14 → Sprint 15 → Sprint 16 → Sprint 17 → Sprint 18
+     ↓                   ↓            ↓            ↓            ↓           ↓
+  Action Pipeline    Portal +     Email +      Campañas +   Executive   Real-time +
+  (completar)       Alert Rules   AI Brief     Contactos    Dashboard   Webhooks
+```
+
+**Impacto estimado por sprint:**
+
+| Sprint | Valor para agencia | Esfuerzo |
+|--------|-------------------|----------|
+| 13 (cerrar) | Alto — completa ciclo de acción | Bajo |
+| 14 | Muy alto — portal diferencia vs competencia | Medio |
+| 15 | Alto — email es el canal #1 en PR corporativo | Medio |
+| 16 | Muy alto — tracking de campañas es core de PR | Alto |
+| 17 | Medio — útil para escala multi-agencia | Medio |
+| 18 | Alto — real-time y webhooks modernizan el producto | Alto |
 
 ## Contacto
 

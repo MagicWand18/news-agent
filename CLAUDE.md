@@ -19,11 +19,11 @@ MediaBot is a media monitoring platform for PR agencies. It monitors news source
 ```
 /
 ├── packages/
-│   ├── web/          # Next.js frontend + tRPC API (17 dashboard pages)
-│   ├── workers/      # Background jobs (5 collectors, analysis, notifications, social)
+│   ├── web/          # Next.js frontend + tRPC API (18 dashboard pages, 14 routers)
+│   ├── workers/      # Background jobs (5 collectors, 20+ workers, 24 colas)
 │   ├── bot/          # Telegram bot (Grammy)
 │   └── shared/       # Shared code (prisma, config, types, ai-client)
-├── prisma/           # Database schema (20 models)
+├── prisma/           # Database schema (26 models, 19 enums)
 ├── deploy/           # Deployment scripts
 ├── docs/             # Documentation (architecture, plan, guides)
 └── tests/            # Test files
@@ -39,8 +39,14 @@ MediaBot is a media monitoring platform for PR agencies. It monitors news source
 | `packages/web/src/app/dashboard/` | Dashboard pages |
 | `packages/web/src/components/platform-icons.tsx` | Iconos SVG compartidos de plataformas sociales |
 | `packages/web/src/components/social-mention-row.tsx` | Componente de fila de mencion social (con checkbox para bulk select) |
-| `packages/workers/src/queues.ts` | Job queues and cron schedules (19+ colas) |
+| `packages/workers/src/queues.ts` | Job queues and cron schedules (24 colas) |
 | `packages/workers/src/collectors/social.ts` | Social media collector (EnsembleData) |
+| `packages/web/src/server/routers/social.ts` | Social media monitoring API (17 endpoints) |
+| `packages/web/src/server/routers/crisis.ts` | Crisis management API (6 endpoints) |
+| `packages/web/src/server/routers/responses.ts` | Response draft workflow API (6 endpoints) |
+| `packages/web/src/server/routers/organizations.ts` | Multi-tenant organization management |
+| `packages/workers/src/workers/alert-rules-worker.ts` | Custom alert rule evaluation (cron */30) |
+| `packages/workers/src/analysis/crisis-detector.ts` | Auto crisis detection on negative spikes |
 | `deploy/remote-deploy.sh` | Production deployment script |
 
 ## Social Media Features
@@ -50,18 +56,27 @@ MediaBot is a media monitoring platform for PR agencies. It monitors news source
 - **Backend mutations**: `deleteSocialMention` (individual), `deleteSocialMentions` (bulk hasta 100)
 - **Componentes compartidos**: `platform-icons.tsx` (SVG icons), `social-mention-row.tsx` (fila con checkbox)
 
+## Action Pipeline (Sprint 13)
+
+- **Páginas**: `/dashboard/crisis` (lista), `/dashboard/crisis/[id]` (detalle con timeline/notas), `/dashboard/responses` (workflow de comunicados)
+- **Modelos**: ResponseDraft (workflow DRAFT→PUBLISHED), CrisisNote, ActionItem, AlertRule
+- **Workers**: `alert-rules-worker.ts` (evalúa reglas cada 30 min), `insights-worker.ts` (crea ActionItems)
+- **Crisis**: Auto-detección en `crisis-detector.ts`, UI de gestión con notas y asignación
+- **Respuestas**: Generación con Gemini, workflow de aprobación (solo ADMIN/SUPERVISOR aprueban)
+- **Sidebar**: Badge de crisis activas, items "Crisis" y "Respuestas"
+
 ## Commands
 
 ```bash
 # Development
-npm run dev                    # Start all packages in dev mode
+pnpm dev                       # Start all packages in dev mode
 
 # Build
-npm run build                  # Build all packages
+pnpm build                     # Build all packages
 
 # Database
-npx prisma generate           # Generate Prisma client
-npx prisma db push            # Push schema to database
+pnpm exec prisma generate     # Generate Prisma client
+pnpm exec prisma db push      # Push schema to database
 
 # Deploy to production
 bash deploy/remote-deploy.sh  # Deploy to DigitalOcean droplet

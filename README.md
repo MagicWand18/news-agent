@@ -67,22 +67,21 @@ cp .env.example .env
 ### 4. Instalar dependencias y configurar DB
 
 ```bash
-npm install
-npm run db:generate
-npm run db:push
+pnpm install
+pnpm exec prisma generate
+pnpm exec prisma db push
 ```
 
 ### 5. Ejecutar en desarrollo
 
 ```bash
-# Terminal 1: Workers
-npm run dev:workers
+# Todos los packages en paralelo
+pnpm dev
 
-# Terminal 2: Web Dashboard
-npm run dev:web
-
-# Terminal 3: Telegram Bot (opcional)
-npm run dev:bot
+# O individualmente:
+pnpm dev:workers    # Workers
+pnpm dev:web        # Web Dashboard
+pnpm dev:bot        # Telegram Bot (opcional)
 ```
 
 ## Variables de Entorno
@@ -149,17 +148,18 @@ npm run dev:bot
 
 ```bash
 # Database
-npm run db:studio      # Abrir Prisma Studio
-npm run db:migrate     # Crear migracion
-npm run db:push        # Push schema a DB
+pnpm exec prisma studio     # Abrir Prisma Studio
+pnpm exec prisma generate   # Generar cliente Prisma
+pnpm exec prisma db push    # Push schema a DB
 
 # Build
-npm run build          # Build todos los packages
+pnpm build                  # Build todos los packages
 
 # Desarrollo
-npm run dev:web        # Solo dashboard
-npm run dev:workers    # Solo workers
-npm run dev:bot        # Solo bot
+pnpm dev                    # Todos los packages
+pnpm dev:web                # Solo dashboard
+pnpm dev:workers            # Solo workers
+pnpm dev:bot                # Solo bot
 ```
 
 ## Flujo de Datos
@@ -397,19 +397,60 @@ Sistema multi-tenant completo para gestionar múltiples agencias.
 
 ```bash
 # Ejecutar todos los tests
-npm test
+pnpm test
 
 # Tests con coverage
-npm test -- --coverage
+pnpm test -- --coverage
 
 # Tests de un package especifico
-npm test -w packages/workers
+pnpm --filter @mediabot/workers test
 ```
+
+## Pipeline de Accion (Sprint 13)
+
+El sistema cierra el ciclo completo: dato → insight → tarea → accion → medicion.
+
+### Workflow de Respuestas
+
+Borradores de comunicados de prensa con workflow de aprobacion:
+- Generar comunicado desde detalle de mencion (media o social)
+- Estados: `DRAFT → IN_REVIEW → APPROVED → PUBLISHED`
+- 4 tonos: Profesional, Defensivo, Aclaratorio, Celebratorio
+- Solo ADMIN/SUPERVISOR pueden aprobar
+- Pagina dedicada: `/dashboard/responses`
+
+### Gestion de Crisis
+
+UI completa para gestionar alertas de crisis mediaticas:
+- Lista con filtros por severidad (CRITICAL, HIGH, MEDIUM) y estado
+- Detalle con timeline de eventos, notas y menciones negativas relacionadas
+- Asignacion de responsable y cambio de estado
+- Badge en sidebar con conteo de crisis activas
+- Paginas: `/dashboard/crisis`, `/dashboard/crisis/[id]`
+
+### Action Items
+
+Seguimiento de acciones recomendadas por la IA:
+- Creados automaticamente desde weekly insights
+- Status tracking: PENDING → IN_PROGRESS → COMPLETED
+- Seccion "Acciones Recomendadas" en pagina Intelligence
+
+### Reglas de Alerta Configurables
+
+Worker que evalua reglas personalizadas cada 30 minutos:
+- Tipos: NEGATIVE_SPIKE, VOLUME_SURGE, NO_MENTIONS (+ stubs para SOV_DROP, COMPETITOR_SPIKE, SENTIMENT_SHIFT)
+- Genera notificaciones in-app y Telegram cuando se cumplen condiciones
+- Cooldown de 1 hora para evitar duplicados
 
 ## Documentacion Adicional
 
 - [ARCHITECTURE.md](docs/ARCHITECTURE.md) - Arquitectura detallada
 - [PLAN.md](docs/PLAN.md) - Roadmap y decisiones tecnicas
+- [API Reference](docs/api/README.md) - Documentacion de 14 routers tRPC
+- [Action Pipeline](docs/action-pipeline.md) - Pipeline de datos accionables
+- [Environment Reference](docs/env-reference.md) - Variables de entorno
+- [Troubleshooting](docs/troubleshooting.md) - Guia de resolucion de problemas
+- [Development Guide](docs/development-guide.md) - Guia para desarrolladores
 
 ## Licencia
 

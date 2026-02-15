@@ -266,6 +266,152 @@ Genera borradores de comunicados de prensa on-demand:
 - `callToAction`: Siguiente paso recomendado
 - `keyMessages`: Lista de mensajes clave
 
+### 4.9 Flujo de Acción (Pipeline de Acción)
+
+Cierra el ciclo desde la detección de datos hasta la medición de resultados:
+
+```
+┌────────────────────────────────────────────────────────────────┐
+│                    ACTION PIPELINE FLOW                         │
+├────────────────────────────────────────────────────────────────┤
+│                                                                │
+│   DATO → INSIGHT → TAREA → ACCIÓN → MEDICIÓN                  │
+│                                                                │
+│   ┌──────────────┐                                             │
+│   │ Fuentes de   │                                             │
+│   │ Insight      │                                             │
+│   └──────┬───────┘                                             │
+│          │                                                     │
+│          ├─ suggestedAction (cada mención analizada)           │
+│          ├─ generateResponse (comunicado on-demand)            │
+│          ├─ CrisisAlert (detección automática)                 │
+│          └─ WeeklyInsights (recomendaciones semanales)         │
+│                                                                │
+│          │                                                     │
+│          ▼                                                     │
+│   ┌──────────────┐                                             │
+│   │ Acciones     │                                             │
+│   │ Disponibles  │                                             │
+│   └──────┬───────┘                                             │
+│          │                                                     │
+│          ├─ Crear tarea desde mención                          │
+│          ├─ Generar y persistir borrador de respuesta          │
+│          ├─ Gestionar crisis (asignar, resolver, notar)        │
+│          └─ Marcar acción recomendada como completada          │
+│                                                                │
+└────────────────────────────────────────────────────────────────┘
+```
+
+**Modelo de salida de `generateResponse`:**
+
+| Campo | Tipo | Descripción |
+|-------|------|-------------|
+| `title` | string | Título del comunicado |
+| `body` | string | Cuerpo (3-4 párrafos) |
+| `tone` | enum | PROFESSIONAL, DEFENSIVE, CLARIFICATION, CELEBRATORY |
+| `audience` | string | Público objetivo |
+| `callToAction` | string | Siguiente paso recomendado |
+| `keyMessages` | string[] | Lista de mensajes clave |
+
+### 4.10 Response Draft Workflow (`packages/web/src/server/routers/responses.ts`)
+
+Workflow de aprobación de comunicados de prensa:
+
+```
+┌────────────────────────────────────────────────────────────────┐
+│                  RESPONSE DRAFT WORKFLOW                        │
+├────────────────────────────────────────────────────────────────┤
+│                                                                │
+│   ┌────────────────┐                                           │
+│   │ Usuario genera │                                           │
+│   │ comunicado     │                                           │
+│   │ (mención/social│                                           │
+│   └───────┬────────┘                                           │
+│           │                                                    │
+│           ▼                                                    │
+│   ┌──────────────┐                                             │
+│   │    DRAFT     │◄────────────────────────────┐               │
+│   └──────┬───────┘                             │               │
+│          │                                     │               │
+│          ▼                                     │               │
+│   ┌──────────────┐    Requiere cambios   ┌─────┴──────┐       │
+│   │  IN_REVIEW   │─────────────────────▶│  (vuelve)  │       │
+│   └──────┬───────┘                       └────────────┘       │
+│          │                                                     │
+│          ▼  (solo ADMIN/SUPERVISOR)                             │
+│   ┌──────────────┐                                             │
+│   │   APPROVED   │                                             │
+│   └──────┬───────┘                                             │
+│          │                                                     │
+│          ▼                                                     │
+│   ┌──────────────┐                                             │
+│   │  PUBLISHED   │  (estado final)                             │
+│   └──────────────┘                                             │
+│                                                                │
+│   Cualquier estado → DISCARDED → DRAFT (reactivar)             │
+│                                                                │
+└────────────────────────────────────────────────────────────────┘
+```
+
+### 4.11 Alert Rules Worker (`packages/workers/src/workers/alert-rules-worker.ts`)
+
+Evaluación periódica de reglas de alerta configurables por cliente:
+
+```
+┌────────────────────────────────────────────────────────────────┐
+│                  ALERT RULES EVALUATION                         │
+├────────────────────────────────────────────────────────────────┤
+│                                                                │
+│   ┌────────────────┐                                           │
+│   │ Cron job       │                                           │
+│   │ cada 30 min    │                                           │
+│   └───────┬────────┘                                           │
+│           │                                                    │
+│           ▼                                                    │
+│   ┌────────────────────────────────────────┐                   │
+│   │ Cargar AlertRules activas             │                   │
+│   │ con datos de cliente                  │                   │
+│   └───────┬────────────────────────────────┘                   │
+│           │                                                    │
+│           ▼                                                    │
+│   ┌────────────────────────────────────────┐                   │
+│   │ Para cada regla, evaluar condición:   │                   │
+│   │                                        │                   │
+│   │ NEGATIVE_SPIKE: >= N negativas en 1h  │                   │
+│   │ VOLUME_SURGE:  >= N menciones en 1h   │                   │
+│   │ NO_MENTIONS:   0 menciones en 24h     │                   │
+│   │ SOV_DROP:      (stub)                 │                   │
+│   │ COMPETITOR_SPIKE: (stub)              │                   │
+│   │ SENTIMENT_SHIFT: (stub)              │                   │
+│   └───────┬────────────────────────────────┘                   │
+│           │                                                    │
+│           ▼                                                    │
+│   ┌─────────────────┐    No     ┌─────────────────┐           │
+│   │ Condición met?  │──────────▶│ Skip            │           │
+│   └───────┬─────────┘           └─────────────────┘           │
+│           │ Sí                                                 │
+│           ▼                                                    │
+│   ┌─────────────────┐    Sí     ┌─────────────────┐           │
+│   │ Cooldown (1h)?  │──────────▶│ Skip duplicado  │           │
+│   └───────┬─────────┘           └─────────────────┘           │
+│           │ No                                                 │
+│           ▼                                                    │
+│   ┌─────────────────────────────────────────┐                  │
+│   │ Crear notificación in-app              │                  │
+│   │ + Encolar alerta Telegram              │                  │
+│   └─────────────────────────────────────────┘                  │
+│                                                                │
+└────────────────────────────────────────────────────────────────┘
+```
+
+### 4.12 Archive Worker (`packages/workers/src/workers/archive-worker.ts`)
+
+Auto-archivado de menciones antiguas:
+
+- **Cron**: 3:00 AM diario
+- **Lógica**: Marca menciones con `isLegacy = true` si el artículo tiene > 30 días
+- **Impacto**: Las menciones legacy se muestran en tab "Historial" del detalle de cliente
+
 ### 5. Notificaciones (`packages/workers/src/notifications/`)
 
 **Alertas inmediatas:**
@@ -284,16 +430,22 @@ Genera borradores de comunicados de prensa on-demand:
 │  Organization  │──1:N─▶│     Client     │──1:N─▶│    Keyword     │
 └────────────────┘       └───────┬────────┘       └────────────────┘
         │                        │
-        │                        │ 1:N
+        │                        ├──1:N─▶ SocialAccount
+        │                        ├──1:N─▶ SocialMention
+        │                        ├──1:N─▶ CrisisAlert ──1:N─▶ CrisisNote
+        │                        ├──1:N─▶ ActionItem
+        │                        ├──1:N─▶ AlertRule
         ▼                        ▼
 ┌────────────────┐       ┌────────────────┐       ┌────────────────┐
 │      User      │       │    Mention     │◀──N:1─│    Article     │
 └────────┬───────┘       └───────┬────────┘       └────────────────┘
          │                       │
+         │                       ├──1:N─▶ ResponseDraft
+         │                       │
          │                       │ 1:N
          │                       ▼
          └──────────────▶┌────────────────┐
-                         │      Task      │
+                         │      Task      │◀── socialMentionId (opcional)
                          └────────────────┘
 ```
 
@@ -315,6 +467,10 @@ Genera borradores de comunicados de prensa on-demand:
 | `Notification` | Notificaciones in-app para usuarios |
 | `SocialAccount` | Cuentas de redes sociales a monitorear |
 | `SocialMention` | Menciones detectadas en redes sociales |
+| `ResponseDraft` | Borrador de comunicado con workflow de aprobación (Sprint 13) |
+| `CrisisNote` | Notas y acciones en gestión de crisis (Sprint 13) |
+| `ActionItem` | Acciones recomendadas por IA con seguimiento (Sprint 13) |
+| `AlertRule` | Reglas de alerta configurables por cliente (Sprint 13) |
 
 ## Sistema de Colas (BullMQ)
 
@@ -350,6 +506,11 @@ Genera borradores de comunicados de prensa on-demand:
 │   collect-social   : */30 * * * *  (cada 30 min)                │
 │   analyze-social   : Analizar menciones sociales con AI         │
 │   notify-social    : Notificar menciones relevantes             │
+│                                                                 │
+│   ACTION PIPELINE QUEUES (Sprint 13)                            │
+│   ──────────────────────────────────                            │
+│   check-alert-rules : */30 * * * * (cada 30 min)               │
+│   archive-old-mentions : 0 3 * * * (3:00 AM diario)            │
 │                                                                 │
 └─────────────────────────────────────────────────────────────────┘
 ```
@@ -773,14 +934,20 @@ El sistema detecta automaticamente situaciones de crisis mediaticas.
 
 | Router | Descripcion | Endpoints |
 |--------|-------------|-----------|
-| `dashboard` | Metricas principales | `stats`, `recentMentions` |
-| `clients` | Gestion de clientes | `list`, `getById`, `create`, `update`, `addKeyword`, `removeKeyword`, `searchNews`, `generateOnboardingConfig`, `createWithOnboarding` |
-| `mentions` | Consulta de menciones | `list`, `getById`, `generateResponse` |
+| `dashboard` | Metricas principales | `stats`, `recentMentions`, `analytics`, `getSocialDashboardStats`, `getSocialAnalytics` |
+| `clients` | Gestion de clientes | `list`, `getById`, `create`, `update`, `delete`, `transferClient`, `addKeyword`, `removeKeyword`, `searchNews`, `generateOnboardingConfig`, `createWithOnboarding`, `executeManualGrounding`, `addRecipient`, `updateRecipient`, `removeRecipient`, `addCompetitor`, `removeCompetitor`, `updateGroundingConfig`, `getGroundingConfig`, `getRecipients`, `compareCompetitors`, `listOrgCompetitors` |
+| `mentions` | Consulta de menciones | `list`, `getById`, `generateResponse`, `exportMentions` |
 | `tasks` | Gestion de tareas | `list`, `create`, `update` |
 | `team` | Gestion de equipo | `list`, `create`, `update` |
-| `settings` | Configuracion dinamica | `list`, `get`, `update`, `reset`, `seedDefaults` |
-| `intelligence` | Media Intelligence | `getSOV`, `getTopics`, `getWeeklyInsights`, `getSourceTiers`, `getKPIs` |
-| `sources` | Gestion de fuentes RSS | `list`, `stats`, `create`, `update`, `delete`, `requestSource`, `listRequests`, `approveRequest`, `rejectRequest`, `integrateRequest` |
+| `settings` | Configuracion dinamica | `list`, `get`, `update`, `categories` |
+| `intelligence` | Media Intelligence | `getSOV`, `getTopics`, `getWeeklyInsights`, `getSourceTiers`, `getKPIs`, `getActionItems`, `updateActionItem`, `generateReport` |
+| `sources` | Gestion de fuentes RSS | `list`, `stats`, `get`, `states`, `create`, `update`, `delete`, `toggleActive`, `resetErrors`, `requestSource`, `listRequests`, `requestStats`, `approveRequest`, `rejectRequest`, `integrateRequest` |
+| `social` | Monitoreo redes sociales | `listAllSocialMentions`, `getSocialMentions`, `getGlobalSocialStats`, `getSocialMentionById`, `getSocialTrend`, `getSocialStats`, `getSocialAccounts`, `extractComments`, `suggestHashtags`, `validateHandle`, `addSocialAccount`, `updateSocialAccount`, `removeSocialAccount`, `updateSocialConfig`, `deleteSocialMention`, `deleteSocialMentions`, `exportSocialMentions`, `triggerCollection` |
+| `notifications` | Notificaciones in-app | `list`, `getById`, `getUnreadCount`, `markAsRead`, `markAllAsRead`, `delete`, `deleteAllRead` |
+| `organizations` | Gestion multi-tenant | `list`, `getById`, `globalStats`, `listForSelector`, `create`, `update`, `delete`, `reassignClient`, `createUserInOrg` |
+| `onboarding` | Tour de onboarding | `getStatus`, `updateStatus`, `reset`, `resetForUser` |
+| `crisis` | Gestion de crisis | `list`, `getById`, `updateStatus`, `addNote`, `assignResponsible`, `getActiveCrisisCount` |
+| `responses` | Workflow de comunicados | `list`, `getById`, `create`, `update`, `updateStatus`, `regenerate` |
 
 ## Patrón de Colores Dark Mode
 

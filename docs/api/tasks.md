@@ -35,6 +35,7 @@ Array<{
   clientId: string | null;
   assigneeId: string | null;
   mentionId: string | null;
+  socialMentionId: string | null;
   deadline: Date | null;
   completedAt: Date | null;
   createdAt: Date;
@@ -42,6 +43,11 @@ Array<{
   assignee: { name: string } | null;
   mention: {
     article: { title: string };
+  } | null;
+  socialMention: {
+    platform: string;
+    authorHandle: string;
+    postUrl: string | null;
   } | null;
 }>
 ```
@@ -71,7 +77,8 @@ Crea una nueva tarea.
 | `clientId` | `string` | No | - | Cliente relacionado |
 | `assigneeId` | `string` | No | - | Usuario asignado |
 | `deadline` | `Date` | No | - | Fecha límite |
-| `mentionId` | `string` | No | - | Mención relacionada |
+| `mentionId` | `string` | No | - | Mención de medios relacionada |
+| `socialMentionId` | `string` | No | - | Mención social relacionada (Sprint 13) |
 
 **Output:** `Task`
 
@@ -83,6 +90,8 @@ Crea una nueva tarea.
 - Si se especifica `clientId`, se verifica que pertenezca a la organización
 - Si se especifica `assigneeId`, se verifica que el usuario pertenezca a la organización
 - Las tareas se crean con estado `PENDING` por defecto
+- Se puede vincular a una mención de medios (`mentionId`) o una mención social (`socialMentionId`)
+- En la UI, las tareas vinculadas a menciones sociales muestran un link directo al post original
 
 ---
 

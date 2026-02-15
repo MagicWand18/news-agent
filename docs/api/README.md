@@ -69,12 +69,17 @@ throw new TRPCError({
 | `clients` | Gestión de clientes, keywords y configuración | [clients.md](./clients.md) |
 | `mentions` | Menciones y generación de respuestas | [mentions.md](./mentions.md) |
 | `sources` | Fuentes RSS y solicitudes | [sources.md](./sources.md) |
-| `intelligence` | Share of Voice, temas y KPIs | [intelligence.md](./intelligence.md) |
+| `intelligence` | Share of Voice, temas, KPIs y action items | [intelligence.md](./intelligence.md) |
 | `dashboard` | Estadísticas y analíticas | [dashboard.md](./dashboard.md) |
-| `tasks` | Gestión de tareas | [tasks.md](./tasks.md) |
+| `tasks` | Gestión de tareas (media + social) | [tasks.md](./tasks.md) |
 | `team` | Gestión de usuarios | [team.md](./team.md) |
 | `notifications` | Notificaciones in-app | [notifications.md](./notifications.md) |
 | `settings` | Configuración del sistema | [settings.md](./settings.md) |
+| `social` | Monitoreo de redes sociales | [social.md](./social.md) |
+| `organizations` | Gestión de organizaciones (Super Admin) | [organizations.md](./organizations.md) |
+| `onboarding` | Tour de onboarding de usuarios | [onboarding.md](./onboarding.md) |
+| `crisis` | Gestión de alertas de crisis | [crisis.md](./crisis.md) |
+| `responses` | Workflow de borradores de comunicados | [responses.md](./responses.md) |
 
 ## Uso con React Query
 
@@ -104,7 +109,7 @@ const { data, fetchNextPage } = trpc.mentions.list.useInfiniteQuery(
 type Sentiment = "POSITIVE" | "NEGATIVE" | "NEUTRAL" | "MIXED";
 
 // Urgencia
-type Urgency = "HIGH" | "MEDIUM" | "LOW";
+type Urgency = "CRITICAL" | "HIGH" | "MEDIUM" | "LOW";
 
 // Prioridad de tarea
 type Priority = "URGENT" | "HIGH" | "MEDIUM" | "LOW";
@@ -119,10 +124,40 @@ type Role = "ADMIN" | "SUPERVISOR" | "ANALYST";
 type KeywordType = "NAME" | "BRAND" | "COMPETITOR" | "TOPIC" | "ALIAS";
 
 // Tipo de fuente
-type SourceType = "NATIONAL" | "STATE" | "MUNICIPAL" | "INTERNATIONAL";
+type SourceType = "NATIONAL" | "STATE" | "MUNICIPAL" | "SPECIALIZED";
 
 // Tipo de destinatario Telegram
 type RecipientType = "AGENCY_INTERNAL" | "CLIENT_GROUP" | "CLIENT_INDIVIDUAL";
+
+// Plataforma social
+type SocialPlatform = "TWITTER" | "INSTAGRAM" | "TIKTOK" | "YOUTUBE";
+
+// Tipo de fuente social
+type SocialSourceType = "HANDLE" | "HASHTAG" | "KEYWORD";
+
+// Tipo de notificación
+type NotificationType = "MENTION_CRITICAL" | "MENTION_HIGH" | "CRISIS_ALERT" | "WEEKLY_REPORT" | "EMERGING_TOPIC" | "SYSTEM";
+
+// Estado de onboarding
+type OnboardingStatus = "PENDING" | "IN_PROGRESS" | "COMPLETED" | "SKIPPED";
+
+// Estado de borrador de respuesta (Sprint 13)
+type ResponseStatus = "DRAFT" | "IN_REVIEW" | "APPROVED" | "PUBLISHED" | "DISCARDED";
+
+// Estado de action item (Sprint 13)
+type ActionStatus = "PENDING" | "IN_PROGRESS" | "COMPLETED" | "NOT_APPLICABLE";
+
+// Severidad de crisis
+type CrisisSeverity = "CRITICAL" | "HIGH" | "MEDIUM";
+
+// Estado de crisis
+type CrisisStatus = "ACTIVE" | "MONITORING" | "RESOLVED" | "DISMISSED";
+
+// Trigger de crisis
+type CrisisTriggerType = "NEGATIVE_SPIKE" | "HIGH_VOLUME" | "CRITICAL_SOURCE" | "MANUAL";
+
+// Tipo de regla de alerta (Sprint 13)
+type AlertRuleType = "NEGATIVE_SPIKE" | "SOV_DROP" | "VOLUME_SURGE" | "COMPETITOR_SPIKE" | "SENTIMENT_SHIFT" | "NO_MENTIONS";
 ```
 
 ### Paginación por Cursor

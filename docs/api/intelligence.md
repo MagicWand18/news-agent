@@ -215,6 +215,109 @@ Obtiene KPIs de inteligencia para el dashboard.
 - Resumen ejecutivo
 - Alertas de actividad
 
+### getActionItems
+
+Obtiene action items (acciones recomendadas) de un cliente.
+
+| Propiedad | Valor |
+|-----------|-------|
+| Tipo | Query |
+| Auth | Requerido |
+| Permisos | Todos (scoped por organización) |
+
+**Input:**
+| Campo | Tipo | Requerido | Default | Descripción |
+|-------|------|-----------|---------|-------------|
+| `clientId` | `string` | Sí | - | ID del cliente |
+| `status` | `ActionStatus` | No | - | PENDING, IN_PROGRESS, COMPLETED, NOT_APPLICABLE |
+| `limit` | `number` | No | 50 | Elementos (1-100) |
+
+**Output:**
+```typescript
+Array<{
+  id: string;
+  clientId: string;
+  source: string;           // "weekly_insight", "mention", "crisis", "manual"
+  sourceId: string | null;  // ID del origen (WeeklyInsight, Mention, etc.)
+  description: string;
+  status: ActionStatus;
+  completedAt: Date | null;
+  createdAt: Date;
+  assignee: { id: string; name: string } | null;
+}>
+```
+
+**Notas:**
+- Los action items se crean automáticamente desde weekly insights (campo `recommendedActions`)
+- También se pueden crear manualmente desde la UI de Intelligence
+- El `source` indica el origen: insights semanales, menciones analizadas, crisis, o manual
+
+---
+
+### updateActionItem
+
+Actualiza el estado de un action item.
+
+| Propiedad | Valor |
+|-----------|-------|
+| Tipo | Mutation |
+| Auth | Requerido |
+| Permisos | Todos (scoped por organización) |
+
+**Input:**
+| Campo | Tipo | Requerido | Descripción |
+|-------|------|-----------|-------------|
+| `id` | `string` | Sí | ID del action item |
+| `status` | `ActionStatus` | Sí | Nuevo estado |
+
+**Output:** `ActionItem` actualizado
+
+**Efectos secundarios:**
+- Si el nuevo estado es `COMPLETED`, se registra `completedAt` automáticamente
+
+**Errores:**
+- `NOT_FOUND`: Action item no encontrado o no pertenece a la organización
+
+---
+
+### generateReport
+
+Genera un reporte ejecutivo bajo demanda para un cliente.
+
+| Propiedad | Valor |
+|-----------|-------|
+| Tipo | Mutation |
+| Auth | Requerido |
+| Permisos | Todos |
+
+**Input:**
+| Campo | Tipo | Requerido | Default | Descripción |
+|-------|------|-----------|---------|-------------|
+| `clientId` | `string` | Sí | - | ID del cliente |
+| `period` | `string` | No | `"weekly"` | Período: weekly, monthly |
+
+**Output:**
+```typescript
+{
+  clientName: string;
+  period: { start: Date; end: Date; days: number };
+  totalMentions: number;
+  weightedMentions: number;
+  sentimentBreakdown: { positive: number; negative: number; neutral: number; mixed: number };
+  crisisAlerts: number;
+  topMentions: Array<{ title: string; source: string; sentiment: string }>;
+  insights: string[];
+  topTopics: Array<{ name: string; count: number }>;
+  filename: string;
+}
+```
+
+**Notas:**
+- Retorna JSON estructurado (no PDF directo)
+- Los reportes PDF semanales se generan automáticamente via cron (domingos 8pm)
+
+---
+
 ## Funciones Auxiliares Internas
 
 ### getMentionsWithTier
