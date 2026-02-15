@@ -13,7 +13,7 @@
 
 import { z } from "zod";
 import { TRPCError } from "@trpc/server";
-import { Prisma } from "@prisma/client";
+// Note: Do NOT use Prisma.empty in $queryRaw - it generates phantom $N params
 import { router, protectedProcedure, getEffectiveOrgId } from "../trpc";
 import { prisma, getEnsembleDataClient } from "@mediabot/shared";
 
@@ -477,26 +477,32 @@ Genera:
       const since = new Date(Date.now() - input.days * 24 * 60 * 60 * 1000);
       const orgId = getEffectiveOrgId(ctx.user, input.orgId);
 
-      // Filtro de organización para raw queries (vacío si Super Admin ve todo)
-      const orgFilterSql = orgId
-        ? Prisma.sql`AND c."orgId" = ${orgId}`
-        : Prisma.empty;
+      // Build dynamic filters for $queryRawUnsafe (avoid Prisma.empty)
+      const trendParams: unknown[] = [since]; // $1 = since
+      const trendFilters: string[] = [];
+      let trendIdx = 2;
 
-      // Agrupar por fecha
-      const clientFilterSql = input.clientId
-        ? Prisma.sql`AND sm."clientId" = ${input.clientId}`
-        : Prisma.empty;
+      if (orgId) {
+        trendFilters.push(`AND c."orgId" = $${trendIdx}`);
+        trendParams.push(orgId);
+        trendIdx++;
+      }
+      if (input.clientId) {
+        trendFilters.push(`AND sm."clientId" = $${trendIdx}`);
+        trendParams.push(input.clientId);
+        trendIdx++;
+      }
 
-      const trend = await prisma.$queryRaw<{ date: string; count: bigint }[]>`
-        SELECT DATE(sm."createdAt") as date, COUNT(*) as count
+      const trend = await prisma.$queryRawUnsafe<{ date: string; count: bigint }[]>(
+        `SELECT DATE(sm."createdAt") as date, COUNT(*) as count
         FROM "SocialMention" sm
         JOIN "Client" c ON sm."clientId" = c.id
-        WHERE sm."createdAt" >= ${since}
-        ${orgFilterSql}
-        ${clientFilterSql}
+        WHERE sm."createdAt" >= $1
+        ${trendFilters.join(" ")}
         GROUP BY DATE(sm."createdAt")
-        ORDER BY date ASC
-      `;
+        ORDER BY date ASC`,
+        ...trendParams
+      );
 
       return {
         trend: trend.map((t) => ({

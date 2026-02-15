@@ -379,6 +379,7 @@ export const dashboardRouter = router({
       if (orgId) socialFilters.push({ sql: `AND c."orgId" = $P`, params: [orgId] });
       if (input.clientId) socialFilters.push({ sql: `AND sm."clientId" = $P`, params: [input.clientId] });
 
+      try {
       const [mentionsByDay, byPlatform, bySentiment, topAuthors] = await Promise.all([
         // Menciones por día
         (() => {
@@ -448,5 +449,9 @@ export const dashboardRouter = router({
           totalEngagement: Number(a.totalEngagement),
         })),
       };
+      } catch (error) {
+        console.error("[Dashboard] getSocialAnalytics error:", error);
+        return { mentionsByDay: [], byPlatform: {}, bySentiment: {}, topAuthors: [] };
+      }
     }),
 });

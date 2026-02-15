@@ -2,7 +2,7 @@ import { z } from "zod";
 import { TRPCError } from "@trpc/server";
 import { router, protectedProcedure, getEffectiveOrgId } from "../trpc";
 import { prisma } from "@mediabot/shared";
-import { Prisma } from "@prisma/client";
+// Note: Do NOT use Prisma.empty in $queryRaw tagged templates - it generates phantom $N params
 
 export const intelligenceRouter = router({
   /**
@@ -131,20 +131,29 @@ export const intelligenceRouter = router({
       const orgId = getEffectiveOrgId(ctx.user);
       const since = new Date(Date.now() - input.days * 24 * 60 * 60 * 1000);
 
-      const clientFilter = input.clientId
-        ? Prisma.sql`AND m."clientId" = ${input.clientId}`
-        : Prisma.empty;
+      // Build dynamic filters for $queryRawUnsafe (avoid Prisma.empty which causes $N phantom params)
+      const filters: string[] = [];
+      const params: unknown[] = [since]; // $1 = since
+      let paramIdx = 2;
 
-      // Si no hay orgId (SuperAdmin sin org seleccionada), no filtrar por org
-      const orgFilter = orgId
-        ? Prisma.sql`AND c."orgId" = ${orgId}`
-        : Prisma.empty;
+      if (orgId) {
+        filters.push(`AND c."orgId" = $${paramIdx}`);
+        params.push(orgId);
+        paramIdx++;
+      }
+      if (input.clientId) {
+        filters.push(`AND m."clientId" = $${paramIdx}`);
+        params.push(input.clientId);
+        paramIdx++;
+      }
+
+      const filterSql = filters.join(" ");
 
       // Obtener temas agrupados
-      const topics = await prisma.$queryRaw<
+      const topics = await prisma.$queryRawUnsafe<
         { topic: string; count: bigint; positive: bigint; negative: bigint; neutral: bigint }[]
-      >`
-        SELECT
+      >(
+        `SELECT
           m.topic,
           COUNT(*) as count,
           SUM(CASE WHEN m.sentiment = 'POSITIVE' THEN 1 ELSE 0 END) as positive,
@@ -153,28 +162,43 @@ export const intelligenceRouter = router({
         FROM "Mention" m
         JOIN "Client" c ON m."clientId" = c.id
         WHERE m.topic IS NOT NULL
-        AND m."createdAt" >= ${since}
-        ${orgFilter}
-        ${clientFilter}
+        AND m."createdAt" >= $1
+        ${filterSql}
         GROUP BY m.topic
         ORDER BY count DESC
-        LIMIT 20
-      `;
+        LIMIT 20`,
+        ...params
+      );
 
       // Detectar temas emergentes (>3 menciones en últimas 24h)
       const last24h = new Date(Date.now() - 24 * 60 * 60 * 1000);
-      const emergingTopics = await prisma.$queryRaw<{ topic: string; count: bigint }[]>`
-        SELECT m.topic, COUNT(*) as count
+      const emergingParams: unknown[] = [last24h];
+      const emergingFilters: string[] = [];
+      let emergingIdx = 2;
+
+      if (orgId) {
+        emergingFilters.push(`AND c."orgId" = $${emergingIdx}`);
+        emergingParams.push(orgId);
+        emergingIdx++;
+      }
+      if (input.clientId) {
+        emergingFilters.push(`AND m."clientId" = $${emergingIdx}`);
+        emergingParams.push(input.clientId);
+        emergingIdx++;
+      }
+
+      const emergingTopics = await prisma.$queryRawUnsafe<{ topic: string; count: bigint }[]>(
+        `SELECT m.topic, COUNT(*) as count
         FROM "Mention" m
         JOIN "Client" c ON m."clientId" = c.id
         WHERE m.topic IS NOT NULL
-        AND m."createdAt" >= ${last24h}
-        ${orgFilter}
-        ${clientFilter}
+        AND m."createdAt" >= $1
+        ${emergingFilters.join(" ")}
         GROUP BY m.topic
         HAVING COUNT(*) >= 3
-        ORDER BY count DESC
-      `;
+        ORDER BY count DESC`,
+        ...emergingParams
+      );
 
       return {
         topics: topics.map((t) => ({
