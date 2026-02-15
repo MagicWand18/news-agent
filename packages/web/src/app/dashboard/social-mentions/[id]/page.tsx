@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useRef, useCallback } from "react";
+import { useState, useRef, useCallback, useEffect } from "react";
 import { trpc } from "@/lib/trpc";
 import { cn } from "@/lib/cn";
 import { sentimentConfig } from "@/lib/mention-config";
@@ -23,6 +23,8 @@ import {
   ThumbsUp,
   AlertTriangle,
   Trash2,
+  CheckSquare,
+  X as XIcon,
 } from "lucide-react";
 import { TwitterIcon, InstagramIcon, TikTokIcon, YouTubeIcon } from "@/components/platform-icons";
 
@@ -56,6 +58,13 @@ interface ExtractedComment {
   postedAt: string | null;
 }
 
+const SENTIMENT_TO_PRIORITY: Record<string, "URGENT" | "HIGH" | "MEDIUM" | "LOW"> = {
+  NEGATIVE: "HIGH",
+  MIXED: "MEDIUM",
+  POSITIVE: "LOW",
+  NEUTRAL: "LOW",
+};
+
 export default function SocialMentionDetailPage() {
   const params = useParams();
   const router = useRouter();
@@ -66,6 +75,8 @@ export default function SocialMentionDetailPage() {
   const [selectedMaxComments, setSelectedMaxComments] = useState(30);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const [deleteMessage, setDeleteMessage] = useState<string | null>(null);
+  const [showTaskModal, setShowTaskModal] = useState(false);
+  const [taskForm, setTaskForm] = useState({ title: "", description: "", priority: "MEDIUM" as "URGENT" | "HIGH" | "MEDIUM" | "LOW" });
   const pollingRef = useRef<NodeJS.Timeout | null>(null);
 
   // Limpiar polling al desmontar
@@ -76,6 +87,11 @@ export default function SocialMentionDetailPage() {
     }
     setIsPolling(false);
   }, []);
+
+  // Limpiar polling al desmontar el componente
+  useEffect(() => {
+    return () => stopPolling();
+  }, [stopPolling]);
 
   const { data: mention, isLoading, refetch } = trpc.social.getSocialMentionById.useQuery({ id });
   const extractCommentsMutation = trpc.social.extractComments.useMutation({
@@ -127,8 +143,38 @@ export default function SocialMentionDetailPage() {
     },
   });
 
+  const createTaskMutation = trpc.tasks.create.useMutation({
+    onSuccess: () => {
+      setShowTaskModal(false);
+      setTaskForm({ title: "", description: "", priority: "MEDIUM" });
+    },
+  });
+
   const handleDelete = () => {
     deleteMutation.mutate({ id });
+  };
+
+  const openTaskModal = () => {
+    if (!mention) return;
+    const priority = SENTIMENT_TO_PRIORITY[mention.sentiment || "NEUTRAL"] || "MEDIUM";
+    setTaskForm({
+      title: (mention.aiSummary || mention.content || `Post de @${mention.authorHandle}`).slice(0, 100),
+      description: `Mencion social en ${platformConfig[mention.platform]?.label || mention.platform} por @${mention.authorHandle}. ${mention.content?.slice(0, 200) || ""}`,
+      priority,
+    });
+    setShowTaskModal(true);
+  };
+
+  const handleCreateTask = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!mention) return;
+    createTaskMutation.mutate({
+      title: taskForm.title,
+      description: taskForm.description,
+      priority: taskForm.priority,
+      clientId: mention.client.id,
+      socialMentionId: id,
+    });
   };
 
   const handleExtractComments = () => {
@@ -225,6 +271,13 @@ export default function SocialMentionDetailPage() {
               <ExternalLink className="h-4 w-4" />
               Ver post original
             </a>
+            <button
+              onClick={openTaskModal}
+              className="inline-flex items-center gap-1.5 rounded-lg bg-green-50 dark:bg-green-900/20 px-4 py-2 text-sm font-medium text-green-700 dark:text-green-400 transition-colors hover:bg-green-100 dark:hover:bg-green-900/40"
+            >
+              <CheckSquare className="h-4 w-4" />
+              Crear tarea
+            </button>
             {/* Botón extraer comentarios (solo Instagram y TikTok) */}
             {mention.platform !== "TWITTER" && (
               <div className="relative">
@@ -454,6 +507,75 @@ export default function SocialMentionDetailPage() {
           </div>
         </dl>
       </div>
+
+      {/* Create Task Modal */}
+      {showTaskModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50">
+          <div className="relative w-full max-w-md rounded-xl bg-white dark:bg-gray-800 p-6 shadow-xl">
+            <button
+              onClick={() => setShowTaskModal(false)}
+              className="absolute right-4 top-4 rounded-full p-1 text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-700 hover:text-gray-600 dark:hover:text-gray-200"
+            >
+              <XIcon className="h-5 w-5" />
+            </button>
+
+            <h3 className="text-lg font-semibold text-gray-900 dark:text-white">Crear tarea desde mencion social</h3>
+            <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">
+              Se vinculara automaticamente a esta mencion y al cliente {mention.client.name}.
+            </p>
+
+            <form onSubmit={handleCreateTask} className="mt-4 space-y-4">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">Titulo</label>
+                <input
+                  required
+                  value={taskForm.title}
+                  onChange={(e) => setTaskForm({ ...taskForm, title: e.target.value })}
+                  className="mt-1 w-full rounded-lg border dark:border-gray-600 bg-white dark:bg-gray-700 px-3 py-2 text-sm text-gray-900 dark:text-white"
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">Descripcion</label>
+                <textarea
+                  rows={3}
+                  value={taskForm.description}
+                  onChange={(e) => setTaskForm({ ...taskForm, description: e.target.value })}
+                  className="mt-1 w-full rounded-lg border dark:border-gray-600 bg-white dark:bg-gray-700 px-3 py-2 text-sm text-gray-900 dark:text-white"
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">Prioridad</label>
+                <select
+                  value={taskForm.priority}
+                  onChange={(e) => setTaskForm({ ...taskForm, priority: e.target.value as "URGENT" | "HIGH" | "MEDIUM" | "LOW" })}
+                  className="mt-1 w-full rounded-lg border dark:border-gray-600 bg-white dark:bg-gray-700 px-3 py-2 text-sm text-gray-900 dark:text-white"
+                >
+                  <option value="URGENT">Urgente</option>
+                  <option value="HIGH">Alta</option>
+                  <option value="MEDIUM">Media</option>
+                  <option value="LOW">Baja</option>
+                </select>
+              </div>
+              <div className="flex justify-end gap-2">
+                <button
+                  type="button"
+                  onClick={() => setShowTaskModal(false)}
+                  className="rounded-lg bg-gray-100 dark:bg-gray-700 px-4 py-2 text-sm font-medium text-gray-700 dark:text-gray-200 hover:bg-gray-200 dark:hover:bg-gray-600"
+                >
+                  Cancelar
+                </button>
+                <button
+                  type="submit"
+                  disabled={createTaskMutation.isPending}
+                  className="rounded-lg bg-green-600 px-4 py-2 text-sm font-medium text-white hover:bg-green-700 disabled:opacity-50"
+                >
+                  {createTaskMutation.isPending ? "Creando..." : "Crear tarea"}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

@@ -11,6 +11,8 @@ import { notificationsRouter } from "./notifications";
 import { socialRouter } from "./social";
 import { organizationsRouter } from "./organizations";
 import { onboardingRouter } from "./onboarding";
+import { responsesRouter } from "./responses";
+import { crisisRouter } from "./crisis";
 
 export const appRouter = router({
   dashboard: dashboardRouter,
@@ -25,6 +27,8 @@ export const appRouter = router({
   social: socialRouter,
   organizations: organizationsRouter,
   onboarding: onboardingRouter,
+  responses: responsesRouter,
+  crisis: crisisRouter,
 });
 
 export type AppRouter = typeof appRouter;

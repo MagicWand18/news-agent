@@ -32,6 +32,9 @@ export const tasksRouter = router({
           mention: {
             select: { article: { select: { title: true } } },
           },
+          socialMention: {
+            select: { platform: true, authorHandle: true, postUrl: true },
+          },
         },
         orderBy: [{ priority: "asc" }, { createdAt: "desc" }],
       });
@@ -47,6 +50,7 @@ export const tasksRouter = router({
         assigneeId: z.string().optional(),
         deadline: z.date().optional(),
         mentionId: z.string().optional(),
+        socialMentionId: z.string().optional(),
       })
     )
     .mutation(async ({ input, ctx }) => {

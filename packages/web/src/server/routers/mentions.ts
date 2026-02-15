@@ -186,4 +186,63 @@ Tonos validos: PROFESSIONAL, DEFENSIVE, CLARIFICATION, CELEBRATORY`;
         return fallbackResponse;
       }
     }),
+
+  /**
+   * Exporta menciones como array de objetos planos (para CSV).
+   */
+  exportMentions: protectedProcedure
+    .input(
+      z.object({
+        clientId: z.string().optional(),
+        sentiment: z.enum(["POSITIVE", "NEGATIVE", "NEUTRAL", "MIXED"]).optional(),
+        urgency: z.enum(["CRITICAL", "HIGH", "MEDIUM", "LOW"]).optional(),
+        dateFrom: z.date().optional(),
+        dateTo: z.date().optional(),
+        orgId: z.string().optional(),
+      })
+    )
+    .query(async ({ input, ctx }) => {
+      const orgId = getEffectiveOrgId(ctx.user, input.orgId);
+      const clientOrgFilter = orgId ? { client: { orgId } } : {};
+
+      const articleFilter = {
+        ...(input.dateFrom || input.dateTo
+          ? {
+              publishedAt: {
+                ...(input.dateFrom && { gte: input.dateFrom }),
+                ...(input.dateTo && { lte: input.dateTo }),
+              },
+            }
+          : {}),
+      };
+
+      const mentions = await prisma.mention.findMany({
+        where: {
+          ...clientOrgFilter,
+          ...(input.clientId && { clientId: input.clientId }),
+          ...(input.sentiment && { sentiment: input.sentiment }),
+          ...(input.urgency && { urgency: input.urgency }),
+          ...(Object.keys(articleFilter).length > 0 && { article: articleFilter }),
+        },
+        include: {
+          article: { select: { title: true, source: true, url: true, publishedAt: true } },
+          client: { select: { name: true } },
+        },
+        orderBy: { createdAt: "desc" },
+        take: 5000,
+      });
+
+      return mentions.map((m) => ({
+        date: m.article.publishedAt?.toISOString() || m.createdAt.toISOString(),
+        title: m.article.title,
+        source: m.article.source,
+        url: m.article.url,
+        sentiment: m.sentiment,
+        relevance: m.relevance,
+        urgency: m.urgency,
+        summary: m.aiSummary || "",
+        suggestedAction: m.aiAction || "",
+        client: m.client.name,
+      }));
+    }),
 });

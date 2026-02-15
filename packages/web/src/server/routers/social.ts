@@ -824,6 +824,64 @@ Genera:
     }),
 
   /**
+   * Exporta menciones sociales como array de objetos planos (para CSV).
+   */
+  exportSocialMentions: protectedProcedure
+    .input(
+      z.object({
+        clientId: z.string().optional(),
+        platform: SocialPlatformEnum.optional(),
+        sentiment: z.enum(["POSITIVE", "NEGATIVE", "NEUTRAL", "MIXED"]).optional(),
+        dateFrom: z.date().optional(),
+        dateTo: z.date().optional(),
+        orgId: z.string().optional(),
+      })
+    )
+    .query(async ({ input, ctx }) => {
+      const orgId = getEffectiveOrgId(ctx.user, input.orgId);
+      const clientOrgFilter = orgId ? { client: { orgId } } : {};
+
+      const createdAtFilter = (input.dateFrom || input.dateTo)
+        ? {
+            createdAt: {
+              ...(input.dateFrom && { gte: input.dateFrom }),
+              ...(input.dateTo && { lte: input.dateTo }),
+            },
+          }
+        : {};
+
+      const mentions = await prisma.socialMention.findMany({
+        where: {
+          ...clientOrgFilter,
+          ...(input.clientId && { clientId: input.clientId }),
+          ...(input.platform && { platform: input.platform }),
+          ...(input.sentiment && { sentiment: input.sentiment }),
+          ...createdAtFilter,
+        },
+        include: {
+          client: { select: { name: true } },
+        },
+        orderBy: { createdAt: "desc" },
+        take: 5000,
+      });
+
+      return mentions.map((m) => ({
+        date: m.postedAt?.toISOString() || m.createdAt.toISOString(),
+        platform: m.platform,
+        author: m.authorHandle,
+        content: m.content || "",
+        likes: m.likes,
+        comments: m.comments,
+        shares: m.shares,
+        views: m.views ?? 0,
+        engagement: m.likes + m.comments + m.shares,
+        sentiment: m.sentiment,
+        client: m.client.name,
+        postUrl: m.postUrl,
+      }));
+    }),
+
+  /**
    * Ejecuta recolección manual de redes sociales para un cliente.
    * Encola un job para la recolección en lugar de ejecutar directamente.
    * Permite seleccionar plataformas específicas.

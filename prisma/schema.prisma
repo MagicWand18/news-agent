@@ -34,6 +34,13 @@ model User {
   isSuperAdmin         Boolean          @default(false)
   onboardingStatus     OnboardingStatus @default(PENDING)
   onboardingCompletedAt DateTime?
+
+  // Action Pipeline
+  responseDraftsCreated  ResponseDraft[] @relation("ResponseCreatedBy")
+  responseDraftsApproved ResponseDraft[] @relation("ResponseApprovedBy")
+  crisisAssigned         CrisisAlert[]   @relation("CrisisAssignedTo")
+  crisisNotes            CrisisNote[]
+  actionItems            ActionItem[]
 }
 
 enum Role {
@@ -91,6 +98,10 @@ model Client {
   socialAccounts          SocialAccount[]
   socialMentions          SocialMention[]
   lastSocialCollectionAt  DateTime?                  // Última recolección manual de redes sociales
+
+  // Action Pipeline
+  actionItems  ActionItem[]
+  alertRules   AlertRule[]
 }
 
 model Keyword {
@@ -142,6 +153,7 @@ model Mention {
   clientNotified Boolean   @default(false)
   createdAt      DateTime  @default(now())
   tasks          Task[]
+  responseDrafts ResponseDraft[]
 
   // Legacy: artículo publicado antes de que el cliente fuera creado (contexto histórico)
   isLegacy       Boolean   @default(false)
@@ -179,24 +191,27 @@ enum Urgency {
 }
 
 model Task {
-  id          String     @id @default(cuid())
-  title       String
-  description String?
-  status      TaskStatus @default(PENDING)
-  priority    Priority   @default(MEDIUM)
-  deadline    DateTime?
-  clientId    String?
-  client      Client?    @relation(fields: [clientId], references: [id])
-  mentionId   String?
-  mention     Mention?   @relation(fields: [mentionId], references: [id])
-  assigneeId  String?
-  assignee    User?      @relation(fields: [assigneeId], references: [id])
-  createdAt   DateTime   @default(now())
-  updatedAt   DateTime   @updatedAt
-  completedAt DateTime?
+  id              String         @id @default(cuid())
+  title           String
+  description     String?
+  status          TaskStatus     @default(PENDING)
+  priority        Priority       @default(MEDIUM)
+  deadline        DateTime?
+  clientId        String?
+  client          Client?        @relation(fields: [clientId], references: [id])
+  mentionId       String?
+  mention         Mention?       @relation(fields: [mentionId], references: [id])
+  socialMentionId String?
+  socialMention   SocialMention? @relation(fields: [socialMentionId], references: [id])
+  assigneeId      String?
+  assignee        User?          @relation(fields: [assigneeId], references: [id])
+  createdAt       DateTime       @default(now())
+  updatedAt       DateTime       @updatedAt
+  completedAt     DateTime?
 
   @@index([assigneeId, status])
   @@index([clientId, status])
+  @@index([socialMentionId])
 }
 
 enum TaskStatus {
@@ -256,6 +271,11 @@ model CrisisAlert {
   notifiedAt    DateTime?
   createdAt     DateTime          @default(now())
   updatedAt     DateTime          @updatedAt
+
+  // Action Pipeline
+  assignedToId  String?
+  assignedTo    User?             @relation("CrisisAssignedTo", fields: [assignedToId], references: [id])
+  crisisNotes   CrisisNote[]
 
   @@index([clientId, status])
   @@index([createdAt])
@@ -576,10 +596,115 @@ model SocialMention {
   commentsSentiment   Sentiment?  // Sentimiento agregado de los comentarios
   commentsAnalyzed    Boolean     @default(false) // Si los comentarios fueron analizados
 
+  // Action Pipeline
+  responseDrafts ResponseDraft[]
+  tasks          Task[]
+
   @@unique([platform, postId])
   @@index([clientId, createdAt])
   @@index([clientId, isLegacy, createdAt])
   @@index([clientId, platform, createdAt])
   @@index([platform, postedAt])
   @@index([sentiment, createdAt])
+}
+
+// ==================== ACTION PIPELINE ====================
+
+enum ResponseStatus {
+  DRAFT
+  IN_REVIEW
+  APPROVED
+  PUBLISHED
+  DISCARDED
+}
+
+model ResponseDraft {
+  id              String         @id @default(cuid())
+  mentionId       String?
+  socialMentionId String?
+  title           String
+  body            String         @db.Text
+  tone            String
+  audience        String
+  callToAction    String
+  keyMessages     String[]
+  status          ResponseStatus @default(DRAFT)
+  createdById     String
+  approvedById    String?
+  approvedAt      DateTime?
+  createdAt       DateTime       @default(now())
+  updatedAt       DateTime       @updatedAt
+
+  mention         Mention?       @relation(fields: [mentionId], references: [id])
+  socialMention   SocialMention? @relation(fields: [socialMentionId], references: [id])
+  createdBy       User           @relation("ResponseCreatedBy", fields: [createdById], references: [id])
+  approvedBy      User?          @relation("ResponseApprovedBy", fields: [approvedById], references: [id])
+
+  @@index([mentionId])
+  @@index([socialMentionId])
+  @@index([status])
+  @@index([createdById])
+}
+
+model CrisisNote {
+  id            String      @id @default(cuid())
+  crisisAlertId String
+  userId        String
+  content       String      @db.Text
+  type          String      @default("NOTE")
+  createdAt     DateTime    @default(now())
+
+  crisisAlert   CrisisAlert @relation(fields: [crisisAlertId], references: [id])
+  user          User        @relation(fields: [userId], references: [id])
+
+  @@index([crisisAlertId, createdAt])
+}
+
+enum ActionStatus {
+  PENDING
+  IN_PROGRESS
+  COMPLETED
+  NOT_APPLICABLE
+}
+
+model ActionItem {
+  id          String       @id @default(cuid())
+  clientId    String
+  source      String
+  sourceId    String?
+  description String
+  status      ActionStatus @default(PENDING)
+  assigneeId  String?
+  completedAt DateTime?
+  createdAt   DateTime     @default(now())
+
+  client      Client       @relation(fields: [clientId], references: [id])
+  assignee    User?        @relation(fields: [assigneeId], references: [id])
+
+  @@index([clientId, status])
+  @@index([assigneeId])
+}
+
+enum AlertRuleType {
+  NEGATIVE_SPIKE
+  SOV_DROP
+  VOLUME_SURGE
+  COMPETITOR_SPIKE
+  SENTIMENT_SHIFT
+  NO_MENTIONS
+}
+
+model AlertRule {
+  id        String        @id @default(cuid())
+  clientId  String
+  name      String
+  type      AlertRuleType
+  condition Json
+  channels  String[]
+  active    Boolean       @default(true)
+  createdAt DateTime      @default(now())
+
+  client    Client        @relation(fields: [clientId], references: [id])
+
+  @@index([clientId, active])
 }

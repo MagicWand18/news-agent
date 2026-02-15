@@ -23,9 +23,12 @@ import {
   Shield,
   ChevronLeft,
   ChevronRight,
+  AlertTriangle,
+  MessageSquareReply,
 } from "lucide-react";
 import { signOut, useSession } from "next-auth/react";
 import { useState } from "react";
+import { trpc } from "@/lib/trpc";
 import { useTheme } from "./theme-provider";
 import { NotificationBell } from "./notifications";
 import { TourButton } from "./onboarding";
@@ -40,6 +43,8 @@ const tourIdMap: Record<string, string> = {
   "/dashboard/social-mentions": "nav-social",
   "/dashboard/analytics": "nav-analytics",
   "/dashboard/intelligence": "nav-intelligence",
+  "/dashboard/crisis": "nav-crisis",
+  "/dashboard/responses": "nav-responses",
   "/dashboard/sources": "nav-sources",
   "/dashboard/tasks": "nav-tasks",
   "/dashboard/team": "nav-team",
@@ -53,6 +58,8 @@ const navigation = [
   { name: "Redes Sociales", href: "/dashboard/social-mentions", icon: Share2 },
   { name: "Analiticas", href: "/dashboard/analytics", icon: BarChart3, separator: true },
   { name: "Intelligence", href: "/dashboard/intelligence", icon: Brain },
+  { name: "Crisis", href: "/dashboard/crisis", icon: AlertTriangle },
+  { name: "Respuestas", href: "/dashboard/responses", icon: MessageSquareReply },
   { name: "Fuentes", href: "/dashboard/sources", icon: Rss, separator: true },
   { name: "Tareas", href: "/dashboard/tasks", icon: CheckSquare },
   { name: "Equipo", href: "/dashboard/team", icon: UserCog, separator: true },
@@ -66,6 +73,11 @@ export function Sidebar() {
   const [mobileOpen, setMobileOpen] = useState(false);
   const { resolvedTheme, setTheme } = useTheme();
   const { collapsed, toggle } = useSidebar();
+
+  // Badge de crisis activas
+  const activeCrisis = trpc.crisis.getActiveCrisisCount.useQuery(undefined, {
+    refetchInterval: 60000,
+  });
 
   const toggleTheme = () => {
     setTheme(resolvedTheme === "dark" ? "light" : "dark");
@@ -197,8 +209,18 @@ export function Sidebar() {
               >
                 <item.icon className={cn("h-5 w-5 flex-shrink-0", isActive && "text-blue-300")} />
                 {!isCollapsed && item.name}
-                {!isCollapsed && isActive && (
+                {/* Badge de crisis activas */}
+                {!isCollapsed && item.href === "/dashboard/crisis" && (activeCrisis.data?.count ?? 0) > 0 && (
+                  <span className="ml-auto flex h-5 min-w-[20px] items-center justify-center rounded-full bg-red-500 px-1.5 text-[10px] font-bold text-white">
+                    {activeCrisis.data!.count}
+                  </span>
+                )}
+                {!isCollapsed && isActive && item.href !== "/dashboard/crisis" && (
                   <div className="ml-auto h-1.5 w-1.5 rounded-full bg-blue-400" />
+                )}
+                {/* Red dot para crisis activas en modo colapsado */}
+                {isCollapsed && item.href === "/dashboard/crisis" && (activeCrisis.data?.count ?? 0) > 0 && (
+                  <span className="absolute -right-0.5 -top-0.5 h-2.5 w-2.5 rounded-full bg-red-500 ring-2 ring-brand-900" />
                 )}
                 {isCollapsed && (
                   <span className="absolute left-full ml-2 hidden rounded-md bg-gray-900 px-2 py-1 text-xs text-white shadow-lg group-hover:block whitespace-nowrap z-50">

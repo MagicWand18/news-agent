@@ -163,7 +163,7 @@ export function startInsightsWorker() {
           });
 
           // Guardar en base de datos
-          await prisma.weeklyInsight.upsert({
+          const savedInsight = await prisma.weeklyInsight.upsert({
             where: {
               clientId_weekStart: {
                 clientId: client.id,
@@ -191,6 +191,37 @@ export function startInsightsWorker() {
               topTopics: topTopics,
             },
           });
+
+          // Crear ActionItems a partir de las acciones recomendadas (evitar duplicados)
+          if (insightsResult.recommendedActions?.length) {
+            const existingActions = await prisma.actionItem.findMany({
+              where: { clientId: client.id, source: "weekly_insight", sourceId: savedInsight.id },
+              select: { description: true },
+            });
+            const existingDescriptions = new Set(existingActions.map((a) => a.description));
+
+            let created = 0;
+            for (const action of insightsResult.recommendedActions) {
+              if (existingDescriptions.has(action)) continue;
+              try {
+                await prisma.actionItem.create({
+                  data: {
+                    clientId: client.id,
+                    source: "weekly_insight",
+                    sourceId: savedInsight.id,
+                    description: action,
+                    status: "PENDING",
+                  },
+                });
+                created++;
+              } catch (actionErr) {
+                console.error(`[InsightsWorker] Error creating ActionItem for ${client.name}:`, actionErr);
+              }
+            }
+            if (created > 0) {
+              console.log(`[InsightsWorker] Created ${created} ActionItems for ${client.name}`);
+            }
+          }
 
           console.log(`[InsightsWorker] Insights saved for ${client.name}`);
         } catch (err) {

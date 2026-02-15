@@ -3,8 +3,9 @@
 import { trpc } from "@/lib/trpc";
 import { useState, useMemo } from "react";
 import { cn } from "@/lib/cn";
-import { Plus, ListFilter, Users, AlertTriangle } from "lucide-react";
+import { Plus, ListFilter, Users, AlertTriangle, Newspaper, Share2 } from "lucide-react";
 import { FilterBar, FilterSelect, FilterChips } from "@/components/filters";
+import Link from "next/link";
 
 const statusLabels: Record<string, string> = {
   PENDING: "Pendiente",
@@ -230,9 +231,24 @@ export default function TasksPage() {
                 <td className="px-6 py-4">
                   <p className="font-medium text-gray-900 dark:text-gray-100">{task.title}</p>
                   {task.mention?.article && (
-                    <p className="text-xs text-gray-400 dark:text-gray-500">
-                      Desde: {task.mention.article.title.slice(0, 50)}...
-                    </p>
+                    <Link
+                      href={`/dashboard/mentions/${(task as Record<string, unknown>).mentionId as string}`}
+                      className="mt-1 inline-flex items-center gap-1 text-xs text-brand-600 dark:text-brand-400 hover:underline"
+                    >
+                      <Newspaper className="h-3 w-3" />
+                      <span className="rounded bg-indigo-50 dark:bg-indigo-900/20 px-1.5 py-0.5 text-xs font-medium text-indigo-700 dark:text-indigo-400">De mencion</span>
+                      {task.mention.article.title.slice(0, 50)}...
+                    </Link>
+                  )}
+                  {task.socialMention && (
+                    <Link
+                      href={`/dashboard/social-mentions/${(task as Record<string, unknown>).socialMentionId as string}`}
+                      className="mt-1 inline-flex items-center gap-1 text-xs text-brand-600 dark:text-brand-400 hover:underline"
+                    >
+                      <Share2 className="h-3 w-3" />
+                      <span className="rounded bg-purple-50 dark:bg-purple-900/20 px-1.5 py-0.5 text-xs font-medium text-purple-700 dark:text-purple-400">De red social</span>
+                      @{task.socialMention.authorHandle}
+                    </Link>
                   )}
                 </td>
                 <td className="px-6 py-4 text-gray-500 dark:text-gray-400">

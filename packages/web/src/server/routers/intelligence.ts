@@ -128,11 +128,16 @@ export const intelligenceRouter = router({
       })
     )
     .query(async ({ input, ctx }) => {
-      const orgId = ctx.user.orgId;
+      const orgId = getEffectiveOrgId(ctx.user);
       const since = new Date(Date.now() - input.days * 24 * 60 * 60 * 1000);
 
       const clientFilter = input.clientId
         ? Prisma.sql`AND m."clientId" = ${input.clientId}`
+        : Prisma.empty;
+
+      // Si no hay orgId (SuperAdmin sin org seleccionada), no filtrar por org
+      const orgFilter = orgId
+        ? Prisma.sql`AND c."orgId" = ${orgId}`
         : Prisma.empty;
 
       // Obtener temas agrupados
@@ -147,9 +152,9 @@ export const intelligenceRouter = router({
           SUM(CASE WHEN m.sentiment = 'NEUTRAL' THEN 1 ELSE 0 END) as neutral
         FROM "Mention" m
         JOIN "Client" c ON m."clientId" = c.id
-        WHERE c."orgId" = ${orgId}
+        WHERE m.topic IS NOT NULL
         AND m."createdAt" >= ${since}
-        AND m.topic IS NOT NULL
+        ${orgFilter}
         ${clientFilter}
         GROUP BY m.topic
         ORDER BY count DESC
@@ -162,9 +167,9 @@ export const intelligenceRouter = router({
         SELECT m.topic, COUNT(*) as count
         FROM "Mention" m
         JOIN "Client" c ON m."clientId" = c.id
-        WHERE c."orgId" = ${orgId}
+        WHERE m.topic IS NOT NULL
         AND m."createdAt" >= ${last24h}
-        AND m.topic IS NOT NULL
+        ${orgFilter}
         ${clientFilter}
         GROUP BY m.topic
         HAVING COUNT(*) >= 3
@@ -261,12 +266,162 @@ export const intelligenceRouter = router({
   }),
 
   /**
+   * Genera datos de reporte semanal para un cliente.
+   * Retorna datos estructurados que el frontend convierte a CSV o muestra en UI.
+   * Para PDF, usar el cron job semanal existente en workers.
+   */
+  generateReport: protectedProcedure
+    .input(
+      z.object({
+        clientId: z.string(),
+      })
+    )
+    .mutation(async ({ input, ctx }) => {
+      const client = ctx.user.isSuperAdmin
+        ? await prisma.client.findFirst({
+            where: { id: input.clientId },
+            include: { keywords: true },
+          })
+        : await prisma.client.findFirst({
+            where: { id: input.clientId, orgId: ctx.user.orgId! },
+            include: { keywords: true },
+          });
+
+      if (!client) {
+        throw new TRPCError({ code: "NOT_FOUND", message: "Cliente no encontrado" });
+      }
+
+      const endDate = new Date();
+      const startDate = new Date();
+      startDate.setDate(startDate.getDate() - 7);
+
+      const [mentions, crisisCount, sovHistory, weeklyInsight] = await Promise.all([
+        prisma.mention.findMany({
+          where: {
+            clientId: input.clientId,
+            createdAt: { gte: startDate, lte: endDate },
+          },
+          include: { article: true },
+          orderBy: { relevance: "desc" },
+        }),
+        prisma.crisisAlert.count({
+          where: {
+            clientId: input.clientId,
+            createdAt: { gte: startDate, lte: endDate },
+          },
+        }),
+        getMentionsWithTier(input.clientId, startDate, endDate),
+        prisma.weeklyInsight.findFirst({
+          where: { clientId: input.clientId },
+          orderBy: { weekStart: "desc" },
+        }),
+      ]);
+
+      const sentimentBreakdown = { positive: 0, negative: 0, neutral: 0, mixed: 0 };
+      for (const m of mentions) {
+        const key = m.sentiment.toLowerCase() as keyof typeof sentimentBreakdown;
+        if (key in sentimentBreakdown) sentimentBreakdown[key]++;
+      }
+
+      const topMentions = mentions.slice(0, 10).map((m) => ({
+        title: m.article.title,
+        source: m.article.source,
+        url: m.article.url,
+        sentiment: m.sentiment,
+        relevance: m.relevance,
+        aiSummary: m.aiSummary,
+        date: m.createdAt.toISOString(),
+      }));
+
+      return {
+        clientName: client.name,
+        period: { start: startDate.toISOString(), end: endDate.toISOString() },
+        totalMentions: mentions.length,
+        weightedMentions: sovHistory.weighted,
+        sentimentBreakdown,
+        crisisAlerts: crisisCount,
+        topMentions,
+        insights: weeklyInsight?.insights ?? [],
+        topTopics: weeklyInsight?.topTopics ?? [],
+        filename: `reporte-${client.name.toLowerCase().replace(/\s+/g, "-")}-${startDate.toISOString().split("T")[0]}.csv`,
+      };
+    }),
+
+  /**
+   * Obtiene action items de un cliente.
+   */
+  getActionItems: protectedProcedure
+    .input(
+      z.object({
+        clientId: z.string(),
+        status: z.enum(["PENDING", "IN_PROGRESS", "COMPLETED", "NOT_APPLICABLE"]).optional(),
+        limit: z.number().min(1).max(100).default(50),
+      })
+    )
+    .query(async ({ input, ctx }) => {
+      // Verificar acceso al cliente
+      const clientWhere = ctx.user.isSuperAdmin
+        ? { id: input.clientId }
+        : { id: input.clientId, orgId: ctx.user.orgId! };
+      const client = await prisma.client.findFirst({ where: clientWhere });
+      if (!client) {
+        throw new TRPCError({ code: "NOT_FOUND", message: "Cliente no encontrado" });
+      }
+
+      return prisma.actionItem.findMany({
+        where: {
+          clientId: input.clientId,
+          ...(input.status && { status: input.status }),
+        },
+        include: {
+          assignee: { select: { id: true, name: true } },
+        },
+        orderBy: { createdAt: "desc" },
+        take: input.limit,
+      });
+    }),
+
+  /**
+   * Actualiza el estado de un action item.
+   */
+  updateActionItem: protectedProcedure
+    .input(
+      z.object({
+        id: z.string(),
+        status: z.enum(["PENDING", "IN_PROGRESS", "COMPLETED", "NOT_APPLICABLE"]),
+      })
+    )
+    .mutation(async ({ input, ctx }) => {
+      const orgFilter = ctx.user.isSuperAdmin ? {} : { client: { orgId: ctx.user.orgId! } };
+      const item = await prisma.actionItem.findFirst({
+        where: { id: input.id, ...orgFilter },
+      });
+
+      if (!item) {
+        throw new TRPCError({ code: "NOT_FOUND", message: "Action item no encontrado" });
+      }
+
+      return prisma.actionItem.update({
+        where: { id: input.id },
+        data: {
+          status: input.status,
+          ...(input.status === "COMPLETED" && { completedAt: new Date() }),
+        },
+      });
+    }),
+
+  /**
    * Obtiene KPIs de inteligencia para el dashboard.
    */
   getKPIs: protectedProcedure.query(async ({ ctx }) => {
-    const orgId = ctx.user.orgId;
+    const orgId = getEffectiveOrgId(ctx.user);
     const last7d = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000);
     const last24h = new Date(Date.now() - 24 * 60 * 60 * 1000);
+
+    // Si no hay orgId (SuperAdmin sin org), retornar zeros
+    if (!orgId) {
+      return { topicsCount: 0, emergingTopics: 0, avgSOV: 0, weightedMentions: 0 };
+    }
 
     const [topicsCount, emergingCount, avgSOV, weightedMentions] = await Promise.all([
       // Temas únicos esta semana

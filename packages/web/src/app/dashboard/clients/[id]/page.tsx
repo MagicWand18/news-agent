@@ -7,7 +7,7 @@ import { SocialMentionRow, SocialMentionRowSkeleton } from "@/components/social-
 import { InstagramIcon, TikTokIcon, YouTubeIcon } from "@/components/platform-icons";
 import { useParams, useRouter } from "next/navigation";
 import { useState } from "react";
-import { ArrowLeft, Plus, X, BarChart3, Target, TrendingUp, TrendingDown, Minus, Trash2, Settings, Search, Calendar, Loader2, MessageCircle, Building2, Users, User, RefreshCw, ArrowRightLeft, Clock, Archive } from "lucide-react";
+import { ArrowLeft, Plus, X, BarChart3, Target, TrendingUp, TrendingDown, Minus, Trash2, Settings, Search, Calendar, Loader2, MessageCircle, Building2, Users, User, RefreshCw, ArrowRightLeft, Clock, Archive, Bell, Shield, AlertTriangle as AlertTriangleIcon } from "lucide-react";
 import { useSession } from "next-auth/react";
 import Link from "next/link";
 import {
@@ -357,6 +357,9 @@ export default function ClientDetailPage() {
 
       {/* Social Mentions Section */}
       <SocialMentionsSection clientId={id} clientName={c.name} />
+
+      {/* Alert Rules Section */}
+      <AlertRulesSection clientId={id} />
 
       {/* Mentions with Recientes / Historial tabs */}
       <div className="rounded-xl bg-white dark:bg-gray-800 p-6 shadow-sm dark:shadow-gray-900/20">
@@ -2247,6 +2250,264 @@ function SocialMentionsSection({ clientId, clientName }: { clientId: string; cli
           )}
         </>
       )}
+    </div>
+  );
+}
+
+const ALERT_RULE_TYPES = [
+  { value: "NEGATIVE_SPIKE", label: "Pico de negatividad", description: "Alerta cuando las menciones negativas superan un umbral" },
+  { value: "SOV_DROP", label: "Caida de visibilidad", description: "Alerta cuando el SOV cae por debajo de un porcentaje" },
+  { value: "VOLUME_SURGE", label: "Volumen inusual", description: "Alerta cuando hay un pico de menciones" },
+  { value: "COMPETITOR_SPIKE", label: "Competidor destaca", description: "Alerta cuando un competidor tiene un pico de cobertura" },
+  { value: "SENTIMENT_SHIFT", label: "Cambio de sentimiento", description: "Alerta cuando el sentimiento general cambia" },
+  { value: "NO_MENTIONS", label: "Silencio mediatico", description: "Alerta cuando no hay menciones en un periodo" },
+];
+
+const ALERT_PRESETS = [
+  { name: "Alerta de crisis", type: "NEGATIVE_SPIKE", condition: { threshold: 5, period: "24h" }, channels: ["telegram", "inapp"] },
+  { name: "Caida de visibilidad", type: "SOV_DROP", condition: { threshold: 20, period: "7d" }, channels: ["inapp"] },
+  { name: "Silencio mediatico", type: "NO_MENTIONS", condition: { days: 3 }, channels: ["telegram"] },
+];
+
+/**
+ * Seccion de reglas de alerta para un cliente.
+ * TODO: Conectar con un router de backend alertRules cuando esté implementado.
+ */
+function AlertRulesSection({ clientId }: { clientId: string }) {
+  const [showForm, setShowForm] = useState(false);
+  const [rules, setRules] = useState<Array<{
+    id: string;
+    name: string;
+    type: string;
+    condition: Record<string, unknown>;
+    channels: string[];
+    active: boolean;
+  }>>([]);
+  const [formData, setFormData] = useState({
+    name: "",
+    type: "NEGATIVE_SPIKE",
+    channels: ["inapp"] as string[],
+    threshold: "",
+    period: "24h",
+  });
+
+  const handleCreateRule = (e: React.FormEvent) => {
+    e.preventDefault();
+    // TODO: Usar trpc.alertRules.create cuando el router exista
+    const newRule = {
+      id: `local-${Date.now()}`,
+      name: formData.name,
+      type: formData.type,
+      condition: { threshold: Number(formData.threshold) || 5, period: formData.period },
+      channels: formData.channels,
+      active: true,
+    };
+    setRules([...rules, newRule]);
+    setShowForm(false);
+    setFormData({ name: "", type: "NEGATIVE_SPIKE", channels: ["inapp"], threshold: "", period: "24h" });
+  };
+
+  const handleApplyPreset = (preset: typeof ALERT_PRESETS[number]) => {
+    setFormData({
+      name: preset.name,
+      type: preset.type,
+      channels: preset.channels,
+      threshold: String((preset.condition as Record<string, unknown>).threshold || ""),
+      period: String((preset.condition as Record<string, unknown>).period || "24h"),
+    });
+    setShowForm(true);
+  };
+
+  const toggleChannel = (channel: string) => {
+    setFormData((prev) => ({
+      ...prev,
+      channels: prev.channels.includes(channel)
+        ? prev.channels.filter((c) => c !== channel)
+        : [...prev.channels, channel],
+    }));
+  };
+
+  return (
+    <div className="rounded-xl bg-white dark:bg-gray-800 p-6 shadow-sm dark:shadow-gray-900/20">
+      <div className="flex items-center justify-between mb-4">
+        <div className="flex items-center gap-2">
+          <Bell className="h-5 w-5 text-amber-500" />
+          <h3 className="text-lg font-semibold text-gray-900 dark:text-white">Alertas</h3>
+        </div>
+        <button
+          onClick={() => setShowForm(!showForm)}
+          className="flex items-center gap-1 rounded-lg bg-amber-50 dark:bg-amber-900/20 px-3 py-1.5 text-sm font-medium text-amber-700 dark:text-amber-400 hover:bg-amber-100 dark:hover:bg-amber-900/40"
+        >
+          <Plus className="h-4 w-4" />
+          Nueva regla
+        </button>
+      </div>
+
+      {/* Presets */}
+      {!showForm && rules.length === 0 && (
+        <div className="mb-4">
+          <p className="text-sm text-gray-500 dark:text-gray-400 mb-3">
+            Plantillas rapidas:
+          </p>
+          <div className="flex flex-wrap gap-2">
+            {ALERT_PRESETS.map((preset) => (
+              <button
+                key={preset.name}
+                onClick={() => handleApplyPreset(preset)}
+                className="rounded-lg border dark:border-gray-600 px-3 py-2 text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-colors"
+              >
+                {preset.name}
+              </button>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* Form */}
+      {showForm && (
+        <form onSubmit={handleCreateRule} className="mb-4 rounded-lg border dark:border-gray-700 p-4 space-y-4">
+          <div>
+            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">Nombre</label>
+            <input
+              required
+              value={formData.name}
+              onChange={(e) => setFormData({ ...formData, name: e.target.value })}
+              placeholder="Nombre de la regla"
+              className="mt-1 w-full rounded-lg border dark:border-gray-600 bg-white dark:bg-gray-700 px-3 py-2 text-sm text-gray-900 dark:text-white"
+            />
+          </div>
+          <div>
+            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">Tipo</label>
+            <select
+              value={formData.type}
+              onChange={(e) => setFormData({ ...formData, type: e.target.value })}
+              className="mt-1 w-full rounded-lg border dark:border-gray-600 bg-white dark:bg-gray-700 px-3 py-2 text-sm text-gray-900 dark:text-white"
+            >
+              {ALERT_RULE_TYPES.map((t) => (
+                <option key={t.value} value={t.value}>{t.label}</option>
+              ))}
+            </select>
+            <p className="mt-1 text-xs text-gray-400 dark:text-gray-500">
+              {ALERT_RULE_TYPES.find((t) => t.value === formData.type)?.description}
+            </p>
+          </div>
+          <div className="grid grid-cols-2 gap-4">
+            <div>
+              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">Umbral</label>
+              <input
+                type="number"
+                value={formData.threshold}
+                onChange={(e) => setFormData({ ...formData, threshold: e.target.value })}
+                placeholder="5"
+                className="mt-1 w-full rounded-lg border dark:border-gray-600 bg-white dark:bg-gray-700 px-3 py-2 text-sm text-gray-900 dark:text-white"
+              />
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">Periodo</label>
+              <select
+                value={formData.period}
+                onChange={(e) => setFormData({ ...formData, period: e.target.value })}
+                className="mt-1 w-full rounded-lg border dark:border-gray-600 bg-white dark:bg-gray-700 px-3 py-2 text-sm text-gray-900 dark:text-white"
+              >
+                <option value="1h">1 hora</option>
+                <option value="6h">6 horas</option>
+                <option value="24h">24 horas</option>
+                <option value="7d">7 dias</option>
+              </select>
+            </div>
+          </div>
+          <div>
+            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Canales de notificacion</label>
+            <div className="flex gap-3">
+              <button
+                type="button"
+                onClick={() => toggleChannel("telegram")}
+                className={cn(
+                  "rounded-lg border px-3 py-1.5 text-sm transition-colors",
+                  formData.channels.includes("telegram")
+                    ? "border-blue-500 bg-blue-50 dark:bg-blue-900/20 text-blue-700 dark:text-blue-400"
+                    : "border-gray-200 dark:border-gray-600 text-gray-600 dark:text-gray-400"
+                )}
+              >
+                Telegram
+              </button>
+              <button
+                type="button"
+                onClick={() => toggleChannel("inapp")}
+                className={cn(
+                  "rounded-lg border px-3 py-1.5 text-sm transition-colors",
+                  formData.channels.includes("inapp")
+                    ? "border-purple-500 bg-purple-50 dark:bg-purple-900/20 text-purple-700 dark:text-purple-400"
+                    : "border-gray-200 dark:border-gray-600 text-gray-600 dark:text-gray-400"
+                )}
+              >
+                En app
+              </button>
+            </div>
+          </div>
+          <div className="flex justify-end gap-2">
+            <button
+              type="button"
+              onClick={() => setShowForm(false)}
+              className="rounded-lg bg-gray-100 dark:bg-gray-700 px-4 py-2 text-sm font-medium text-gray-700 dark:text-gray-200"
+            >
+              Cancelar
+            </button>
+            <button
+              type="submit"
+              className="rounded-lg bg-amber-600 px-4 py-2 text-sm font-medium text-white hover:bg-amber-700"
+            >
+              Crear regla
+            </button>
+          </div>
+        </form>
+      )}
+
+      {/* Rules list */}
+      {rules.length > 0 ? (
+        <div className="space-y-2">
+          {rules.map((rule) => {
+            const typeInfo = ALERT_RULE_TYPES.find((t) => t.value === rule.type);
+            return (
+              <div key={rule.id} className="flex items-center justify-between rounded-lg border dark:border-gray-700 p-3">
+                <div className="flex items-center gap-3">
+                  <AlertTriangleIcon className="h-4 w-4 text-amber-500" />
+                  <div>
+                    <p className="text-sm font-medium text-gray-900 dark:text-white">{rule.name}</p>
+                    <p className="text-xs text-gray-500 dark:text-gray-400">{typeInfo?.label} - {rule.channels.join(", ")}</p>
+                  </div>
+                </div>
+                <div className="flex items-center gap-2">
+                  <button
+                    onClick={() => {
+                      setRules(rules.map((r) => r.id === rule.id ? { ...r, active: !r.active } : r));
+                    }}
+                    className={cn(
+                      "relative h-6 w-11 rounded-full transition-colors",
+                      rule.active ? "bg-green-500" : "bg-gray-300 dark:bg-gray-600"
+                    )}
+                  >
+                    <span className={cn(
+                      "absolute top-0.5 h-5 w-5 rounded-full bg-white shadow-sm transition-transform",
+                      rule.active ? "left-5" : "left-0.5"
+                    )} />
+                  </button>
+                  <button
+                    onClick={() => setRules(rules.filter((r) => r.id !== rule.id))}
+                    className="rounded p-1 text-gray-400 hover:text-red-500 dark:hover:text-red-400"
+                  >
+                    <Trash2 className="h-4 w-4" />
+                  </button>
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      ) : !showForm ? (
+        <p className="text-sm text-gray-400 dark:text-gray-500 italic">
+          No hay reglas de alerta configuradas. Usa una plantilla o crea una nueva regla.
+        </p>
+      ) : null}
     </div>
   );
 }

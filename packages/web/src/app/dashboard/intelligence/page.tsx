@@ -1,6 +1,7 @@
 "use client";
 
 import { trpc } from "@/lib/trpc";
+import { cn } from "@/lib/cn";
 import { useState, useMemo } from "react";
 import {
   AreaChart,
@@ -29,6 +30,11 @@ import {
   Calendar,
   Sparkles,
   Zap,
+  CheckCircle,
+  Clock,
+  XCircle,
+  Loader2,
+  Download,
 } from "lucide-react";
 import { FilterBar, FilterSelect } from "@/components/filters";
 import { TIME_PERIOD_OPTIONS } from "@/lib/filter-constants";
@@ -54,6 +60,54 @@ export default function IntelligencePage() {
     { clientId: clientId || undefined, limit: 4 }
   );
   const sourceTiers = trpc.intelligence.getSourceTiers.useQuery();
+
+  // Action items - solo si hay un cliente seleccionado
+  const actionItems = trpc.intelligence.getActionItems.useQuery(
+    { clientId: clientId || clients.data?.[0]?.id || "", limit: 20 },
+    { enabled: !!clientId || !!clients.data?.[0]?.id }
+  );
+  const updateActionItem = trpc.intelligence.updateActionItem.useMutation({
+    onSuccess: () => actionItems.refetch(),
+  });
+
+  // Generacion de reporte
+  const [reportClientId, setReportClientId] = useState<string>("");
+  const generateReportMutation = trpc.intelligence.generateReport.useMutation({
+    onSuccess: (data) => {
+      // Generar CSV desde datos del reporte
+      const headers = ["Fecha", "Titulo", "Fuente", "URL", "Sentimiento", "Relevancia", "Resumen IA"];
+      const rows = data.topMentions.map((m) => [
+        m.date,
+        `"${(m.title || "").replace(/"/g, '""')}"`,
+        `"${(m.source || "").replace(/"/g, '""')}"`,
+        m.url,
+        m.sentiment,
+        String(m.relevance),
+        `"${(m.aiSummary || "").replace(/"/g, '""')}"`,
+      ]);
+
+      // Agregar resumen al inicio
+      const summary = [
+        `# Reporte: ${data.clientName}`,
+        `# Periodo: ${data.period.start} - ${data.period.end}`,
+        `# Total menciones: ${data.totalMentions}`,
+        `# Positivas: ${data.sentimentBreakdown.positive} | Negativas: ${data.sentimentBreakdown.negative} | Neutras: ${data.sentimentBreakdown.neutral}`,
+        `# Crisis: ${data.crisisAlerts}`,
+        "",
+      ];
+
+      const csv = [...summary, headers.join(","), ...rows.map((r) => r.join(","))].join("\n");
+      const blob = new Blob(["\ufeff" + csv], { type: "text/csv;charset=utf-8" });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = data.filename;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+    },
+  });
 
   const clientOptions = useMemo(() => {
     if (!clients.data) return [];
@@ -326,6 +380,133 @@ export default function IntelligencePage() {
             </div>
           )}
         </div>
+      </div>
+
+      {/* Row 3.5: Action Items */}
+      {(clientId || clients.data?.[0]?.id) && (
+        <div className="rounded-xl border border-gray-100 dark:border-gray-700 bg-white dark:bg-gray-800 p-6 shadow-sm dark:shadow-gray-900/20" data-tour-id="intelligence-actions">
+          <div className="mb-4 flex items-center justify-between">
+            <div className="flex items-center gap-2">
+              <CheckCircle className="h-5 w-5 text-green-500" />
+              <h3 className="font-semibold text-gray-900 dark:text-white">Acciones Recomendadas</h3>
+            </div>
+          </div>
+          {actionItems.isLoading ? (
+            <LoadingSpinner />
+          ) : (actionItems.data?.length ?? 0) > 0 ? (
+            <div className="space-y-3">
+              {actionItems.data?.map((item) => (
+                <div
+                  key={item.id}
+                  className="flex items-start gap-3 rounded-lg border dark:border-gray-700 p-3"
+                >
+                  <div className="mt-0.5">
+                    {item.status === "COMPLETED" ? (
+                      <CheckCircle className="h-5 w-5 text-green-500" />
+                    ) : item.status === "IN_PROGRESS" ? (
+                      <Clock className="h-5 w-5 text-blue-500" />
+                    ) : item.status === "NOT_APPLICABLE" ? (
+                      <XCircle className="h-5 w-5 text-gray-400" />
+                    ) : (
+                      <div className="h-5 w-5 rounded-full border-2 border-gray-300 dark:border-gray-600" />
+                    )}
+                  </div>
+                  <div className="min-w-0 flex-1">
+                    <p className={cn(
+                      "text-sm text-gray-700 dark:text-gray-300",
+                      item.status === "COMPLETED" && "line-through text-gray-400 dark:text-gray-500",
+                      item.status === "NOT_APPLICABLE" && "line-through text-gray-400 dark:text-gray-500"
+                    )}>
+                      {item.description}
+                    </p>
+                    {item.assignee && (
+                      <p className="mt-1 text-xs text-gray-400 dark:text-gray-500">
+                        Asignado a: {item.assignee.name}
+                      </p>
+                    )}
+                  </div>
+                  <div className="flex gap-1">
+                    {item.status !== "COMPLETED" && (
+                      <button
+                        onClick={() => updateActionItem.mutate({ id: item.id, status: "COMPLETED" })}
+                        className="rounded-md px-2 py-1 text-xs text-green-600 dark:text-green-400 hover:bg-green-50 dark:hover:bg-green-900/20"
+                        title="Completada"
+                      >
+                        Completada
+                      </button>
+                    )}
+                    {item.status !== "IN_PROGRESS" && item.status !== "COMPLETED" && (
+                      <button
+                        onClick={() => updateActionItem.mutate({ id: item.id, status: "IN_PROGRESS" })}
+                        className="rounded-md px-2 py-1 text-xs text-blue-600 dark:text-blue-400 hover:bg-blue-50 dark:hover:bg-blue-900/20"
+                        title="En progreso"
+                      >
+                        En progreso
+                      </button>
+                    )}
+                    {item.status !== "NOT_APPLICABLE" && (
+                      <button
+                        onClick={() => updateActionItem.mutate({ id: item.id, status: "NOT_APPLICABLE" })}
+                        className="rounded-md px-2 py-1 text-xs text-gray-500 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-700"
+                        title="No aplica"
+                      >
+                        No aplica
+                      </button>
+                    )}
+                  </div>
+                </div>
+              ))}
+            </div>
+          ) : (
+            <EmptyState message="Sin acciones recomendadas para este periodo" />
+          )}
+        </div>
+      )}
+
+      {/* Row 3.6: Generate Report */}
+      <div className="rounded-xl border border-gray-100 dark:border-gray-700 bg-white dark:bg-gray-800 p-6 shadow-sm dark:shadow-gray-900/20">
+        <div className="flex items-center justify-between">
+          <div>
+            <h3 className="font-semibold text-gray-900 dark:text-white">Generar reporte semanal</h3>
+            <p className="text-sm text-gray-500 dark:text-gray-400">
+              Descarga un reporte PDF con el resumen semanal de un cliente
+            </p>
+          </div>
+          <div className="flex items-center gap-3">
+            <select
+              value={reportClientId}
+              onChange={(e) => setReportClientId(e.target.value)}
+              className="rounded-lg border dark:border-gray-600 bg-white dark:bg-gray-700 px-3 py-2 text-sm text-gray-900 dark:text-white"
+            >
+              <option value="">Seleccionar cliente...</option>
+              {clients.data?.map((c) => (
+                <option key={c.id} value={c.id}>{c.name}</option>
+              ))}
+            </select>
+            <button
+              onClick={() => reportClientId && generateReportMutation.mutate({ clientId: reportClientId })}
+              disabled={!reportClientId || generateReportMutation.isPending}
+              className="inline-flex items-center gap-2 rounded-lg bg-brand-600 px-4 py-2 text-sm font-medium text-white hover:bg-brand-700 disabled:opacity-50"
+            >
+              {generateReportMutation.isPending ? (
+                <>
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                  Generando...
+                </>
+              ) : (
+                <>
+                  <Download className="h-4 w-4" />
+                  Generar reporte
+                </>
+              )}
+            </button>
+          </div>
+        </div>
+        {generateReportMutation.isError && (
+          <p className="mt-2 text-sm text-red-600 dark:text-red-400">
+            Error al generar el reporte. Intenta nuevamente.
+          </p>
+        )}
       </div>
 
       {/* Row 4: Source Tiers */}

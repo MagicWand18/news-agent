@@ -47,6 +47,8 @@ export const QUEUE_NAMES = {
   WATCHDOG_MENTIONS: "watchdog-mentions",
   // Auto-archivado de menciones viejas
   ARCHIVE_OLD_MENTIONS: "archive-old-mentions",
+  // Evaluación de reglas de alerta
+  CHECK_ALERT_RULES: "check-alert-rules",
 } as const;
 
 export function setupQueues() {
@@ -83,6 +85,8 @@ export function setupQueues() {
     watchdogMentions: new Queue(QUEUE_NAMES.WATCHDOG_MENTIONS, { connection }),
     // Auto-archivado de menciones viejas
     archiveOldMentions: new Queue(QUEUE_NAMES.ARCHIVE_OLD_MENTIONS, { connection }),
+    // Evaluación de reglas de alerta
+    checkAlertRules: new Queue(QUEUE_NAMES.CHECK_ALERT_RULES, { connection }),
   };
 
   // Schedule repeating jobs using cron patterns from config
@@ -211,6 +215,15 @@ export function setupQueues() {
     { name: "archive-old-mentions" }
   );
   console.log(`📅 Archive Old Mentions cron: ${archiveCron}`);
+
+  // Evaluación de reglas de alerta (default: cada 30 minutos)
+  const alertRulesCron = process.env.CHECK_ALERT_RULES_CRON || "*/30 * * * *";
+  queues.checkAlertRules.upsertJobScheduler(
+    "check-alert-rules-cron",
+    { pattern: alertRulesCron },
+    { name: "check-alert-rules" }
+  );
+  console.log(`📅 Alert Rules cron: ${alertRulesCron}`);
 
   return {
     ...queues,
