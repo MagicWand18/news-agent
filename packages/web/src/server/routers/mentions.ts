@@ -80,15 +80,16 @@ export const mentionsRouter = router({
   getById: protectedProcedure
     .input(z.object({ id: z.string() }))
     .query(async ({ input, ctx }) => {
+      const tasksSelect = { select: { id: true, title: true, status: true, priority: true } };
       // Super Admin puede ver cualquier mención
       const mention = ctx.user.isSuperAdmin
         ? await prisma.mention.findFirst({
             where: { id: input.id },
-            include: { article: true, client: true, tasks: true },
+            include: { article: true, client: true, tasks: tasksSelect },
           })
         : await prisma.mention.findFirst({
             where: { id: input.id, client: { orgId: ctx.user.orgId! } },
-            include: { article: true, client: true, tasks: true },
+            include: { article: true, client: true, tasks: tasksSelect },
           });
 
       return mention;

@@ -166,7 +166,18 @@ export default function CrisisPage() {
           </div>
         )}
 
-        <table className="w-full">
+        {crises.isError && (
+          <div className="flex flex-col items-center justify-center py-12 text-center">
+            <AlertTriangle className="h-12 w-12 text-red-400" />
+            <p className="mt-4 text-red-600 dark:text-red-400">Error al cargar las crisis</p>
+            <p className="mt-1 text-sm text-gray-500">{crises.error?.message}</p>
+            <button onClick={() => crises.refetch()} className="mt-4 rounded-lg bg-brand-600 px-4 py-2 text-sm text-white hover:bg-brand-700">
+              Reintentar
+            </button>
+          </div>
+        )}
+
+        {!crises.isLoading && !crises.isError && <table className="w-full">
           <thead>
             <tr className="border-b text-left text-sm text-gray-500 dark:border-gray-700 dark:text-gray-400">
               <th className="px-6 py-3 font-medium">Cliente</th>
@@ -222,9 +233,9 @@ export default function CrisisPage() {
               );
             })}
           </tbody>
-        </table>
+        </table>}
 
-        {crises.data?.crises.length === 0 && (
+        {!crises.isError && crises.data?.crises.length === 0 && (
           <div className="flex flex-col items-center justify-center py-12 text-center">
             <Shield className="h-12 w-12 text-gray-300 dark:text-gray-600" />
             <p className="mt-4 text-gray-500 dark:text-gray-400">No hay alertas de crisis.</p>

@@ -18,7 +18,7 @@ import {
   Line,
   Legend,
 } from "recharts";
-import { BarChart3, Users, Calendar, Tag, Zap, Share2 } from "lucide-react";
+import { AlertCircle, BarChart3, Users, Calendar, Tag, Zap, Share2 } from "lucide-react";
 import { FilterBar, FilterSelect } from "@/components/filters";
 import { TIME_PERIOD_OPTIONS } from "@/lib/filter-constants";
 
@@ -179,8 +179,22 @@ export default function AnalyticsPage() {
         />
       </FilterBar>
 
+      {/* Error state */}
+      {analytics.isError && (
+        <div className="rounded-xl border border-red-200 dark:border-red-800 bg-white dark:bg-gray-800 p-6 shadow-sm">
+          <div className="flex flex-col items-center justify-center py-12 text-center">
+            <AlertCircle className="h-12 w-12 text-red-400" />
+            <p className="mt-4 text-red-600 dark:text-red-400">Error al cargar analytics</p>
+            <p className="mt-1 text-sm text-gray-500">{analytics.error?.message}</p>
+            <button onClick={() => analytics.refetch()} className="mt-4 rounded-lg bg-brand-600 px-4 py-2 text-sm text-white hover:bg-brand-700">
+              Reintentar
+            </button>
+          </div>
+        </div>
+      )}
+
       {/* Row 1: Mentions by Day */}
-      <div className="rounded-xl border border-gray-100 dark:border-gray-700 bg-white dark:bg-gray-800 p-6 shadow-sm dark:shadow-gray-900/20" data-tour-id="analytics-mentions-day">
+      {!analytics.isError && <div className="rounded-xl border border-gray-100 dark:border-gray-700 bg-white dark:bg-gray-800 p-6 shadow-sm dark:shadow-gray-900/20" data-tour-id="analytics-mentions-day">
         <h3 className="font-semibold text-gray-900 dark:text-white">Menciones por dia</h3>
         <p className="mb-4 text-sm text-gray-500 dark:text-gray-400">Ultimos {days} dias</p>
         {isLoading ? (
@@ -240,7 +254,7 @@ export default function AnalyticsPage() {
         ) : (
           <EmptyState message="Sin datos de menciones" />
         )}
-      </div>
+      </div>}
 
       {/* Row 2: Sentiment Trend + Urgency */}
       <div className="grid grid-cols-1 gap-6 lg:grid-cols-3" data-tour-id="analytics-sentiment">

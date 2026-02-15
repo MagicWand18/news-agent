@@ -12,7 +12,7 @@ import {
 
 // Admin-only middleware
 const adminProcedure = protectedProcedure.use(({ ctx, next }) => {
-  if (ctx.user.role !== "ADMIN") {
+  if (ctx.user.role !== "ADMIN" && !ctx.user.isSuperAdmin) {
     throw new TRPCError({
       code: "FORBIDDEN",
       message: "Solo administradores pueden modificar configuraciones",
@@ -32,7 +32,17 @@ export const settingsRouter = router({
         .optional()
     )
     .query(async ({ input }) => {
-      const settings = await getAllSettings(input?.category);
+      let settings = await getAllSettings(input?.category);
+
+      // Auto-seed si no hay configuraciones
+      if (settings.length === 0) {
+        try {
+          await seedDefaultSettings();
+          settings = await getAllSettings(input?.category);
+        } catch (e) {
+          console.error("[Settings] auto-seed error:", e);
+        }
+      }
 
       // Group by category for better UI organization
       const grouped = settings.reduce(
