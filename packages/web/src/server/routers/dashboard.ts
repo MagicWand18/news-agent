@@ -57,7 +57,7 @@ export const dashboardRouter = router({
         const dateSql = since ? Prisma.sql`AND "createdAt" >= ${since}` : Prisma.sql`AND "createdAt" >= ${new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000)}`;
 
         return prisma.$queryRaw<{ date: string; count: number }[]>`
-          SELECT DATE("createdAt")::TEXT as date, COUNT(*)::INTEGER as count
+          SELECT CAST(DATE("createdAt") AS TEXT) as date, CAST(COUNT(*) AS INTEGER) as count
           FROM "Mention"
           WHERE 1=1
           ${orgSql}
@@ -151,7 +151,7 @@ export const dashboardRouter = router({
           await Promise.all([
             // 1. Mentions by day
             prisma.$queryRaw<{ date: string; count: number }[]>`
-              SELECT DATE(m."createdAt")::TEXT as date, COUNT(*)::INTEGER as count
+              SELECT CAST(DATE(m."createdAt") AS TEXT) as date, CAST(COUNT(*) AS INTEGER) as count
               FROM "Mention" m
               JOIN "Client" c ON m."clientId" = c.id
               WHERE m."createdAt" >= ${since}
@@ -163,7 +163,7 @@ export const dashboardRouter = router({
 
             // 2. Sentiment trend by week
             prisma.$queryRaw<{ week: string; sentiment: string; count: number }[]>`
-              SELECT DATE_TRUNC('week', m."createdAt")::TEXT as week, m.sentiment, COUNT(*)::INTEGER as count
+              SELECT CAST(DATE_TRUNC('week', m."createdAt") AS TEXT) as week, m.sentiment, CAST(COUNT(*) AS INTEGER) as count
               FROM "Mention" m
               JOIN "Client" c ON m."clientId" = c.id
               WHERE m."createdAt" >= ${since}
@@ -175,7 +175,7 @@ export const dashboardRouter = router({
 
             // 3. Top sources
             prisma.$queryRaw<{ source: string; count: number }[]>`
-              SELECT a.source, COUNT(*)::INTEGER as count
+              SELECT a.source, CAST(COUNT(*) AS INTEGER) as count
               FROM "Mention" m
               JOIN "Article" a ON m."articleId" = a.id
               JOIN "Client" c ON m."clientId" = c.id
@@ -337,7 +337,7 @@ export const dashboardRouter = router({
       const [mentionsByDay, byPlatform, bySentiment, topAuthors] = await Promise.all([
         // Menciones por día
         prisma.$queryRaw<{ date: string; count: number }[]>`
-          SELECT DATE(sm."createdAt")::TEXT as date, COUNT(*)::INTEGER as count
+          SELECT CAST(DATE(sm."createdAt") AS TEXT) as date, CAST(COUNT(*) AS INTEGER) as count
           FROM "SocialMention" sm
           JOIN "Client" c ON sm."clientId" = c.id
           WHERE sm."createdAt" >= ${since}
@@ -366,8 +366,8 @@ export const dashboardRouter = router({
         }),
         // Top autores por engagement
         prisma.$queryRaw<{ handle: string; platform: string; count: number; totalEngagement: number }[]>`
-          SELECT sm."authorHandle" as handle, sm.platform, COUNT(*)::INTEGER as count,
-                 SUM(COALESCE(sm.likes, 0) + COALESCE(sm.comments, 0) + COALESCE(sm.shares, 0))::INTEGER as "totalEngagement"
+          SELECT sm."authorHandle" as handle, sm.platform, CAST(COUNT(*) AS INTEGER) as count,
+                 CAST(SUM(COALESCE(sm.likes, 0) + COALESCE(sm.comments, 0) + COALESCE(sm.shares, 0)) AS INTEGER) as "totalEngagement"
           FROM "SocialMention" sm
           JOIN "Client" c ON sm."clientId" = c.id
           WHERE sm."createdAt" >= ${since}
