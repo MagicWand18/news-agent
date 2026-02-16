@@ -63,6 +63,9 @@ MediaBot es un sistema de monitoreo de medios que permite a agencias de comunica
 | **AI Media Brief** | OK | Brief diario con IA, pagina /dashboard/briefs, integrado en digest + intelligence (Sprint 15) |
 | **Campaign Tracking** | OK | Tracking de campañas PR con comparativa pre/post, auto-vincular menciones, crisis linkage (Sprint 16) |
 | **Telegram Multi-nivel** | OK | 3 niveles de recipients (cliente/org/SuperAdmin), 10 tipos de notificación, preferencias configurables |
+| **Executive Dashboard** | OK | Dashboard ejecutivo multi-org para Super Admin con KPIs, health scores, heatmap (Sprint 17) |
+| **Reportes PDF** | OK | Generación de PDF para campañas, briefs y clientes con PDFKit (Sprint 17) |
+| **Links compartidos** | OK | SharedReport con URL pública, expiración 7 días, página /shared/[id] (Sprint 17) |
 
 ### Funciones de IA
 
@@ -83,6 +86,9 @@ MediaBot es un sistema de monitoreo de medios que permite a agencias de comunica
 | `executeGroundingSearch` | On-demand/Auto | Búsqueda de noticias con Gemini | `grounding/grounding-service.ts` |
 | `checkLowMentions` | Cron diario | Verificación de menciones bajas | `grounding/grounding-service.ts` |
 | `generateDailyBrief` | Cron diario (digest) | Brief ejecutivo diario por cliente | `analysis/ai.ts` |
+| `generateCampaignPDF` | On-demand | PDF de campaña con PDFKit | `web/src/lib/pdf/campaign-pdf.ts` |
+| `generateBriefPDF` | On-demand | PDF de brief diario con PDFKit | `web/src/lib/pdf/brief-pdf.ts` |
+| `generateClientPDF` | On-demand | PDF resumen de cliente con PDFKit | `web/src/lib/pdf/client-pdf.ts` |
 
 ### Pendiente / En Progreso
 
@@ -190,6 +196,8 @@ MediaBot es un sistema de monitoreo de medios que permite a agencias de comunica
 - [x] Alertas de temas emergentes (Sprint 7)
 - [x] YouTube mentions via EnsembleData (Sprint 10)
 - [x] Notificaciones Telegram multi-nivel con preferencias
+- [x] Executive Dashboard multi-org (Sprint 17)
+- [x] Reportes PDF exportables + links compartidos (Sprint 17)
 - [ ] Transiciones de pagina completas
 - [ ] Agregar mas fuentes RSS
 
@@ -681,8 +689,8 @@ Sistema multi-tenant para gestionar múltiples agencias:
 | Correcciones Prisma engine Next.js | OK | Copiar engine a todas las ubicaciones que Next.js busca |
 
 ### Pendiente
-- [ ] Dashboard ejecutivo para Super Admin
-- [ ] Métricas agregadas multi-agencia
+- [x] Dashboard ejecutivo para Super Admin (Sprint 17)
+- [x] Métricas agregadas multi-agencia (Sprint 17)
 - [ ] Billing y facturación
 
 ---
@@ -868,30 +876,47 @@ MENTION_ALERT, CRISIS_ALERT, EMERGING_TOPIC, DAILY_DIGEST, ALERT_RULE, CRISIS_ST
 
 ---
 
-## Sprint 17: Dashboard Ejecutivo + Métricas Avanzadas
+## Sprint 17: Executive Dashboard + Exportable Reports (COMPLETADO - 2026-02-16)
 
 ### Objetivo
-Dashboard de alto nivel para Super Admins y directores de agencia con métricas agregadas multi-cliente, benchmarking e indicadores de negocio.
+Dashboard ejecutivo para Super Admins con métricas agregadas multi-organización, health scores y reportes exportables en PDF con links compartidos.
 
-### Implementar
+### Implementado
 
-| Feature | Prioridad | Descripción |
-|---------|-----------|-------------|
-| Dashboard ejecutivo multi-org | Alta | Vista agregada de todas las organizaciones (Super Admin) |
-| Métricas por organización | Alta | Clientes activos, menciones totales, sentiment distribution, crisis activas |
-| Health Score por cliente | Alta | Puntuación 0-100 basada en: volumen de menciones, sentiment ratio, SOV, crisis, response time |
-| Alertas de inactividad | Media | Detectar clientes sin menciones recientes o con drops significativos |
-| Benchmark por industria | Media | Comparar métricas de un cliente contra promedio de su industria |
-| Heatmap de actividad | Media | Mapa de calor por hora/día de la semana mostrando cuándo llegan menciones |
-| Informe de uso de plataforma | Baja | Métricas de uso del sistema: usuarios activos, tareas completadas, briefs leídos |
+| Feature | Estado | Archivos |
+|---------|--------|----------|
+| Modelo SharedReport + enum ReportType | ✅ OK | `prisma/schema.prisma` (35 modelos, 22 enums) |
+| Router executive.ts (5 endpoints superAdminOnly) | ✅ OK | `packages/web/src/server/routers/executive.ts` |
+| Router reports.ts (5 endpoints: 3 PDF + shared link + public) | ✅ OK | `packages/web/src/server/routers/reports.ts` |
+| Página /dashboard/executive | ✅ OK | `packages/web/src/app/dashboard/executive/page.tsx` |
+| Componentes Executive (OrgCard, HealthScoreTable, ActivityHeatmap) | ✅ OK | `packages/web/src/components/executive/` |
+| PDF generators (campaign, brief, client, utils) | ✅ OK | `packages/web/src/lib/pdf/` |
+| ExportButton component | ✅ OK | `packages/web/src/components/export-button.tsx` |
+| Página pública /shared/[id] | ✅ OK | `packages/web/src/app/shared/[id]/page.tsx` |
+| ExportButton en campaigns/[id], briefs, clients/[id] | ✅ OK | 3 archivos modificados |
+| Sidebar "Ejecutivo" con Crown (superAdminOnly) | ✅ OK | `sidebar.tsx` |
+| Routers registrados | ✅ OK | `_app.ts` (20 routers total) |
 
-### Archivos a crear/modificar
+### Detalles técnicos
 
-| Archivo | Propósito |
-|---------|-----------|
-| `packages/web/src/app/dashboard/executive/page.tsx` | Dashboard ejecutivo |
-| `packages/web/src/server/routers/executive.ts` | Queries agregadas multi-org |
-| `packages/workers/src/analysis/health-score.ts` | Cálculo de health score por cliente |
+**Executive Dashboard (5 endpoints `superAdminProcedure`):**
+- `globalKPIs`: KPIs agregados con deltas % vs periodo anterior (menciones, social, crisis, clientes activos)
+- `orgCards`: Tarjetas resumen por organización (clientes, menciones, social, crisis, sentiment, top client)
+- `clientHealthScores`: Health Score 0-100 con 6 componentes ponderados (Volume 20%, Sentiment 25%, SOV 15%, CrisisFree 20%, ResponseRate 10%, Engagement 10%) y trend up/down/stable
+- `inactivityAlerts`: Clientes sin actividad reciente (configurable thresholdDays, default 3)
+- `activityHeatmap`: Grid 7x24 con UNION ALL de mentions + social mentions
+
+**Reportes exportables:**
+- `generateCampaignPDF/BriefPDF/ClientPDF`: Generan PDF con PDFKit, retornan base64 data URL para descarga directa
+- `createSharedLink`: Crea SharedReport con snapshot JSON, publicId y expiración 7 días
+- `getSharedReport`: publicProcedure sin auth, busca por publicId, verifica expiración
+
+**ExportButton**: Dropdown reutilizable con "Descargar PDF" (Blob + createObjectURL) y "Compartir link" (modal con URL copiable + fecha expiración)
+
+**Página pública /shared/[id]**: Fuera de /dashboard/ layout (sin sidebar/auth), renderiza campaign/brief/client según tipo, handles expired/not_found
+
+### E2E Tests
+- `tests/e2e/test_sprint17.py` — 19/20 pass (1 fallo esperado: ExportButton en briefs requiere datos de brief)
 
 ---
 
@@ -950,10 +975,10 @@ Llevar el sistema a tiempo real y abrir integraciones con herramientas externas 
 ## Orden de Prioridad Sugerido
 
 ```
-Sprint 13 ✅ → Sprint 14 ✅ → Sprint 15 ✅ → Sprint 16 ✅ → Sprint 17 → Sprint 18
-     ↓              ↓              ↓              ↓              ↓           ↓
-  Action         Pipeline       AI Media       Campaign      Executive   Real-time +
-  Pipeline       Completo       Brief         Tracking      Dashboard   Webhooks
+Sprint 13 ✅ → Sprint 14 ✅ → Sprint 15 ✅ → Sprint 16 ✅ → Sprint 17 ✅ → Sprint 18
+     ↓              ↓              ↓              ↓              ↓            ↓
+  Action         Pipeline       AI Media       Campaign      Executive    Real-time +
+  Pipeline       Completo       Brief         Tracking      Dashboard    Webhooks
 ```
 
 **Impacto estimado por sprint:**
@@ -964,7 +989,7 @@ Sprint 13 ✅ → Sprint 14 ✅ → Sprint 15 ✅ → Sprint 16 ✅ → Sprint 1
 | 14 | Muy alto — pipeline completo con evaluaciones | Medio | ✅ Completado |
 | 15 | Alto — briefings IA ejecutivos para PR | Medio | ✅ Completado |
 | 16 | Muy alto — tracking de campañas es core de PR | Alto | ✅ Completado |
-| 17 | Medio — útil para escala multi-agencia | Medio | **SIGUIENTE** |
+| 17 | Medio — útil para escala multi-agencia | Medio | ✅ Completado |
 | 18 | Alto — real-time y webhooks modernizan el producto | Alto | Pendiente |
 
 ## Contacto

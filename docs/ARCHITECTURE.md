@@ -471,6 +471,13 @@ Auto-archivado de menciones antiguas:
 | `CrisisNote` | Notas y acciones en gestión de crisis (Sprint 13) |
 | `ActionItem` | Acciones recomendadas por IA con seguimiento (Sprint 13) |
 | `AlertRule` | Reglas de alerta configurables por cliente (Sprint 13) |
+| `DailyBrief` | Brief ejecutivo diario por cliente (Sprint 15) |
+| `Campaign` | Campañas de PR con métricas y comparativa (Sprint 16) |
+| `CampaignMention` | Link entre campaña y mención de medios (Sprint 16) |
+| `CampaignSocialMention` | Link entre campaña y mención social (Sprint 16) |
+| `CampaignNote` | Notas en timeline de campaña (Sprint 16) |
+| `OrgTelegramRecipient` | Destinatario Telegram a nivel organización |
+| `SharedReport` | Reporte compartido con URL pública y expiración (Sprint 17) |
 
 ## Sistema de Colas (BullMQ)
 
@@ -507,10 +514,14 @@ Auto-archivado de menciones antiguas:
 │   analyze-social   : Analizar menciones sociales con AI         │
 │   notify-social    : Notificar menciones relevantes             │
 │                                                                 │
-│   ACTION PIPELINE QUEUES (Sprint 13)                            │
-│   ──────────────────────────────────                            │
+│   ACTION PIPELINE QUEUES (Sprint 13+)                           │
+│   ───────────────────────────────────                           │
 │   check-alert-rules : */30 * * * * (cada 30 min)               │
 │   archive-old-mentions : 0 3 * * * (3:00 AM diario)            │
+│                                                                 │
+│   NOTIFICATION QUEUES                                           │
+│   ────────────────────                                          │
+│   notify-telegram   : Notificación genérica multi-nivel         │
 │                                                                 │
 └─────────────────────────────────────────────────────────────────┘
 ```
@@ -948,6 +959,11 @@ El sistema detecta automaticamente situaciones de crisis mediaticas.
 | `onboarding` | Tour de onboarding | `getStatus`, `updateStatus`, `reset`, `resetForUser` |
 | `crisis` | Gestion de crisis | `list`, `getById`, `updateStatus`, `addNote`, `assignResponsible`, `getActiveCrisisCount` |
 | `responses` | Workflow de comunicados | `list`, `getById`, `create`, `update`, `updateStatus`, `regenerate` |
+| `alertRules` | Reglas de alerta | `list`, `getById`, `create`, `update`, `delete`, `toggle` |
+| `briefs` | AI Media Briefs | `list`, `getById`, `getLatest` |
+| `campaigns` | Tracking de campañas | `list`, `getById`, `create`, `update`, `delete`, `addNote`, `addMentions`, `removeMention`, `addSocialMentions`, `removeSocialMention`, `autoLinkMentions`, `getStats`, `getMentions` |
+| `executive` | Dashboard ejecutivo (Super Admin) | `globalKPIs`, `orgCards`, `clientHealthScores`, `inactivityAlerts`, `activityHeatmap` |
+| `reports` | Reportes PDF + links compartidos | `generateCampaignPDF`, `generateBriefPDF`, `generateClientPDF`, `createSharedLink`, `getSharedReport` |
 
 ## Patrón de Colores Dark Mode
 

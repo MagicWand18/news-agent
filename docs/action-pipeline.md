@@ -215,3 +215,40 @@ Metricas clave para medir la efectividad del pipeline de acciones:
 - **Average Review Cycles:** Promedio de veces que un draft vuelve de IN_REVIEW a DRAFT
 - **Social Response Rate:** Porcentaje de menciones sociales que generaron respuesta
 - **Alert Rule Effectiveness:** Tasa de alertas que resultan en accion vs. descartadas (evitar fatiga de alertas)
+
+---
+
+## 5. Executive Dashboard + Reportes Exportables (Sprint 17)
+
+### Executive Dashboard
+
+Dashboard exclusivo para Super Admin con vista agregada multi-organizacion:
+
+- **KPIs globales**: Total menciones, menciones sociales, crisis activas, clientes activos — con deltas % vs periodo anterior
+- **Org Cards**: Tarjetas resumen por organizacion (clientes, menciones, social, sentiment, top client)
+- **Health Score**: Puntuacion 0-100 por cliente con 6 componentes ponderados:
+  - Volume (20%): Normaliza menciones vs promedio
+  - Sentiment (25%): Ratio de menciones positivas
+  - SOV (15%): Share of Voice del cliente
+  - CrisisFree (20%): Dias sin crisis / 30
+  - ResponseRate (10%): Menciones con ResponseDraft / total criticas
+  - Engagement (10%): Menciones sociales con alto engagement
+- **Inactivity Alerts**: Clientes sin actividad reciente (configurable)
+- **Activity Heatmap**: Grid 7x24 con intensidad de menciones por hora/dia
+
+### Reportes PDF
+
+Generacion de reportes PDF con PDFKit (server-side):
+
+| Tipo | Endpoint | Contenido |
+|------|----------|-----------|
+| Campaign | `reports.generateCampaignPDF` | Portada, KPIs, comparativa pre-campana, top fuentes, notas |
+| Brief | `reports.generateBriefPDF` | Portada, KPIs, highlights, comparativa, watchList, temas, acciones |
+| Client | `reports.generateClientPDF` | Portada, KPIs periodo, tendencia semanal, top fuentes, crisis, campanas |
+
+### Links compartidos
+
+- `reports.createSharedLink`: Crea SharedReport con snapshot JSON de datos, URL publica, expiracion 7 dias
+- `reports.getSharedReport`: publicProcedure sin auth, busca por publicId, verifica expiracion
+- Pagina `/shared/[id]`: Renderiza reporte segun tipo (campaign/brief/client), sin sidebar/auth
+- ExportButton: Componente reutilizable con dropdown "Descargar PDF" + "Compartir link"

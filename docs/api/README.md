@@ -84,6 +84,8 @@ throw new TRPCError({
 | `alertRules` | Reglas de alerta configurables (CRUD + toggle) | [alertRules.md](./alertRules.md) |
 | `briefs` | AI Media Briefs diarios (list, getById, getLatest) | [briefs.md](./briefs.md) |
 | `campaigns` | Tracking de campañas de PR (13 endpoints) | [campaigns.md](./campaigns.md) |
+| `executive` | Dashboard ejecutivo multi-org (Super Admin, 5 endpoints) | [executive.md](./executive.md) |
+| `reports` | Generación PDF + links compartidos (5 endpoints) | [reports.md](./reports.md) |
 
 ## Uso con React Query
 
@@ -171,6 +173,9 @@ type CampaignNoteType = "UPDATE" | "MILESTONE" | "ISSUE" | "RESULT";
 
 // Tipo de notificación Telegram
 type TelegramNotifType = "MENTION_ALERT" | "CRISIS_ALERT" | "EMERGING_TOPIC" | "DAILY_DIGEST" | "ALERT_RULE" | "CRISIS_STATUS" | "RESPONSE_DRAFT" | "BRIEF_READY" | "CAMPAIGN_REPORT" | "WEEKLY_REPORT";
+
+// Tipo de reporte compartido (Sprint 17)
+type ReportType = "CAMPAIGN" | "BRIEF" | "CLIENT_SUMMARY";
 ```
 
 ### Paginación por Cursor

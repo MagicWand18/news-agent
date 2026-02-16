@@ -19,11 +19,11 @@ MediaBot is a media monitoring platform for PR agencies. It monitors news source
 ```
 /
 ├── packages/
-│   ├── web/          # Next.js frontend + tRPC API (19 dashboard pages, 18 routers)
+│   ├── web/          # Next.js frontend + tRPC API (20 dashboard pages, 20 routers)
 │   ├── workers/      # Background jobs (5 collectors, 20+ workers, 25 colas)
 │   ├── bot/          # Telegram bot (Grammy)
 │   └── shared/       # Shared code (prisma, config, types, ai-client)
-├── prisma/           # Database schema (33 models, 20 enums)
+├── prisma/           # Database schema (35 models, 22 enums)
 ├── deploy/           # Deployment scripts
 ├── docs/             # Documentation (architecture, plan, guides)
 └── tests/            # Test files
@@ -50,6 +50,10 @@ MediaBot is a media monitoring platform for PR agencies. It monitors news source
 | `packages/web/src/server/routers/briefs.ts` | Daily briefs API (3 endpoints: list, getById, getLatest) |
 | `packages/web/src/server/routers/campaigns.ts` | Campaign tracking API (13 endpoints: CRUD, notes, link mentions, auto-link, stats) |
 | `packages/web/src/server/routers/organizations.ts` | Multi-tenant organization management |
+| `packages/web/src/server/routers/executive.ts` | Executive dashboard API (5 endpoints, superAdminOnly) |
+| `packages/web/src/server/routers/reports.ts` | PDF generation + shared reports API (5 endpoints) |
+| `packages/web/src/lib/pdf/` | PDF generators (campaign, brief, client, utils) |
+| `packages/web/src/components/export-button.tsx` | Reusable export dropdown (PDF + share link) |
 | `packages/workers/src/workers/alert-rules-worker.ts` | Alert rule evaluation - 6 types (cron */30) |
 | `packages/workers/src/analysis/crisis-detector.ts` | Auto crisis detection on negative spikes |
 | `packages/workers/src/analysis/ai.ts` | AI functions (analyze, brief, insights, response, etc.) |
@@ -90,12 +94,12 @@ MediaBot is a media monitoring platform for PR agencies. It monitors news source
 - **Modelo**: `DailyBrief` (clientId, date, content JSON, stats JSON) con unique constraint clientId+date
 - **AI Function**: `generateDailyBrief()` en `ai.ts` — genera highlights, comparativa vs ayer, watchList, temas emergentes, acciones
 - **Digest Worker**: Integrado en `digest.ts` — recopila datos adicionales (menciones ayer, SOV, crisis, action items, temas emergentes), genera brief, persiste en DB, agrega seccion al Telegram
-- **Router**: `briefs.ts` (list con cursor pagination, getById, getLatest) — 17 routers total
+- **Router**: `briefs.ts` (list con cursor pagination, getById, getLatest)
 - **Pagina**: `/dashboard/briefs` — card destacada del ultimo brief + timeline colapsable con infinite scroll
 - **Intelligence**: Seccion "Ultimo Brief" con highlights + watchList + link a `/dashboard/briefs`
 - **Sidebar**: Item "Media Brief" con icono FileText entre Intelligence y Crisis
 
-## Telegram Notification System (Sprint 17-prep)
+## Telegram Notification System
 
 - **3 niveles de destinatarios**: Cliente (TelegramRecipient), Organización (OrgTelegramRecipient), SuperAdmin (User.telegramUserId)
 - **10 tipos de notificación**: MENTION_ALERT, CRISIS_ALERT, EMERGING_TOPIC, DAILY_DIGEST, ALERT_RULE, CRISIS_STATUS, RESPONSE_DRAFT, BRIEF_READY, CAMPAIGN_REPORT, WEEKLY_REPORT
@@ -107,6 +111,19 @@ MediaBot is a media monitoring platform for PR agencies. It monitors news source
 - **UI Agencia**: Sección "Destinatarios Telegram por defecto" con CRUD + toggles por recipient
 - **Bot**: Comando `/vincular_org <nombre_org>` para vincular grupo/chat a toda una organización
 - **Router endpoints**: 4 en organizations.ts (listOrgTelegramRecipients, addOrgTelegramRecipient, updateOrgRecipientPreferences, removeOrgTelegramRecipient), 3 en settings.ts (getTelegramPrefs, updateTelegramPrefs, updateTelegramId)
+
+## Executive Dashboard + Exportable Reports (Sprint 17)
+
+- **Modelos nuevos**: SharedReport (publicId, type, data JSON, expiresAt), ReportType enum (CAMPAIGN, BRIEF, CLIENT_SUMMARY) — 35 modelos, 22 enums total
+- **Router executive.ts** (5 endpoints, superAdminProcedure): globalKPIs (con deltas %), orgCards (resumen por org), clientHealthScores (0-100 con 6 componentes ponderados), inactivityAlerts (clientes sin actividad), activityHeatmap (7x24 grid)
+- **Router reports.ts** (5 endpoints): generateCampaignPDF, generateBriefPDF, generateClientPDF (retornan base64 data URL), createSharedLink (crea URL publica con expiracion 7d), getSharedReport (publicProcedure sin auth)
+- **Pagina** `/dashboard/executive`: KPI cards con deltas, selector periodo (7d/14d/30d), org cards grid, health score ranking table, activity heatmap (CSS grid), inactivity alerts
+- **Componentes**: `executive/org-card.tsx`, `executive/health-score-table.tsx`, `executive/activity-heatmap.tsx`, `export-button.tsx` (dropdown PDF + share link)
+- **Pagina publica** `/shared/[id]`: Renderiza reporte compartido sin auth, handles expired/not_found
+- **PDF generators**: `packages/web/src/lib/pdf/` (campaign-pdf, brief-pdf, client-pdf, pdf-utils) con PDFKit
+- **ExportButton integrado en**: campaigns/[id], briefs, clients/[id]
+- **Sidebar**: Item "Ejecutivo" con icono Crown (superAdminOnly), 20 routers total
+- **Health Score formula**: Volume 20%, Sentiment 25%, SOV 15%, CrisisFree 20%, ResponseRate 10%, Engagement 10%
 
 ## Commands
 
@@ -141,6 +158,7 @@ ssh -i ~/.ssh/newsaibot-telegram-ssh root@159.65.97.78 \
 | `tests/e2e/test_sprint14_social.py` | Social mention detail with super admin account |
 | `tests/e2e/test_sprint15.py` | Sprint 15 features: briefs page, sidebar item, intelligence brief section |
 | `tests/e2e/test_sprint16.py` | Sprint 16 features: campaigns page, create campaign, campaign detail, auto-link |
+| `tests/e2e/test_sprint17.py` | Sprint 17 features: executive dashboard, KPIs, health scores, export buttons, shared page (19/20 pass) |
 | `tests/e2e/test_telegram_notifs.py` | Telegram notifications: settings prefs, agency recipients, toggles (28 tests) |
 
 **Usage**:
