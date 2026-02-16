@@ -101,10 +101,14 @@ def run_tests():
             else:
                 test_fail("Alert Rules: Channel options NOT visible")
 
-            # Cerrar modal
-            close_btn = page.locator("button").filter(has=page.locator("svg.lucide-x"))
-            if close_btn.count() > 0:
-                close_btn.first.click()
+            # Cerrar modal (buscar X button dentro del modal overlay)
+            modal_close = page.locator(".fixed.inset-0 button").filter(has=page.locator("svg")).first
+            try:
+                modal_close.click(timeout=3000)
+                time.sleep(0.5)
+            except Exception:
+                # Si no hay boton X, presionar Escape
+                page.keyboard.press("Escape")
                 time.sleep(0.5)
         else:
             test_fail("Alert Rules: 'Nueva regla' button NOT found")

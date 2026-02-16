@@ -47,7 +47,11 @@ with sync_playwright() as p:
     print("\n=== 3. Pagina /dashboard/campaigns ===")
     page.goto(f"{BASE_URL}/dashboard/campaigns")
     page.wait_for_load_state("networkidle")
-    time.sleep(3)
+    # Esperar a que desaparezca el spinner o aparezca contenido
+    try:
+        page.wait_for_selector("table, text=No hay campañas", timeout=10000)
+    except Exception:
+        time.sleep(5)  # fallback si no hay ni tabla ni empty state
 
     campaigns_url = page.url
     log("Navegacion a /dashboard/campaigns", "/dashboard/campaigns" in campaigns_url, campaigns_url)
@@ -102,12 +106,20 @@ with sync_playwright() as p:
         try:
             page.fill('input[placeholder*="Defensa"]', "Test Sprint 16 - Campaña E2E")
 
-            # Seleccionar primer cliente
-            client_select = page.locator("select").nth(1)  # El primero es del filtro
-            if client_select.count() > 0:
-                options = client_select.locator("option").all()
+            # Seleccionar primer cliente - el modal tiene su propio select
+            # Los filtros de la pagina son select #0 (cliente) y #1 (estado)
+            # El select del modal es el #2 (tiene option "Seleccionar cliente...")
+            modal_client_select = page.locator('select:has(option:text("Seleccionar cliente..."))').first
+            if modal_client_select.count() > 0:
+                options = modal_client_select.locator("option").all()
                 if len(options) > 1:
-                    client_select.select_option(index=1)
+                    # Seleccionar la primera opcion real (index=1, saltando "Seleccionar cliente...")
+                    modal_client_select.select_option(index=1)
+                    log("Cliente seleccionado en modal", True, options[1].text_content() if len(options) > 1 else "")
+                else:
+                    log("Cliente seleccionado en modal", False, "No hay clientes disponibles")
+            else:
+                log("Select de cliente en modal", False, "No encontrado")
 
             time.sleep(0.5)
 
@@ -121,10 +133,16 @@ with sync_playwright() as p:
             page.screenshot(path=f"{SCREENSHOT_DIR}/04_form_filled.png")
 
             # Submit
-            submit_btn = page.locator("text=Crear campaña").first
+            submit_btn = page.locator('button:text("Crear campaña")').first
             if submit_btn.count() > 0:
                 submit_btn.click()
-                time.sleep(3)
+                # Esperar a que el modal se cierre (la campana se crea)
+                try:
+                    page.wait_for_selector('text="Nueva campaña"', state="visible", timeout=8000)
+                    # Modal cerrado = volvimos a la lista. Esperar tabla
+                    time.sleep(2)
+                except Exception:
+                    time.sleep(3)
 
                 after_create = page.content()
                 campaign_created = "Test Sprint 16" in after_create
@@ -147,6 +165,14 @@ with sync_playwright() as p:
 
     # ============ DETALLE DE CAMPAÑA ============
     print("\n=== 5. Detalle de campaña ===")
+    # Recargar la lista para ver la campaña creada
+    page.goto(f"{BASE_URL}/dashboard/campaigns")
+    page.wait_for_load_state("networkidle")
+    try:
+        page.wait_for_selector("table", timeout=10000)
+    except Exception:
+        time.sleep(5)
+
     # Buscar un link a campaña
     campaign_links = page.locator('a[href*="/dashboard/campaigns/"]').all()
     campaign_links = [l for l in campaign_links if "/dashboard/campaigns/" in (l.get_attribute("href") or "") and l.get_attribute("href") != "/dashboard/campaigns"]
@@ -174,10 +200,10 @@ with sync_playwright() as p:
         has_notes_section = "Notas de la campaña" in detail_content or "Agregar nota" in detail_content
         log("Seccion de notas presente", has_notes_section)
 
-        has_mentions_section = "Menciones de medios" in detail_content
+        has_mentions_section = "Menciones de medios" in detail_content or "menciones de medios" in detail_content.lower()
         log("Seccion menciones vinculadas", has_mentions_section)
 
-        has_social_section = "Menciones sociales" in detail_content
+        has_social_section = "Menciones sociales" in detail_content or "menciones sociales" in detail_content.lower()
         log("Seccion menciones sociales", has_social_section)
 
         page.screenshot(path=f"{SCREENSHOT_DIR}/06_campaign_detail.png", full_page=True)

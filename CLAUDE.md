@@ -141,6 +141,7 @@ ssh -i ~/.ssh/newsaibot-telegram-ssh root@159.65.97.78 \
 | `tests/e2e/test_sprint14_social.py` | Social mention detail with super admin account |
 | `tests/e2e/test_sprint15.py` | Sprint 15 features: briefs page, sidebar item, intelligence brief section |
 | `tests/e2e/test_sprint16.py` | Sprint 16 features: campaigns page, create campaign, campaign detail, auto-link |
+| `tests/e2e/test_telegram_notifs.py` | Telegram notifications: settings prefs, agency recipients, toggles (28 tests) |
 
 **Usage**:
 ```bash
