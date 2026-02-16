@@ -54,6 +54,12 @@ MediaBot es un sistema de monitoreo de medios que permite a agencias de comunica
 | **Grounding Semanal** | OK | Ejecución programada semanal por cliente (Sprint 9.2) |
 | **Singleton Anthropic** | OK | Cliente AI centralizado con validación (Sprint 9.3) |
 | **Cache con límite** | OK | Clustering cache limitado a 1000 entradas (Sprint 9.3) |
+| **Notificaciones In-App** | OK | Bell icon, dropdown, centro de notificaciones (Sprint 10) |
+| **Monitoreo Social** | OK | Instagram, TikTok, YouTube via EnsembleData (Sprint 10) |
+| **Multi-Tenant** | OK | Organizaciones, Super Admin, filtro por org (Sprint 11) |
+| **Pipeline de Acción** | OK | Crisis, Respuestas, AlertRules, ActionItems (Sprint 13) |
+| **Action Pipeline Completo** | OK | Generar comunicado social, AlertRule CRUD, evaluaciones avanzadas, Insights Timeline (Sprint 14) |
+| **Bugfix Raw SQL** | OK | Eliminado Prisma.empty, usar $queryRawUnsafe (2026-02-15) |
 
 ### Funciones de IA
 
@@ -688,7 +694,7 @@ Sistema multi-tenant para gestionar múltiples agencias:
 
 ---
 
-## Sprint 13: Pipeline de Acción (En progreso - ~75%)
+## Sprint 13: Pipeline de Acción (COMPLETADO - 2026-02-15)
 
 ### Objetivo
 Cerrar el ciclo dato → insight → tarea → acción → medición
@@ -711,53 +717,44 @@ Cerrar el ciclo dato → insight → tarea → acción → medición
 | insights-worker: crea ActionItems desde recommendedActions | ✅ OK | `packages/workers/src/analysis/insights-worker.ts` |
 | crisis-detector: auto-creación de CrisisAlert en spike negativo | ✅ OK | `packages/workers/src/analysis/crisis-detector.ts` |
 
-### Pendiente Sprint 13
+### Completado en Sprint 14
 
-| Feature | Prioridad | Descripción |
-|---------|-----------|-------------|
-| Generar Comunicado en social-mentions/[id] | Alta | Botón "Generar Comunicado" + guardar ResponseDraft desde detalle de mención social |
-| AlertRule Config UI | Alta | Página para crear, editar y gestionar reglas de alerta por cliente |
-| AlertRule evaluaciones avanzadas | Media | Completar stubs de SOV_DROP, COMPETITOR_SPIKE, SENTIMENT_SHIFT |
-| Weekly Insights UI dedicada | Media | Sección/página para ver insights semanales con acciones vinculadas |
-| Reportes bajo demanda | Baja | Generación manual de reportes JSON/PDF desde UI |
+Todos los gaps restantes de Sprint 13 fueron cerrados en Sprint 14: Generar Comunicado en social-mentions, AlertRule CRUD UI, evaluaciones avanzadas del worker, Insights Timeline con infinite scroll.
 
 ---
 
-## Sprint 14: Completar Action Pipeline + Portal de Cliente
+## Sprint 14: Completar Action Pipeline (COMPLETADO - 2026-02-15)
 
 ### Objetivo
-Cerrar gaps del Sprint 13 y crear un portal de solo lectura para que los clientes finales de la agencia vean su cobertura mediática.
+Cerrar gaps del Sprint 13 para tener el pipeline de acción completo y funcional.
 
-### Parte 1: Cerrar Sprint 13
+### Implementado
 
-| Feature | Prioridad | Descripción |
-|---------|-----------|-------------|
-| Generar Comunicado en social-mentions/[id] | Alta | Reutilizar flujo de mentions/[id]: botón, modal de tono, guardar ResponseDraft |
-| AlertRule CRUD UI | Alta | Página `/dashboard/alert-rules` con create/edit/delete, condiciones configurables por tipo |
-| AlertRule evaluaciones completas | Media | Implementar SOV_DROP (comparar SOV actual vs histórico), COMPETITOR_SPIKE (misma lógica que NEGATIVE_SPIKE pero para competidores), SENTIMENT_SHIFT (drift en distribución de sentimiento) |
-| Insights Timeline | Media | Sección en Intelligence con historial de insights semanales, expandible, con links a ActionItems generados |
+| Feature | Estado | Archivos |
+|---------|--------|----------|
+| Generar Comunicado en social-mentions/[id] | ✅ OK | `social.ts` (endpoint generateResponse), `social-mentions/[id]/page.tsx` (botón + modal + drafts section) |
+| AlertRule CRUD UI | ✅ OK | `alertRules.ts` (router 6 endpoints), `alert-rules/page.tsx` (tabla + modal create/edit + toggle + delete) |
+| AlertRule evaluaciones avanzadas | ✅ OK | `alert-rules-worker.ts` (SOV_DROP, COMPETITOR_SPIKE, SENTIMENT_SHIFT implementados) |
+| Insights Timeline | ✅ OK | `intelligence.ts` (cursor pagination + getInsightActionItems), `intelligence/page.tsx` (timeline con cards expandibles + infinite scroll) |
+| Sidebar: Reglas de Alerta | ✅ OK | `sidebar.tsx` (item con icono Bell) |
+| Router alertRules registrado | ✅ OK | `_app.ts` (16 routers totales) |
 
-### Parte 2: Portal de Cliente (Stakeholder Portal)
+### Detalles técnicos
 
-Portal de solo lectura para que los clientes finales de la agencia vean su cobertura sin acceso al dashboard completo.
+**Generar Comunicado**: Endpoint `social.generateResponse` llama Gemini AI con contexto de la mención social, crea `ResponseDraft` vinculado vía `socialMentionId`. UI muestra botón azul, modal de éxito con link a borradores, sección "Borradores de comunicado" con status badges.
 
-| Feature | Prioridad | Descripción |
-|---------|-----------|-------------|
-| Modelo ClientPortalAccess | Alta | Token de acceso por cliente con expiración, permisos granulares |
-| Autenticación por token | Alta | Login con token único (sin email/password), sesión de solo lectura |
-| Página pública de resumen | Alta | KPIs, sentimiento, SOV, menciones recientes — solo del cliente vinculado |
-| Exportar PDF desde portal | Media | Botón para descargar reporte del periodo actual |
-| Branding personalizable | Baja | Logo y colores del cliente en el portal |
+**AlertRule CRUD**: Página completa con tabla, modal dinámico por tipo (6 tipos con diferentes campos de condición), multi-select de canales (dashboard/telegram/email), select de cliente filtrado por org. Toggle de activar/desactivar inline.
 
-### Archivos a crear/modificar
+**Evaluaciones avanzadas**:
+- `SOV_DROP`: Compara Share of Voice actual vs período anterior, trigger si caída >= dropThreshold%
+- `COMPETITOR_SPIKE`: Busca competidores vía `ClientCompetitor`, compara menciones entre períodos, trigger si spike >= spikeThreshold%
+- `SENTIMENT_SHIFT`: Compara ratio de menciones negativas entre períodos, trigger si incremento >= shiftThreshold puntos porcentuales
 
-| Archivo | Propósito |
-|---------|-----------|
-| `prisma/schema.prisma` | Modelo ClientPortalAccess (token, clientId, expiresAt, permissions) |
-| `packages/web/src/app/portal/` | Páginas del portal público |
-| `packages/web/src/app/portal/[token]/page.tsx` | Dashboard de solo lectura |
-| `packages/web/src/server/routers/portal.ts` | API del portal con validación de token |
-| `packages/web/src/app/dashboard/alert-rules/page.tsx` | CRUD de reglas de alerta |
+**Insights Timeline**: `useInfiniteQuery` con cursor pagination, cards colapsables que muestran SOV trend, recomendaciones, top topics (pill badges), y action items vinculados (lazy-loaded). Botón "Cargar más insights" con loading state.
+
+### E2E Tests
+- `tests/e2e/test_sprint14.py` — 11/11 tests passing
+- `tests/e2e/test_sprint14_social.py` — 4/4 tests passing (super admin)
 
 ---
 
@@ -922,22 +919,22 @@ Llevar el sistema a tiempo real y abrir integraciones con herramientas externas 
 ## Orden de Prioridad Sugerido
 
 ```
-Sprint 13 (cerrar) → Sprint 14 → Sprint 15 → Sprint 16 → Sprint 17 → Sprint 18
-     ↓                   ↓            ↓            ↓            ↓           ↓
-  Action Pipeline    Portal +     Email +      Campañas +   Executive   Real-time +
-  (completar)       Alert Rules   AI Brief     Contactos    Dashboard   Webhooks
+Sprint 13 ✅ → Sprint 14 ✅ → Sprint 15 → Sprint 16 → Sprint 17 → Sprint 18
+     ↓              ↓              ↓            ↓            ↓           ↓
+  Action         Pipeline       Email +      Campañas +   Executive   Real-time +
+  Pipeline       Completo      AI Brief     Contactos    Dashboard   Webhooks
 ```
 
 **Impacto estimado por sprint:**
 
-| Sprint | Valor para agencia | Esfuerzo |
-|--------|-------------------|----------|
-| 13 (cerrar) | Alto — completa ciclo de acción | Bajo |
-| 14 | Muy alto — portal diferencia vs competencia | Medio |
-| 15 | Alto — email es el canal #1 en PR corporativo | Medio |
-| 16 | Muy alto — tracking de campañas es core de PR | Alto |
-| 17 | Medio — útil para escala multi-agencia | Medio |
-| 18 | Alto — real-time y webhooks modernizan el producto | Alto |
+| Sprint | Valor para agencia | Esfuerzo | Estado |
+|--------|-------------------|----------|--------|
+| 13 | Alto — completa ciclo de acción | Bajo | ✅ Completado |
+| 14 | Muy alto — pipeline completo con evaluaciones | Medio | ✅ Completado |
+| 15 | Alto — email es el canal #1 en PR corporativo | Medio | **SIGUIENTE** |
+| 16 | Muy alto — tracking de campañas es core de PR | Alto | Pendiente |
+| 17 | Medio — útil para escala multi-agencia | Medio | Pendiente |
+| 18 | Alto — real-time y webhooks modernizan el producto | Alto | Pendiente |
 
 ## Contacto
 

@@ -469,6 +469,121 @@ Los insights deben ser especificos, con datos, y orientados a la accion.`;
   }
 }
 
+// ==================== DAILY BRIEF ====================
+
+export interface DailyBriefResult {
+  highlights: string[];
+  comparison: {
+    mentionsDelta: number;
+    sentimentShift: string;
+    sovChange: string;
+  };
+  watchList: string[];
+  emergingTopics: string[];
+  pendingActions: string[];
+}
+
+/**
+ * Genera un brief diario ejecutivo con IA para un cliente.
+ */
+export async function generateDailyBrief(params: {
+  clientName: string;
+  clientIndustry: string;
+  todayStats: {
+    mentions: number;
+    sentimentBreakdown: { positive: number; negative: number; neutral: number; mixed: number };
+    socialPosts: number;
+    totalEngagement: number;
+  };
+  yesterdayStats: {
+    mentions: number;
+    sentimentBreakdown: { positive: number; negative: number; neutral: number; mixed: number };
+  };
+  sovPercentage: number;
+  yesterdaySov: number;
+  topMentions: { title: string; source: string; sentiment: string }[];
+  activeCrises: number;
+  pendingActionItems: string[];
+  emergingTopicNames: string[];
+}): Promise<DailyBriefResult> {
+  const mentionsDelta = params.todayStats.mentions - params.yesterdayStats.mentions;
+  const deltaSign = mentionsDelta > 0 ? "+" : "";
+
+  const mentionsText = params.topMentions
+    .slice(0, 5)
+    .map((m) => `- ${m.title} (${m.source}, ${m.sentiment})`)
+    .join("\n");
+
+  const actionsText = params.pendingActionItems.length > 0
+    ? params.pendingActionItems.slice(0, 5).map((a) => `- ${a}`).join("\n")
+    : "Sin acciones pendientes";
+
+  const emergingText = params.emergingTopicNames.length > 0
+    ? params.emergingTopicNames.join(", ")
+    : "Sin temas emergentes";
+
+  const model = getGeminiModel();
+
+  const prompt = `Genera un brief diario ejecutivo para el equipo de PR del cliente "${params.clientName}" (industria: ${params.clientIndustry || "No especificada"}).
+
+DATOS DE HOY:
+- Menciones: ${params.todayStats.mentions} (${deltaSign}${mentionsDelta} vs ayer: ${params.yesterdayStats.mentions})
+- Sentimiento hoy: Positivas=${params.todayStats.sentimentBreakdown.positive}, Negativas=${params.todayStats.sentimentBreakdown.negative}, Neutras=${params.todayStats.sentimentBreakdown.neutral}
+- Sentimiento ayer: Positivas=${params.yesterdayStats.sentimentBreakdown.positive}, Negativas=${params.yesterdayStats.sentimentBreakdown.negative}, Neutras=${params.yesterdayStats.sentimentBreakdown.neutral}
+- SOV hoy: ${params.sovPercentage.toFixed(1)}% (ayer: ${params.yesterdaySov.toFixed(1)}%)
+- Posts sociales: ${params.todayStats.socialPosts}, engagement total: ${params.todayStats.totalEngagement}
+- Crisis activas: ${params.activeCrises}
+
+MENCIONES DESTACADAS:
+${mentionsText || "Ninguna relevante"}
+
+TEMAS EMERGENTES: ${emergingText}
+
+ACCIONES PENDIENTES:
+${actionsText}
+
+Responde UNICAMENTE con JSON valido, sin markdown ni texto adicional:
+{
+  "highlights": ["Punto 1: observacion clave", "Punto 2: otra observacion", "...hasta 8 puntos"],
+  "comparison": {
+    "mentionsDelta": ${mentionsDelta},
+    "sentimentShift": "descripcion breve del cambio de sentimiento vs ayer",
+    "sovChange": "descripcion breve del cambio en SOV"
+  },
+  "watchList": ["Cosa a vigilar 1", "Cosa a vigilar 2"],
+  "emergingTopics": ["Tema emergente detectado 1"],
+  "pendingActions": ["Accion sugerida 1", "Accion sugerida 2"]
+}
+
+Los highlights deben ser especificos, con datos, y orientados a la accion. Maximo 8 highlights, 3 watch items, 3 acciones.`;
+
+  try {
+    const result = await model.generateContent({
+      contents: [{ role: "user", parts: [{ text: prompt }] }],
+      generationConfig: { maxOutputTokens: 1024, temperature: 0.4 },
+    });
+
+    const rawText = result.response.text();
+    console.log("[AI] generateDailyBrief response:", rawText.slice(0, 300));
+
+    const cleaned = cleanJsonResponse(rawText);
+    return JSON.parse(cleaned) as DailyBriefResult;
+  } catch (error) {
+    console.error("[AI] Failed to parse generateDailyBrief response:", error);
+    return {
+      highlights: ["No fue posible generar el brief automatico hoy"],
+      comparison: {
+        mentionsDelta: 0,
+        sentimentShift: "No disponible",
+        sovChange: "No disponible",
+      },
+      watchList: ["Revisar datos manualmente"],
+      emergingTopics: [],
+      pendingActions: [],
+    };
+  }
+}
+
 // ==================== SOCIAL MEDIA: SUGERENCIAS DE HASHTAGS ====================
 
 export interface SocialHashtagSuggestion {

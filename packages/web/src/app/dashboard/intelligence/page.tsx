@@ -36,7 +36,11 @@ import {
   Loader2,
   Download,
   ChevronDown,
+  FileText,
+  Eye,
+  ArrowRight,
 } from "lucide-react";
+import Link from "next/link";
 import { FilterBar, FilterSelect } from "@/components/filters";
 import { TIME_PERIOD_OPTIONS } from "@/lib/filter-constants";
 
@@ -64,6 +68,12 @@ export default function IntelligencePage() {
     }
   );
   const sourceTiers = trpc.intelligence.getSourceTiers.useQuery();
+
+  // Ultimo brief diario
+  const latestBrief = trpc.briefs.getLatest.useQuery(
+    { clientId: clientId || clients.data?.[0]?.id || "" },
+    { enabled: !!clientId || !!clients.data?.[0]?.id }
+  );
 
   // Action items - solo si hay un cliente seleccionado
   const actionItems = trpc.intelligence.getActionItems.useQuery(
@@ -351,6 +361,67 @@ export default function IntelligencePage() {
           )}
         </div>
       </div>
+
+      {/* Row 3.4: Ultimo Brief */}
+      {latestBrief.data && (
+        <div className="rounded-xl border border-gray-100 dark:border-gray-700 bg-white dark:bg-gray-800 p-6 shadow-sm dark:shadow-gray-900/20">
+          <div className="mb-4 flex items-center justify-between">
+            <div className="flex items-center gap-2">
+              <FileText className="h-5 w-5 text-brand-600" />
+              <h3 className="font-semibold text-gray-900 dark:text-white">Ultimo Brief</h3>
+              <span className="text-xs text-gray-500 dark:text-gray-400">
+                {new Date(latestBrief.data.date).toLocaleDateString("es-ES", { day: "numeric", month: "short" })}
+              </span>
+            </div>
+            <Link
+              href="/dashboard/briefs"
+              className="flex items-center gap-1 text-sm text-brand-600 hover:text-brand-700 dark:text-brand-400 dark:hover:text-brand-300"
+            >
+              Ver todos <ArrowRight className="h-3.5 w-3.5" />
+            </Link>
+          </div>
+
+          {(() => {
+            const content = latestBrief.data.content as {
+              highlights?: string[];
+              watchList?: string[];
+              comparison?: { mentionsDelta?: number; sentimentShift?: string; sovChange?: string };
+            };
+            return (
+              <div className="space-y-3">
+                {/* Highlights condensados */}
+                {content.highlights && content.highlights.length > 0 && (
+                  <ul className="space-y-1.5">
+                    {content.highlights.slice(0, 4).map((h, i) => (
+                      <li key={i} className="flex items-start gap-2 text-sm text-gray-600 dark:text-gray-300">
+                        <Lightbulb className="mt-0.5 h-4 w-4 flex-shrink-0 text-amber-500" />
+                        {h}
+                      </li>
+                    ))}
+                  </ul>
+                )}
+
+                {/* Watch list */}
+                {content.watchList && content.watchList.length > 0 && (
+                  <div className="flex flex-wrap gap-2 pt-2 border-t border-gray-100 dark:border-gray-700">
+                    <span className="text-xs font-medium text-gray-500 dark:text-gray-400 flex items-center gap-1">
+                      <Eye className="h-3.5 w-3.5" /> Vigilar:
+                    </span>
+                    {content.watchList.slice(0, 3).map((w, i) => (
+                      <span
+                        key={i}
+                        className="rounded-full bg-blue-50 dark:bg-blue-900/20 px-2.5 py-0.5 text-xs text-blue-700 dark:text-blue-300"
+                      >
+                        {w}
+                      </span>
+                    ))}
+                  </div>
+                )}
+              </div>
+            );
+          })()}
+        </div>
+      )}
 
       {/* Row 3.5: Insights Timeline */}
       <div className="rounded-xl border border-gray-100 dark:border-gray-700 bg-white dark:bg-gray-800 p-6 shadow-sm dark:shadow-gray-900/20">

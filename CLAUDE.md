@@ -19,7 +19,7 @@ MediaBot is a media monitoring platform for PR agencies. It monitors news source
 ```
 /
 ├── packages/
-│   ├── web/          # Next.js frontend + tRPC API (18 dashboard pages, 14 routers)
+│   ├── web/          # Next.js frontend + tRPC API (16 dashboard pages, 16 routers)
 │   ├── workers/      # Background jobs (5 collectors, 20+ workers, 24 colas)
 │   ├── bot/          # Telegram bot (Grammy)
 │   └── shared/       # Shared code (prisma, config, types, ai-client)
@@ -41,11 +41,12 @@ MediaBot is a media monitoring platform for PR agencies. It monitors news source
 | `packages/web/src/components/social-mention-row.tsx` | Componente de fila de mencion social (con checkbox para bulk select) |
 | `packages/workers/src/queues.ts` | Job queues and cron schedules (24 colas) |
 | `packages/workers/src/collectors/social.ts` | Social media collector (EnsembleData) |
-| `packages/web/src/server/routers/social.ts` | Social media monitoring API (17 endpoints) |
+| `packages/web/src/server/routers/social.ts` | Social media monitoring API (18 endpoints, incl. generateResponse) |
 | `packages/web/src/server/routers/crisis.ts` | Crisis management API (6 endpoints) |
 | `packages/web/src/server/routers/responses.ts` | Response draft workflow API (6 endpoints) |
+| `packages/web/src/server/routers/alertRules.ts` | Alert rules CRUD API (6 endpoints) |
 | `packages/web/src/server/routers/organizations.ts` | Multi-tenant organization management |
-| `packages/workers/src/workers/alert-rules-worker.ts` | Custom alert rule evaluation (cron */30) |
+| `packages/workers/src/workers/alert-rules-worker.ts` | Alert rule evaluation - 6 types (cron */30) |
 | `packages/workers/src/analysis/crisis-detector.ts` | Auto crisis detection on negative spikes |
 | `deploy/remote-deploy.sh` | Production deployment script |
 
@@ -56,14 +57,17 @@ MediaBot is a media monitoring platform for PR agencies. It monitors news source
 - **Backend mutations**: `deleteSocialMention` (individual), `deleteSocialMentions` (bulk hasta 100)
 - **Componentes compartidos**: `platform-icons.tsx` (SVG icons), `social-mention-row.tsx` (fila con checkbox)
 
-## Action Pipeline (Sprint 13)
+## Action Pipeline (Sprint 13 + 14)
 
-- **Páginas**: `/dashboard/crisis` (lista), `/dashboard/crisis/[id]` (detalle con timeline/notas), `/dashboard/responses` (workflow de comunicados)
-- **Modelos**: ResponseDraft (workflow DRAFT→PUBLISHED), CrisisNote, ActionItem, AlertRule
-- **Workers**: `alert-rules-worker.ts` (evalúa reglas cada 30 min), `insights-worker.ts` (crea ActionItems)
+- **Páginas**: `/dashboard/crisis` (lista), `/dashboard/crisis/[id]` (detalle con timeline/notas), `/dashboard/responses` (workflow de comunicados), `/dashboard/alert-rules` (CRUD reglas de alerta)
+- **Modelos**: ResponseDraft (workflow DRAFT→PUBLISHED), CrisisNote, ActionItem, AlertRule (6 tipos)
+- **Workers**: `alert-rules-worker.ts` (evalúa 6 tipos de reglas cada 30 min), `insights-worker.ts` (crea ActionItems)
+- **Alert Rules**: NEGATIVE_SPIKE, VOLUME_SURGE, NO_MENTIONS, SOV_DROP, COMPETITOR_SPIKE, SENTIMENT_SHIFT
 - **Crisis**: Auto-detección en `crisis-detector.ts`, UI de gestión con notas y asignación
-- **Respuestas**: Generación con Gemini, workflow de aprobación (solo ADMIN/SUPERVISOR aprueban)
-- **Sidebar**: Badge de crisis activas, items "Crisis" y "Respuestas"
+- **Respuestas**: Generación con Gemini desde menciones y menciones sociales, workflow de aprobación (solo ADMIN/SUPERVISOR aprueban)
+- **Social Mentions Detail**: Botón "Generar comunicado" crea ResponseDraft vinculado, sección de borradores vinculados
+- **Intelligence**: Timeline de insights con paginación infinita, cards expandibles, action items vinculados, sección "Temas Principales"
+- **Sidebar**: Badge de crisis activas, items "Crisis", "Respuestas" y "Reglas de Alerta"
 
 ## Commands
 
@@ -89,20 +93,19 @@ ssh -i ~/.ssh/newsaibot-telegram-ssh root@159.65.97.78 \
 
 ## Testing
 
-### E2E Test Script
+### E2E Test Scripts
 
-**Location**: `tests/e2e/test_mediabot_full.py`
-
-A comprehensive Playwright test that:
-- Logs into the application
-- Navigates through ALL menu pages
-- Takes screenshots of each page
-- Discovers and reports all buttons, links, and inputs
-- Tests client detail and mention detail pages
+| Script | Purpose |
+|--------|---------|
+| `tests/e2e/test_mediabot_full.py` | Full regression - navigates ALL pages, discovers elements |
+| `tests/e2e/test_sprint14.py` | Sprint 14 features: alert rules, intelligence timeline, social detail, responses, crisis |
+| `tests/e2e/test_sprint14_social.py` | Social mention detail with super admin account |
 
 **Usage**:
 ```bash
-python3 tests/e2e/test_mediabot_full.py
+python3 tests/e2e/test_mediabot_full.py        # Full regression
+python3 tests/e2e/test_sprint14.py              # Sprint 14 validation
+python3 tests/e2e/test_sprint14_social.py       # Social mention detail
 ```
 
 **Configuration** (edit in script):
@@ -111,10 +114,10 @@ python3 tests/e2e/test_mediabot_full.py
 - `SCREENSHOT_DIR`: Where to save screenshots
 
 **Output**:
-- Screenshots saved to `screenshots/e2e/`
+- Screenshots saved to `screenshots/` subdirectories
 - Console summary of all pages and elements found
 
-**Use this script after deployments to verify the UI is working correctly.**
+**Use these scripts after deployments to verify the UI is working correctly.**
 
 ## Production Environment
 

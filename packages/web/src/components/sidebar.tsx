@@ -26,6 +26,7 @@ import {
   AlertTriangle,
   MessageSquareReply,
   Bell,
+  FileText,
 } from "lucide-react";
 import { signOut, useSession } from "next-auth/react";
 import { useState } from "react";
@@ -44,6 +45,7 @@ const tourIdMap: Record<string, string> = {
   "/dashboard/social-mentions": "nav-social",
   "/dashboard/analytics": "nav-analytics",
   "/dashboard/intelligence": "nav-intelligence",
+  "/dashboard/briefs": "nav-briefs",
   "/dashboard/crisis": "nav-crisis",
   "/dashboard/responses": "nav-responses",
   "/dashboard/sources": "nav-sources",
@@ -60,6 +62,7 @@ const navigation = [
   { name: "Redes Sociales", href: "/dashboard/social-mentions", icon: Share2 },
   { name: "Analiticas", href: "/dashboard/analytics", icon: BarChart3, separator: true },
   { name: "Intelligence", href: "/dashboard/intelligence", icon: Brain },
+  { name: "Media Brief", href: "/dashboard/briefs", icon: FileText },
   { name: "Crisis", href: "/dashboard/crisis", icon: AlertTriangle },
   { name: "Respuestas", href: "/dashboard/responses", icon: MessageSquareReply },
   { name: "Fuentes", href: "/dashboard/sources", icon: Rss, separator: true },

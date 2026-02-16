@@ -102,6 +102,9 @@ model Client {
   // Action Pipeline
   actionItems  ActionItem[]
   alertRules   AlertRule[]
+
+  // Daily Briefs
+  dailyBriefs  DailyBrief[]
 }
 
 model Keyword {
@@ -707,4 +710,19 @@ model AlertRule {
   client    Client        @relation(fields: [clientId], references: [id])
 
   @@index([clientId, active])
+}
+
+// ==================== DAILY BRIEFS ====================
+
+model DailyBrief {
+  id        String   @id @default(cuid())
+  clientId  String
+  client    Client   @relation(fields: [clientId], references: [id])
+  date      DateTime // Fecha del brief (inicio del día)
+  content   Json     // { highlights, comparison, watchList, emergingTopics, pendingActions }
+  stats     Json     // { mentions, sentiment, sov, socialPosts, engagement }
+  createdAt DateTime @default(now())
+
+  @@unique([clientId, date])
+  @@index([clientId, date])
 }

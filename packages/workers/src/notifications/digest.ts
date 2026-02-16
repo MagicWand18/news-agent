@@ -1,7 +1,8 @@
 import { Worker } from "bullmq";
 import { connection, QUEUE_NAMES } from "../queues.js";
 import { prisma } from "@mediabot/shared";
-import { generateDigestSummary } from "../analysis/ai.js";
+import { generateDigestSummary, generateDailyBrief } from "../analysis/ai.js";
+import type { DailyBriefResult } from "../analysis/ai.js";
 import { bot } from "./bot-instance.js";
 import { createWeeklyReportNotification } from "./inapp-creator.js";
 
@@ -173,6 +174,135 @@ export function startDigestWorker() {
           aiSummary = "Resumen automatico no disponible.";
         }
 
+        // ==================== AI MEDIA BRIEF ====================
+        let briefResult: DailyBriefResult | null = null;
+        try {
+          // Datos del día anterior para comparativa
+          const yesterdayStart = new Date(since.getTime() - 24 * 60 * 60 * 1000);
+          const yesterdayMentions = await prisma.mention.findMany({
+            where: {
+              clientId: client.id,
+              createdAt: { gte: yesterdayStart, lt: since },
+            },
+          });
+
+          const yesterdaySentiment = {
+            positive: yesterdayMentions.filter((m) => m.sentiment === "POSITIVE").length,
+            negative: yesterdayMentions.filter((m) => m.sentiment === "NEGATIVE").length,
+            neutral: yesterdayMentions.filter((m) => m.sentiment === "NEUTRAL").length,
+            mixed: yesterdayMentions.filter((m) => m.sentiment === "MIXED").length,
+          };
+
+          // SOV rápido: contar menciones del cliente vs total en la org
+          const [clientMentionCount, totalOrgMentions] = await Promise.all([
+            prisma.mention.count({
+              where: { clientId: client.id, createdAt: { gte: since } },
+            }),
+            prisma.mention.count({
+              where: { client: { orgId: client.orgId }, createdAt: { gte: since } },
+            }),
+          ]);
+          const sovPercentage = totalOrgMentions > 0 ? (clientMentionCount / totalOrgMentions) * 100 : 0;
+
+          // SOV de ayer
+          const [clientYesterdayCount, totalYesterdayCount] = await Promise.all([
+            prisma.mention.count({
+              where: { clientId: client.id, createdAt: { gte: yesterdayStart, lt: since } },
+            }),
+            prisma.mention.count({
+              where: { client: { orgId: client.orgId }, createdAt: { gte: yesterdayStart, lt: since } },
+            }),
+          ]);
+          const yesterdaySov = totalYesterdayCount > 0 ? (clientYesterdayCount / totalYesterdayCount) * 100 : 0;
+
+          // Crisis activas
+          const activeCrises = await prisma.crisisAlert.count({
+            where: { clientId: client.id, status: "ACTIVE" },
+          });
+
+          // Action items pendientes
+          const pendingItems = await prisma.actionItem.findMany({
+            where: { clientId: client.id, status: { in: ["PENDING", "IN_PROGRESS"] } },
+            select: { description: true },
+            take: 5,
+          });
+
+          // Temas emergentes recientes (últimas 48h)
+          const emergingTopics = await prisma.emergingTopicNotification.findMany({
+            where: {
+              clientId: client.id,
+              createdAt: { gte: new Date(Date.now() - 48 * 60 * 60 * 1000) },
+            },
+            select: { topic: true },
+            distinct: ["topic"],
+            take: 5,
+          });
+
+          // Engagement total social
+          const totalEngagement = socialMentions.reduce(
+            (sum, sm) => sum + sm.likes + sm.comments + sm.shares,
+            0
+          );
+
+          briefResult = await generateDailyBrief({
+            clientName: client.name,
+            clientIndustry: client.industry || "",
+            todayStats: {
+              mentions: mentions.length,
+              sentimentBreakdown,
+              socialPosts: socialMentions.length,
+              totalEngagement,
+            },
+            yesterdayStats: {
+              mentions: yesterdayMentions.length,
+              sentimentBreakdown: yesterdaySentiment,
+            },
+            sovPercentage,
+            yesterdaySov,
+            topMentions: mentions.slice(0, 5).map((m) => ({
+              title: m.article.title,
+              source: m.article.source,
+              sentiment: m.sentiment,
+            })),
+            activeCrises,
+            pendingActionItems: pendingItems.map((i) => i.description),
+            emergingTopicNames: emergingTopics.map((e) => e.topic),
+          });
+
+          // Persistir brief en DB
+          const todayDate = new Date();
+          todayDate.setHours(0, 0, 0, 0);
+
+          const briefContent = JSON.parse(JSON.stringify(briefResult));
+          const briefStats = JSON.parse(JSON.stringify({
+            mentions: mentions.length,
+            sentiment: sentimentBreakdown,
+            sov: sovPercentage,
+            socialPosts: socialMentions.length,
+            engagement: totalEngagement,
+          }));
+
+          await prisma.dailyBrief.upsert({
+            where: {
+              clientId_date: { clientId: client.id, date: todayDate },
+            },
+            update: {
+              content: briefContent,
+              stats: briefStats,
+            },
+            create: {
+              clientId: client.id,
+              date: todayDate,
+              content: briefContent,
+              stats: briefStats,
+            },
+          });
+
+          console.log(`🧠 Daily brief generated and saved for ${client.name}`);
+        } catch (error) {
+          console.error(`Failed to generate daily brief for ${client.name}:`, error);
+        }
+
         // Format digest message
         const sentimentBar = makeSentimentBar(sentimentBreakdown, mentions.length);
 
@@ -257,6 +387,35 @@ export function startDigestWorker() {
           }
         }
 
+        // Sección AI Media Brief
+        if (briefResult) {
+          const deltaSign = briefResult.comparison.mentionsDelta > 0 ? "+" : "";
+          message += `\n🧠 AI MEDIA BRIEF\n`;
+          message += `━━━━━━━━━━━━━━━━\n`;
+          message += `📊 vs. ayer: ${deltaSign}${briefResult.comparison.mentionsDelta} menciones, ${briefResult.comparison.sentimentShift}\n\n`;
+
+          if (briefResult.highlights.length > 0) {
+            message += `🔑 Puntos clave:\n`;
+            for (const h of briefResult.highlights.slice(0, 5)) {
+              message += `• ${h}\n`;
+            }
+          }
+
+          if (briefResult.watchList.length > 0) {
+            message += `\n👁️ Qué vigilar hoy:\n`;
+            for (const w of briefResult.watchList) {
+              message += `• ${w}\n`;
+            }
+          }
+
+          if (briefResult.pendingActions.length > 0) {
+            message += `\n⚡ Acciones sugeridas:\n`;
+            for (const a of briefResult.pendingActions) {
+              message += `• ${a}\n`;
+            }
+          }
+        }
+
         // Obtener destinatarios internos de agencia
         const internalRecipients = await getRecipientsForClient(
           client.id,
@@ -310,6 +469,17 @@ export function startDigestWorker() {
           // Agregar resumen social al mensaje del cliente
           if (socialMentions.length > 0) {
             clientMessage += `\n📱 ${socialMentions.length} publicaciones en redes sociales detectadas\n`;
+          }
+
+          // Brief condensado para clientes
+          if (briefResult && briefResult.highlights.length > 0) {
+            clientMessage += `\n🧠 Puntos clave:\n`;
+            for (const h of briefResult.highlights.slice(0, 3)) {
+              clientMessage += `• ${h}\n`;
+            }
+            if (briefResult.watchList.length > 0) {
+              clientMessage += `\n👁️ A vigilar: ${briefResult.watchList.slice(0, 2).join(" | ")}\n`;
+            }
           }
 
           const { sent, failed } = await sendToMultipleRecipients(clientRecipients, clientMessage);
