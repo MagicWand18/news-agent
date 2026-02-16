@@ -60,6 +60,7 @@ MediaBot es un sistema de monitoreo de medios que permite a agencias de comunica
 | **Pipeline de Acción** | OK | Crisis, Respuestas, AlertRules, ActionItems (Sprint 13) |
 | **Action Pipeline Completo** | OK | Generar comunicado social, AlertRule CRUD, evaluaciones avanzadas, Insights Timeline (Sprint 14) |
 | **Bugfix Raw SQL** | OK | Eliminado Prisma.empty, usar $queryRawUnsafe (2026-02-15) |
+| **AI Media Brief** | OK | Brief diario con IA, pagina /dashboard/briefs, integrado en digest + intelligence (Sprint 15) |
 
 ### Funciones de IA
 
@@ -79,6 +80,7 @@ MediaBot es un sistema de monitoreo de medios que permite a agencias de comunica
 | `runEnhancedOnboarding` | On-demand | Wizard nuevo cliente | `analysis/ai.ts` |
 | `executeGroundingSearch` | On-demand/Auto | Búsqueda de noticias con Gemini | `grounding/grounding-service.ts` |
 | `checkLowMentions` | Cron diario | Verificación de menciones bajas | `grounding/grounding-service.ts` |
+| `generateDailyBrief` | Cron diario (digest) | Brief ejecutivo diario por cliente | `analysis/ai.ts` |
 
 ### Pendiente / En Progreso
 
@@ -758,44 +760,34 @@ Cerrar gaps del Sprint 13 para tener el pipeline de acción completo y funcional
 
 ---
 
-## Sprint 15: Email Reports + AI Media Brief
+## Sprint 15: AI Media Brief (COMPLETADO - 2026-02-15)
 
 ### Objetivo
-Diversificar canales de notificación (más allá de Telegram) y generar briefings diarios inteligentes que un ejecutivo de PR pueda leer en 2 minutos.
+Generar briefings diarios inteligentes con IA que un ejecutivo de PR pueda leer en 2 minutos. Entrega via Telegram + dashboard (email pospuesto).
 
-### Parte 1: Reportes por Email
+### Implementado
 
-| Feature | Prioridad | Descripción |
-|---------|-----------|-------------|
-| Servicio de email (Resend/SMTP) | Alta | Integración con Resend para envío transaccional |
-| Template HTML de reporte | Alta | Email responsive con KPIs, top menciones, sentimiento, SOV |
-| Digest diario por email | Alta | Cron 8:00 AM similar a Telegram pero vía email |
-| Reporte semanal por email | Media | Versión email del reporte PDF semanal (HTML inline) |
-| Configuración por usuario | Media | Cada usuario elige: Telegram, Email, Ambos, Ninguno |
-| Unsubscribe link | Baja | Link para desactivar emails sin login |
+| Feature | Estado | Archivos |
+|---------|--------|----------|
+| Modelo DailyBrief | ✅ OK | `prisma/schema.prisma` (content JSON + stats JSON, unique clientId+date) |
+| Funcion generateDailyBrief() | ✅ OK | `packages/workers/src/analysis/ai.ts` (highlights, comparativa, watchList, temas, acciones) |
+| Integración digest worker | ✅ OK | `packages/workers/src/notifications/digest.ts` (recopila datos, genera brief, persiste, Telegram) |
+| Router briefs.ts | ✅ OK | `packages/web/src/server/routers/briefs.ts` (list cursor pagination, getById, getLatest) |
+| Página /dashboard/briefs | ✅ OK | `packages/web/src/app/dashboard/briefs/page.tsx` (card destacada + timeline colapsable) |
+| Sección en Intelligence | ✅ OK | `packages/web/src/app/dashboard/intelligence/page.tsx` (Ultimo Brief + link) |
+| Sidebar "Media Brief" | ✅ OK | `packages/web/src/components/sidebar.tsx` (icono FileText) |
+| Router registrado | ✅ OK | `packages/web/src/server/routers/_app.ts` (17 routers total) |
 
-### Parte 2: AI Media Brief (Daily Intelligence)
+### Detalles técnicos
 
-Briefing diario generado por IA que resume todo lo relevante del día anterior en un formato ejecutivo.
+**AI Media Brief**: `generateDailyBrief()` recibe stats de hoy/ayer, SOV, crisis, action items y temas emergentes. Gemini genera JSON con highlights (5-8), comparativa (mentionsDelta, sentimentShift, sovChange), watchList (2-3), emergingTopics y pendingActions.
 
-| Feature | Prioridad | Descripción |
-|---------|-----------|-------------|
-| Generador de brief | Alta | Claude genera resumen ejecutivo de 5-10 bullet points por cliente |
-| Contexto enriquecido | Alta | Incluye: menciones clave, cambios de sentimiento, temas emergentes, acciones pendientes |
-| Comparativa día anterior | Media | "Ayer vs. anteayer": delta de menciones, sentimiento, SOV |
-| Sección "Qué vigilar hoy" | Media | IA sugiere 2-3 cosas a las que prestar atención |
-| Delivery multi-canal | Media | Brief enviado por Telegram + Email + disponible en dashboard |
-| Página /dashboard/briefs | Baja | Historial de briefs con búsqueda |
+**Digest Worker**: Dentro del loop por cliente, recopila datos adicionales (menciones ayer, SOV via COUNT, crisis activas, action items pendientes, temas emergentes 48h). Genera brief, persiste con upsert (clientId+date), agrega sección completa al mensaje Telegram interno y versión condensada al mensaje de cliente.
 
-### Archivos a crear/modificar
+**Página Briefs**: Card destacada del último brief con stats mini (menciones, SOV, social, engagement), comparativa con delta badges, highlights, watchList, temas emergentes y acciones. Timeline de briefs anteriores con cards colapsables. Filtro por cliente + infinite scroll.
 
-| Archivo | Propósito |
-|---------|-----------|
-| `packages/shared/src/email-client.ts` | Cliente de email (Resend SDK) |
-| `packages/workers/src/notifications/email.ts` | Templates y envío de emails |
-| `packages/workers/src/analysis/daily-brief.ts` | Generador de AI Media Brief |
-| `packages/web/src/app/dashboard/briefs/page.tsx` | Historial de briefs |
-| `prisma/schema.prisma` | Modelo DailyBrief, preferencias de notificación en User |
+### E2E Tests
+- Sprint 15 test: 16/18 pass (2 esperados: sin datos de brief aún)
 
 ---
 
@@ -919,10 +911,10 @@ Llevar el sistema a tiempo real y abrir integraciones con herramientas externas 
 ## Orden de Prioridad Sugerido
 
 ```
-Sprint 13 ✅ → Sprint 14 ✅ → Sprint 15 → Sprint 16 → Sprint 17 → Sprint 18
-     ↓              ↓              ↓            ↓            ↓           ↓
-  Action         Pipeline       Email +      Campañas +   Executive   Real-time +
-  Pipeline       Completo      AI Brief     Contactos    Dashboard   Webhooks
+Sprint 13 ✅ → Sprint 14 ✅ → Sprint 15 ✅ → Sprint 16 → Sprint 17 → Sprint 18
+     ↓              ↓              ↓              ↓            ↓           ↓
+  Action         Pipeline       AI Media       Campañas +   Executive   Real-time +
+  Pipeline       Completo       Brief         Contactos    Dashboard   Webhooks
 ```
 
 **Impacto estimado por sprint:**
@@ -931,8 +923,8 @@ Sprint 13 ✅ → Sprint 14 ✅ → Sprint 15 → Sprint 16 → Sprint 17 → Sp
 |--------|-------------------|----------|--------|
 | 13 | Alto — completa ciclo de acción | Bajo | ✅ Completado |
 | 14 | Muy alto — pipeline completo con evaluaciones | Medio | ✅ Completado |
-| 15 | Alto — email es el canal #1 en PR corporativo | Medio | **SIGUIENTE** |
-| 16 | Muy alto — tracking de campañas es core de PR | Alto | Pendiente |
+| 15 | Alto — briefings IA ejecutivos para PR | Medio | ✅ Completado |
+| 16 | Muy alto — tracking de campañas es core de PR | Alto | **SIGUIENTE** |
 | 17 | Medio — útil para escala multi-agencia | Medio | Pendiente |
 | 18 | Alto — real-time y webhooks modernizan el producto | Alto | Pendiente |
 

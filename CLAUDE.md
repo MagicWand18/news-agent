@@ -19,11 +19,11 @@ MediaBot is a media monitoring platform for PR agencies. It monitors news source
 ```
 /
 ├── packages/
-│   ├── web/          # Next.js frontend + tRPC API (16 dashboard pages, 16 routers)
+│   ├── web/          # Next.js frontend + tRPC API (17 dashboard pages, 17 routers)
 │   ├── workers/      # Background jobs (5 collectors, 20+ workers, 24 colas)
 │   ├── bot/          # Telegram bot (Grammy)
 │   └── shared/       # Shared code (prisma, config, types, ai-client)
-├── prisma/           # Database schema (26 models, 19 enums)
+├── prisma/           # Database schema (27 models, 19 enums)
 ├── deploy/           # Deployment scripts
 ├── docs/             # Documentation (architecture, plan, guides)
 └── tests/            # Test files
@@ -45,9 +45,12 @@ MediaBot is a media monitoring platform for PR agencies. It monitors news source
 | `packages/web/src/server/routers/crisis.ts` | Crisis management API (6 endpoints) |
 | `packages/web/src/server/routers/responses.ts` | Response draft workflow API (6 endpoints) |
 | `packages/web/src/server/routers/alertRules.ts` | Alert rules CRUD API (6 endpoints) |
+| `packages/web/src/server/routers/briefs.ts` | Daily briefs API (3 endpoints: list, getById, getLatest) |
 | `packages/web/src/server/routers/organizations.ts` | Multi-tenant organization management |
 | `packages/workers/src/workers/alert-rules-worker.ts` | Alert rule evaluation - 6 types (cron */30) |
 | `packages/workers/src/analysis/crisis-detector.ts` | Auto crisis detection on negative spikes |
+| `packages/workers/src/analysis/ai.ts` | AI functions (analyze, brief, insights, response, etc.) |
+| `packages/workers/src/notifications/digest.ts` | Daily digest worker with AI Media Brief |
 | `deploy/remote-deploy.sh` | Production deployment script |
 
 ## Social Media Features
@@ -68,6 +71,16 @@ MediaBot is a media monitoring platform for PR agencies. It monitors news source
 - **Social Mentions Detail**: Botón "Generar comunicado" crea ResponseDraft vinculado, sección de borradores vinculados
 - **Intelligence**: Timeline de insights con paginación infinita, cards expandibles, action items vinculados, sección "Temas Principales"
 - **Sidebar**: Badge de crisis activas, items "Crisis", "Respuestas" y "Reglas de Alerta"
+
+## AI Media Brief (Sprint 15)
+
+- **Modelo**: `DailyBrief` (clientId, date, content JSON, stats JSON) con unique constraint clientId+date
+- **AI Function**: `generateDailyBrief()` en `ai.ts` — genera highlights, comparativa vs ayer, watchList, temas emergentes, acciones
+- **Digest Worker**: Integrado en `digest.ts` — recopila datos adicionales (menciones ayer, SOV, crisis, action items, temas emergentes), genera brief, persiste en DB, agrega seccion al Telegram
+- **Router**: `briefs.ts` (list con cursor pagination, getById, getLatest) — 17 routers total
+- **Pagina**: `/dashboard/briefs` — card destacada del ultimo brief + timeline colapsable con infinite scroll
+- **Intelligence**: Seccion "Ultimo Brief" con highlights + watchList + link a `/dashboard/briefs`
+- **Sidebar**: Item "Media Brief" con icono FileText entre Intelligence y Crisis
 
 ## Commands
 
@@ -100,6 +113,7 @@ ssh -i ~/.ssh/newsaibot-telegram-ssh root@159.65.97.78 \
 | `tests/e2e/test_mediabot_full.py` | Full regression - navigates ALL pages, discovers elements |
 | `tests/e2e/test_sprint14.py` | Sprint 14 features: alert rules, intelligence timeline, social detail, responses, crisis |
 | `tests/e2e/test_sprint14_social.py` | Social mention detail with super admin account |
+| `tests/e2e/test_sprint15.py` | Sprint 15 features: briefs page, sidebar item, intelligence brief section |
 
 **Usage**:
 ```bash

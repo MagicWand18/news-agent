@@ -11,6 +11,7 @@ Documentacion del pipeline de datos accionables generados por MediaBot: desde la
 | `CrisisAlert` | `checkForCrisis()` en `packages/workers/src/analysis/crisis-detector.ts` | Spike de menciones negativas | Tabla `CrisisAlert` |
 | `WeeklyInsights` | `generateWeeklyInsights()` en `packages/workers/src/analysis/ai.ts` | Cron semanal (lunes 6 AM) | Tabla `WeeklyInsight` (campo `insights` JSON) |
 | `EmergingTopics` | `detectEmergingTopics()` en `packages/workers/src/analysis/topic-extractor.ts` | Cron cada 4 horas | Tabla `EmergingTopicNotification` |
+| `DailyBrief` | `generateDailyBrief()` en `packages/workers/src/analysis/ai.ts` | Cron diario (digest 8 AM) | Tabla `DailyBrief` (campos `content` y `stats` JSON) |
 
 ### Detalle de cada dato
 
