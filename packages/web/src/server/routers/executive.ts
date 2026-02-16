@@ -578,18 +578,18 @@ export const executiveRouter = router({
             const [lastMention, lastSocialMention] = await Promise.all([
               prisma.mention.findFirst({
                 where: { clientId: client.id, isLegacy: false },
-                orderBy: { createdAt: "desc" },
-                select: { createdAt: true },
+                orderBy: { publishedAt: "desc" },
+                select: { publishedAt: true },
               }),
               prisma.socialMention.findFirst({
                 where: { clientId: client.id },
-                orderBy: { createdAt: "desc" },
-                select: { createdAt: true },
+                orderBy: { postedAt: "desc" },
+                select: { postedAt: true },
               }),
             ]);
 
-            const lastMentionAt = lastMention?.createdAt ?? null;
-            const lastSocialMentionAt = lastSocialMention?.createdAt ?? null;
+            const lastMentionAt = lastMention?.publishedAt ?? null;
+            const lastSocialMentionAt = lastSocialMention?.postedAt ?? null;
 
             // Determinar la actividad más reciente
             const latestActivity = [lastMentionAt, lastSocialMentionAt]
@@ -673,28 +673,32 @@ export const executiveRouter = router({
 
         const sql = `
           SELECT
-            CAST(EXTRACT(DOW FROM combined."createdAt") AS INTEGER) as "dayOfWeek",
-            CAST(EXTRACT(HOUR FROM combined."createdAt") AS INTEGER) as "hour",
+            CAST(combined."dt" AS TEXT) as "date",
+            CAST(EXTRACT(HOUR FROM combined."ts") AS INTEGER) as "hour",
             CAST(COUNT(*) AS INTEGER) as "count"
           FROM (
-            SELECT COALESCE(m."publishedAt", m."createdAt") as "createdAt"
+            SELECT
+              DATE(COALESCE(m."publishedAt", m."createdAt")) as "dt",
+              COALESCE(m."publishedAt", m."createdAt") as "ts"
             FROM "Mention" m
             ${mentionWhere}
             UNION ALL
-            SELECT COALESCE(sm."postedAt", sm."createdAt") as "createdAt"
+            SELECT
+              DATE(COALESCE(sm."postedAt", sm."createdAt")) as "dt",
+              COALESCE(sm."postedAt", sm."createdAt") as "ts"
             FROM "SocialMention" sm
             ${socialWhere}
           ) combined
-          GROUP BY EXTRACT(DOW FROM combined."createdAt"), EXTRACT(HOUR FROM combined."createdAt")
-          ORDER BY "dayOfWeek" ASC, "hour" ASC
+          GROUP BY combined."dt", EXTRACT(HOUR FROM combined."ts")
+          ORDER BY combined."dt" ASC, "hour" ASC
         `;
 
         const rows = await prisma.$queryRawUnsafe<
-          { dayOfWeek: number; hour: number; count: number }[]
+          { date: string; hour: number; count: number }[]
         >(sql, ...params);
 
         return rows.map((r) => ({
-          dayOfWeek: Number(r.dayOfWeek),
+          date: String(r.date),
           hour: Number(r.hour),
           count: Number(r.count),
         }));

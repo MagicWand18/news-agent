@@ -137,31 +137,42 @@ export default function ExecutiveDashboardPage() {
             Alertas de inactividad
           </h3>
           <div className="space-y-2">
-            {inactivity.data.map((alert) => (
-              <div
-                key={alert.clientId}
-                className="flex items-center justify-between rounded-lg border border-amber-100 dark:border-amber-900/30 bg-amber-50/50 dark:bg-amber-900/10 px-4 py-3"
-              >
-                <div>
-                  <span className="text-sm font-medium text-gray-900 dark:text-white">
-                    {alert.clientName}
-                  </span>
-                  <span className="ml-2 text-xs text-gray-500 dark:text-gray-400">
-                    {alert.orgName}
-                  </span>
-                </div>
-                <div className="flex items-center gap-3 text-sm">
-                  <span className="text-amber-600 dark:text-amber-400 font-medium">
-                    {alert.daysSinceActivity} dias sin actividad
-                  </span>
-                  {alert.lastMentionAt && (
-                    <span className="text-xs text-gray-400 dark:text-gray-500">
-                      Ultima mencion: {new Date(alert.lastMentionAt).toLocaleDateString("es-ES")}
+            {inactivity.data.map((alert) => {
+              const neverHadActivity = alert.daysSinceActivity >= 999;
+              return (
+                <div
+                  key={alert.clientId}
+                  className="flex items-center justify-between rounded-lg border border-amber-100 dark:border-amber-900/30 bg-amber-50/50 dark:bg-amber-900/10 px-4 py-3"
+                >
+                  <div>
+                    <span className="text-sm font-medium text-gray-900 dark:text-white">
+                      {alert.clientName}
                     </span>
-                  )}
+                    <span className="ml-2 text-xs text-gray-500 dark:text-gray-400">
+                      {alert.orgName}
+                    </span>
+                  </div>
+                  <div className="flex items-center gap-3 text-sm">
+                    <span className="text-amber-600 dark:text-amber-400 font-medium">
+                      {neverHadActivity
+                        ? "Sin actividad registrada"
+                        : `${alert.daysSinceActivity} dias sin actividad`}
+                    </span>
+                    {!neverHadActivity && (alert.lastMentionAt || alert.lastSocialMentionAt) && (
+                      <span className="text-xs text-gray-400 dark:text-gray-500">
+                        Ultima: {new Date(
+                          (alert.lastMentionAt && alert.lastSocialMentionAt
+                            ? new Date(alert.lastMentionAt) > new Date(alert.lastSocialMentionAt)
+                              ? alert.lastMentionAt
+                              : alert.lastSocialMentionAt
+                            : alert.lastMentionAt || alert.lastSocialMentionAt)!
+                        ).toLocaleDateString("es-ES")}
+                      </span>
+                    )}
+                  </div>
                 </div>
-              </div>
-            ))}
+              );
+            })}
           </div>
         </div>
       )}
