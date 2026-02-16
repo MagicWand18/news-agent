@@ -24,7 +24,7 @@ import {
   Save,
 } from "lucide-react";
 import Link from "next/link";
-import { TELEGRAM_NOTIFICATION_TYPES } from "@mediabot/shared";
+import { TELEGRAM_NOTIFICATION_TYPES } from "@/lib/telegram-notification-types";
 
 const roleLabels: Record<string, string> = {
   ADMIN: "Admin",

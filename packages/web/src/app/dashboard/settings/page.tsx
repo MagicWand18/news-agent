@@ -5,7 +5,7 @@ import { useState, useEffect } from "react";
 import { useSession } from "next-auth/react";
 import { redirect } from "next/navigation";
 import { Save, RotateCcw, Database, AlertCircle, Send } from "lucide-react";
-import { TELEGRAM_NOTIFICATION_TYPES } from "@mediabot/shared";
+import { TELEGRAM_NOTIFICATION_TYPES } from "@/lib/telegram-notification-types";
 
 const categoryLabels: Record<string, string> = {
   general: "General",
