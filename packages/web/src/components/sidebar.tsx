@@ -27,6 +27,7 @@ import {
   MessageSquareReply,
   Bell,
   FileText,
+  Target,
 } from "lucide-react";
 import { signOut, useSession } from "next-auth/react";
 import { useState } from "react";
@@ -50,6 +51,7 @@ const tourIdMap: Record<string, string> = {
   "/dashboard/responses": "nav-responses",
   "/dashboard/sources": "nav-sources",
   "/dashboard/alert-rules": "nav-alert-rules",
+  "/dashboard/campaigns": "nav-campaigns",
   "/dashboard/tasks": "nav-tasks",
   "/dashboard/team": "nav-team",
   "/dashboard/settings": "nav-settings",
@@ -67,6 +69,7 @@ const navigation = [
   { name: "Respuestas", href: "/dashboard/responses", icon: MessageSquareReply },
   { name: "Fuentes", href: "/dashboard/sources", icon: Rss, separator: true },
   { name: "Reglas de Alerta", href: "/dashboard/alert-rules", icon: Bell },
+  { name: "Campañas", href: "/dashboard/campaigns", icon: Target },
   { name: "Tareas", href: "/dashboard/tasks", icon: CheckSquare },
   { name: "Equipo", href: "/dashboard/team", icon: UserCog, separator: true },
   { name: "Agencias", href: "/dashboard/agencies", icon: Building2, superAdminOnly: true },

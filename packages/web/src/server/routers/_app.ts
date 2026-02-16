@@ -15,6 +15,7 @@ import { responsesRouter } from "./responses";
 import { crisisRouter } from "./crisis";
 import { alertRulesRouter } from "./alertRules";
 import { briefsRouter } from "./briefs";
+import { campaignsRouter } from "./campaigns";
 
 export const appRouter = router({
   dashboard: dashboardRouter,
@@ -33,6 +34,7 @@ export const appRouter = router({
   crisis: crisisRouter,
   alertRules: alertRulesRouter,
   briefs: briefsRouter,
+  campaigns: campaignsRouter,
 });
 
 export type AppRouter = typeof appRouter;

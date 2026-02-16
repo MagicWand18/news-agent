@@ -41,6 +41,7 @@ model User {
   crisisAssigned         CrisisAlert[]   @relation("CrisisAssignedTo")
   crisisNotes            CrisisNote[]
   actionItems            ActionItem[]
+  campaignNotes          CampaignNote[]
 }
 
 enum Role {
@@ -105,6 +106,9 @@ model Client {
 
   // Daily Briefs
   dailyBriefs  DailyBrief[]
+
+  // Campaigns
+  campaigns    Campaign[]
 }
 
 model Keyword {
@@ -157,6 +161,7 @@ model Mention {
   createdAt      DateTime  @default(now())
   tasks          Task[]
   responseDrafts ResponseDraft[]
+  campaignMentions CampaignMention[]
 
   // Legacy: artículo publicado antes de que el cliente fuera creado (contexto histórico)
   isLegacy       Boolean   @default(false)
@@ -279,6 +284,7 @@ model CrisisAlert {
   assignedToId  String?
   assignedTo    User?             @relation("CrisisAssignedTo", fields: [assignedToId], references: [id])
   crisisNotes   CrisisNote[]
+  campaigns     Campaign[]
 
   @@index([clientId, status])
   @@index([createdAt])
@@ -602,6 +608,7 @@ model SocialMention {
   // Action Pipeline
   responseDrafts ResponseDraft[]
   tasks          Task[]
+  campaignSocialMentions CampaignSocialMention[]
 
   @@unique([platform, postId])
   @@index([clientId, createdAt])
@@ -725,4 +732,75 @@ model DailyBrief {
 
   @@unique([clientId, date])
   @@index([clientId, date])
+}
+
+// ==================== CAMPAIGNS ====================
+
+enum CampaignStatus {
+  DRAFT
+  ACTIVE
+  PAUSED
+  COMPLETED
+  CANCELLED
+}
+
+model Campaign {
+  id             String         @id @default(cuid())
+  name           String
+  description    String?
+  clientId       String
+  client         Client         @relation(fields: [clientId], references: [id])
+  status         CampaignStatus @default(DRAFT)
+  startDate      DateTime?
+  endDate        DateTime?
+  objectives     Json?          // { goals: string[], targetMetrics: {...} }
+  tags           String[]       @default([])
+  crisisAlertId  String?        // Campaña originada por una crisis
+  crisisAlert    CrisisAlert?   @relation(fields: [crisisAlertId], references: [id])
+  createdAt      DateTime       @default(now())
+  updatedAt      DateTime       @updatedAt
+
+  mentions       CampaignMention[]
+  socialMentions CampaignSocialMention[]
+  notes          CampaignNote[]
+
+  @@index([clientId, status])
+  @@index([clientId, startDate])
+  @@index([crisisAlertId])
+}
+
+model CampaignMention {
+  id         String   @id @default(cuid())
+  campaignId String
+  campaign   Campaign @relation(fields: [campaignId], references: [id], onDelete: Cascade)
+  mentionId  String
+  mention    Mention  @relation(fields: [mentionId], references: [id])
+  assignedAt DateTime @default(now())
+
+  @@unique([campaignId, mentionId])
+  @@index([mentionId])
+}
+
+model CampaignSocialMention {
+  id              String        @id @default(cuid())
+  campaignId      String
+  campaign        Campaign      @relation(fields: [campaignId], references: [id], onDelete: Cascade)
+  socialMentionId String
+  socialMention   SocialMention @relation(fields: [socialMentionId], references: [id])
+  assignedAt      DateTime      @default(now())
+
+  @@unique([campaignId, socialMentionId])
+  @@index([socialMentionId])
+}
+
+model CampaignNote {
+  id         String   @id @default(cuid())
+  campaignId String
+  campaign   Campaign @relation(fields: [campaignId], references: [id], onDelete: Cascade)
+  content    String
+  authorId   String
+  author     User     @relation(fields: [authorId], references: [id])
+  createdAt  DateTime @default(now())
+
+  @@index([campaignId, createdAt])
 }
