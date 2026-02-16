@@ -30,6 +30,15 @@ export function startNotificationWorker() {
 
       if (!mention || mention.notified) return;
 
+      // No notificar artículos con más de 30 días de antigüedad
+      const publishedAt = mention.publishedAt || mention.article.publishedAt;
+      const thirtyDaysAgo = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000);
+      if (publishedAt && new Date(publishedAt) < thirtyDaysAgo) {
+        console.log(`[Notification] Skipping old article for ${mention.client.name} (published ${new Date(publishedAt).toISOString().split("T")[0]})`);
+        await prisma.mention.update({ where: { id: mentionId }, data: { notified: true } });
+        return;
+      }
+
       // Obtener destinatarios (nivel cliente + org + superadmin)
       const recipients = await getAllRecipientsForClient(
         mention.clientId,

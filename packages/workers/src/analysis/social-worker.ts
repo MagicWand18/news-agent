@@ -82,9 +82,13 @@ export function startSocialAnalysisWorker() {
 
       console.log(`[SocialAnalysis] Mention ${mentionId}: ${analysis.sentiment}, relevance ${analysis.relevance}, urgency ${urgency}`);
 
-      // Encolar notificación si es urgente
-      // Para redes sociales, notificamos en HIGH y CRITICAL
-      if (urgency === "CRITICAL" || (urgency === "HIGH" && analysis.relevance >= 7)) {
+      // No notificar posts con más de 30 días de antigüedad
+      const postedAt = mention.postedAt;
+      const thirtyDaysAgo = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000);
+      const isOldPost = postedAt && new Date(postedAt) < thirtyDaysAgo;
+
+      // Encolar notificación si es urgente y no es un post viejo
+      if (!isOldPost && (urgency === "CRITICAL" || (urgency === "HIGH" && analysis.relevance >= 7))) {
         await notifyQueue.add("social-alert", {
           type: "social",
           socialMentionId: mentionId,

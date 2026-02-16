@@ -94,8 +94,13 @@ export function startAnalysisWorker() {
       }
 
       // Skip notificaciones y crisis para menciones legacy (contexto histórico)
-      if (mention.isLegacy) {
-        console.log(`[Analysis] Mention ${mentionId} is legacy, skipping notification and crisis check`);
+      // o menciones con publishedAt > 30 días (artículos viejos recién descubiertos)
+      const publishedAt = mention.publishedAt || mention.article.publishedAt;
+      const thirtyDaysAgo = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000);
+      const isOldArticle = publishedAt && new Date(publishedAt) < thirtyDaysAgo;
+
+      if (mention.isLegacy || isOldArticle) {
+        console.log(`[Analysis] Mention ${mentionId} is ${mention.isLegacy ? "legacy" : "old article"}, skipping notification and crisis check`);
       } else {
         // Enqueue notification if urgent enough
         if (urgency === "CRITICAL" || urgency === "HIGH") {
