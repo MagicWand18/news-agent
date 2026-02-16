@@ -25,6 +25,7 @@ interface UserContext {
     name: string;
     role: "ADMIN" | "SUPERVISOR" | "ANALYST";
     orgId: string;
+    isSuperAdmin: boolean;
   };
 }
 ```
@@ -80,6 +81,9 @@ throw new TRPCError({
 | `onboarding` | Tour de onboarding de usuarios | [onboarding.md](./onboarding.md) |
 | `crisis` | Gestión de alertas de crisis | [crisis.md](./crisis.md) |
 | `responses` | Workflow de borradores de comunicados | [responses.md](./responses.md) |
+| `alertRules` | Reglas de alerta configurables (CRUD + toggle) | [alertRules.md](./alertRules.md) |
+| `briefs` | AI Media Briefs diarios (list, getById, getLatest) | [briefs.md](./briefs.md) |
+| `campaigns` | Tracking de campañas de PR (13 endpoints) | [campaigns.md](./campaigns.md) |
 
 ## Uso con React Query
 
@@ -158,6 +162,15 @@ type CrisisTriggerType = "NEGATIVE_SPIKE" | "HIGH_VOLUME" | "CRITICAL_SOURCE" | 
 
 // Tipo de regla de alerta (Sprint 13)
 type AlertRuleType = "NEGATIVE_SPIKE" | "SOV_DROP" | "VOLUME_SURGE" | "COMPETITOR_SPIKE" | "SENTIMENT_SHIFT" | "NO_MENTIONS";
+
+// Estado de campaña (Sprint 16)
+type CampaignStatus = "DRAFT" | "ACTIVE" | "PAUSED" | "COMPLETED" | "CANCELLED";
+
+// Tipo de nota de campaña (Sprint 16)
+type CampaignNoteType = "UPDATE" | "MILESTONE" | "ISSUE" | "RESULT";
+
+// Tipo de notificación Telegram
+type TelegramNotifType = "MENTION_ALERT" | "CRISIS_ALERT" | "EMERGING_TOPIC" | "DAILY_DIGEST" | "ALERT_RULE" | "CRISIS_STATUS" | "RESPONSE_DRAFT" | "BRIEF_READY" | "CAMPAIGN_REPORT" | "WEEKLY_REPORT";
 ```
 
 ### Paginación por Cursor

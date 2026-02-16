@@ -7,7 +7,7 @@ Guía para desarrolladores que trabajan en el proyecto MediaBot.
 ### Requisitos
 
 - Node.js 18+
-- npm 9+ (usa npm workspaces)
+- pnpm 8+ (usa pnpm workspaces)
 - Docker y Docker Compose
 - PostgreSQL 16 (vía Docker)
 - Redis 7 (vía Docker)
@@ -20,7 +20,7 @@ git clone <repo-url>
 cd news-agent
 
 # 2. Instalar dependencias
-npm install
+pnpm install
 
 # 3. Copiar variables de entorno
 cp .env.example .env
@@ -30,13 +30,13 @@ cp .env.example .env
 docker compose up -d postgres redis
 
 # 5. Generar cliente Prisma
-npx prisma generate
+pnpm exec prisma generate
 
-# 6. Aplicar migraciones
-npx prisma db push
+# 6. Aplicar schema
+pnpm exec prisma db push
 
 # 7. Iniciar en desarrollo
-npm run dev
+pnpm dev
 ```
 
 ### Variables de Entorno Requeridas
@@ -79,11 +79,12 @@ NEXTAUTH_URL=http://localhost:3000
 │   │
 │   ├── workers/          # Workers de background
 │   │   ├── src/
-│   │   │   ├── analysis/   # Análisis AI y crisis
-│   │   │   ├── collectors/ # Recolección de noticias
-│   │   │   ├── grounding/  # Búsqueda con Gemini
-│   │   │   ├── notifications/
-│   │   │   └── queues.ts   # Definición de colas
+│   │   │   ├── analysis/       # Análisis AI y crisis
+│   │   │   ├── collectors/     # Recolección de noticias
+│   │   │   ├── grounding/      # Búsqueda con Gemini
+│   │   │   ├── notifications/  # Telegram notifications + recipients
+│   │   │   ├── workers/        # Alert rules, comments, etc.
+│   │   │   └── queues.ts       # Definición de colas (24 colas)
 │   │   └── package.json
 │   │
 │   ├── bot/              # Bot de Telegram
@@ -96,8 +97,9 @@ NEXTAUTH_URL=http://localhost:3000
 │       ├── src/
 │       │   ├── prisma.ts
 │       │   ├── config.ts
-│       │   ├── queue.ts
-│       │   └── ai-client.ts
+│       │   ├── queue-client.ts
+│       │   ├── ai-client.ts
+│       │   └── telegram-notification-types.ts
 │       └── package.json
 │
 ├── prisma/
@@ -310,6 +312,51 @@ create: protectedProcedure
   }),
 ```
 
+### Super Admin Procedure
+
+Para endpoints que solo debe usar el Super Admin (gestión de organizaciones, notificaciones globales):
+
+```typescript
+const superAdminProcedure = protectedProcedure.use(({ ctx, next }) => {
+  if (!ctx.user.isSuperAdmin) {
+    throw new TRPCError({
+      code: "FORBIDDEN",
+      message: "Solo Super Admin puede realizar esta acción",
+    });
+  }
+  return next({ ctx });
+});
+```
+
+### Importaciones Web-Local (evitar BullMQ en client components)
+
+`@mediabot/shared` re-exporta `queue-client.ts` que importa BullMQ (módulos de Node.js). Los client components (`"use client"`) no pueden importar desde `@mediabot/shared` si la cadena de imports incluye BullMQ.
+
+**Solución:** Crear copias web-local en `packages/web/src/lib/` para constantes que necesiten client components:
+
+```typescript
+// packages/web/src/lib/telegram-notification-types.ts
+// Copia de packages/shared/src/telegram-notification-types.ts
+// para evitar importar BullMQ via barrel export en client components
+export const TELEGRAM_NOTIFICATION_TYPES = { ... } as const;
+```
+
+### Despacho de Notificaciones Telegram
+
+Para enviar notificaciones Telegram desde routers tRPC (que corren en Next.js):
+
+```typescript
+import { getQueue, QUEUE_NAMES } from "@mediabot/shared";
+
+// Encolar notificación genérica
+const queue = getQueue(QUEUE_NAMES.NOTIFY_TELEGRAM);
+await queue.add("notify", {
+  clientId: client.id,
+  type: "CRISIS_STATUS",
+  message: `Crisis actualizada: ${crisis.title}`,
+});
+```
+
 ### Paginación por Cursor
 
 ```typescript
@@ -392,13 +439,13 @@ ssh -i ~/.ssh/newsaibot-telegram-ssh root@159.65.97.78 \
 
 ```bash
 # Todos los tests
-npm test
+pnpm test
 
 # Con cobertura
-npm test -- --coverage
+pnpm test -- --coverage
 
 # Test específico
-npm test -- grounding-service.test.ts
+pnpm test -- grounding-service.test.ts
 ```
 
 ### Test E2E
@@ -406,6 +453,12 @@ npm test -- grounding-service.test.ts
 ```bash
 # Ejecutar test E2E completo
 python3 tests/e2e/test_mediabot_full.py
+
+# Tests por sprint
+python3 tests/e2e/test_sprint14.py            # Action Pipeline
+python3 tests/e2e/test_sprint14_social.py      # Social mention detail
+python3 tests/e2e/test_sprint16.py             # Campaign Tracking
+python3 tests/e2e/test_telegram_notifs.py      # Telegram notifications
 ```
 
 ---

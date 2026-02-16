@@ -62,6 +62,7 @@ MediaBot es un sistema de monitoreo de medios que permite a agencias de comunica
 | **Bugfix Raw SQL** | OK | Eliminado Prisma.empty, usar $queryRawUnsafe (2026-02-15) |
 | **AI Media Brief** | OK | Brief diario con IA, pagina /dashboard/briefs, integrado en digest + intelligence (Sprint 15) |
 | **Campaign Tracking** | OK | Tracking de campañas PR con comparativa pre/post, auto-vincular menciones, crisis linkage (Sprint 16) |
+| **Telegram Multi-nivel** | OK | 3 niveles de recipients (cliente/org/SuperAdmin), 10 tipos de notificación, preferencias configurables |
 
 ### Funciones de IA
 
@@ -88,8 +89,9 @@ MediaBot es un sistema de monitoreo de medios que permite a agencias de comunica
 | Feature | Prioridad | Descripcion |
 |---------|-----------|-------------|
 | ~~Integracion Twitter/X~~ | ~~Media~~ | ✅ Implementado via EnsembleData (Sprint 10) |
-| Integracion YouTube | Baja | Deteccion de menciones en videos |
+| ~~Integracion YouTube~~ | ~~Baja~~ | ✅ Implementado via EnsembleData (Sprint 10) |
 | ~~Mas fuentes RSS~~ | ~~Baja~~ | ✅ 300+ feeds mexicanos (Sprint 8) |
+| ~~Notificaciones Telegram Multi-nivel~~ | ~~Alta~~ | ✅ 3 niveles (cliente/org/SuperAdmin) + 10 tipos + preferencias |
 
 ## Problemas Conocidos
 
@@ -186,10 +188,10 @@ MediaBot es un sistema de monitoreo de medios que permite a agencias de comunica
 - [x] Aurora background en login (Sprint 7)
 - [x] Filtros avanzados en Tareas (Sprint 7)
 - [x] Alertas de temas emergentes (Sprint 7)
+- [x] YouTube mentions via EnsembleData (Sprint 10)
+- [x] Notificaciones Telegram multi-nivel con preferencias
 - [ ] Transiciones de pagina completas
 - [ ] Agregar mas fuentes RSS
-- [ ] Integrar Twitter/X API
-- [ ] Integrar YouTube mentions
 
 ## Sprints Completados
 
@@ -299,7 +301,7 @@ MediaBot es un sistema de monitoreo de medios que permite a agencias de comunica
 
 ### Monorepo
 
-**Seleccion**: npm workspaces con packages separados
+**Seleccion**: pnpm workspaces con packages separados
 
 **Razon**: Permite compartir tipos y configuracion entre web, workers y bot, mientras mantiene deployments independientes.
 
@@ -648,9 +650,11 @@ Sistema completo de monitoreo de redes sociales:
 | Configuración por cliente | OK | Sección en detalle de cliente |
 
 ### Plataformas Soportadas
-- **Twitter/X**: Búsqueda por handle, hashtag, keywords
 - **Instagram**: Monitoreo de cuentas y hashtags
 - **TikTok**: Detección de menciones en videos
+- **YouTube**: Monitoreo de canales, búsqueda y comentarios
+
+> Twitter/X se mantiene en schema para backward compat pero está oculto del UI.
 
 ### Métricas Capturadas
 - Likes, comentarios, shares, views
@@ -826,6 +830,41 @@ Se decidió NO implementar el CRM de contactos en medios (MediaContact) por no s
 
 ### E2E Tests
 - `tests/e2e/test_sprint16.py` — 20/22 pass (2 fallos por timing del test, no bugs de aplicación)
+
+---
+
+## Sistema de Notificaciones Telegram Multi-Nivel (COMPLETADO - 2026-02-15)
+
+### Objetivo
+Permitir que SuperAdmins y admins de agencia reciban notificaciones automáticas sin configurar cada cliente manualmente. 10 tipos de notificación con preferencias individuales.
+
+### Implementado
+
+| Feature | Estado | Archivos |
+|---------|--------|----------|
+| Modelo OrgTelegramRecipient | ✅ OK | `prisma/schema.prisma` |
+| Campo telegramNotifPrefs en User | ✅ OK | `prisma/schema.prisma` |
+| Constantes de 10 tipos de notificación | ✅ OK | `packages/shared/src/telegram-notification-types.ts` |
+| Resolución de destinatarios multi-nivel | ✅ OK | `packages/workers/src/notifications/recipients.ts` |
+| Cola genérica NOTIFY_TELEGRAM | ✅ OK | `packages/workers/src/queues.ts`, `packages/shared/src/queue-client.ts` |
+| Worker genérico de notificaciones | ✅ OK | `packages/workers/src/notifications/worker.ts` |
+| 4 endpoints org recipients | ✅ OK | `packages/web/src/server/routers/organizations.ts` |
+| 3 endpoints SuperAdmin prefs | ✅ OK | `packages/web/src/server/routers/settings.ts` |
+| UI Settings Telegram (SuperAdmin) | ✅ OK | `packages/web/src/app/dashboard/settings/page.tsx` |
+| UI Org Recipients en agencia | ✅ OK | `packages/web/src/app/dashboard/agencies/[id]/page.tsx` |
+| Bot command /vincular_org | ✅ OK | `packages/bot/src/commands/vincular-org.ts` |
+| Web-local notification types | ✅ OK | `packages/web/src/lib/telegram-notification-types.ts` |
+
+### 3 Niveles de Destinatarios
+1. **Cliente** → `TelegramRecipient` (existente, solo del cliente vinculado)
+2. **Organización** → `OrgTelegramRecipient` (nuevo, TODOS los clientes de la org)
+3. **SuperAdmin** → `User.telegramUserId` + `telegramNotifPrefs` (nuevo, TODO el sistema)
+
+### 10 Tipos de Notificación
+MENTION_ALERT, CRISIS_ALERT, EMERGING_TOPIC, DAILY_DIGEST, ALERT_RULE, CRISIS_STATUS, RESPONSE_DRAFT, BRIEF_READY, CAMPAIGN_REPORT, WEEKLY_REPORT
+
+### E2E Tests
+- `tests/e2e/test_telegram_notifs.py` — 28/28 pass (100%)
 
 ---
 

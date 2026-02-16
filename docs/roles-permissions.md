@@ -6,9 +6,12 @@ Documentación de la matriz de roles y permisos del sistema.
 
 | Rol | Descripción |
 |-----|-------------|
-| **ADMIN** | Administrador con acceso completo |
+| **SUPER_ADMIN** | Administrador global con acceso a TODAS las organizaciones y configuración del sistema |
+| **ADMIN** | Administrador de organización con acceso completo dentro de su org |
 | **SUPERVISOR** | Supervisor con acceso a todos los datos pero sin permisos de administración |
 | **ANALYST** | Analista con acceso limitado a datos asignados |
+
+> **Nota:** Super Admin es un flag (`isSuperAdmin: true`) en el modelo User, no un rol separado. Un usuario puede ser ADMIN + Super Admin.
 
 ---
 
@@ -108,7 +111,7 @@ Documentación de la matriz de roles y permisos del sistema.
 | Marcar como leídas | ✅ | ✅ | ✅ |
 | Eliminar notificaciones | ✅ | ✅ | ✅ |
 
-### Destinatarios de Telegram
+### Destinatarios de Telegram (Nivel Cliente)
 
 | Acción | ADMIN | SUPERVISOR | ANALYST |
 |--------|:-----:|:----------:|:-------:|
@@ -116,6 +119,72 @@ Documentación de la matriz de roles y permisos del sistema.
 | Agregar destinatarios | ✅ | ✅ | ✅ |
 | Editar destinatarios | ✅ | ✅ | ✅ |
 | Eliminar destinatarios | ✅ | ✅ | ✅ |
+
+### Destinatarios de Telegram (Nivel Organización)
+
+| Acción | SUPER_ADMIN | ADMIN | SUPERVISOR | ANALYST |
+|--------|:-----------:|:-----:|:----------:|:-------:|
+| Ver recipients de org | ✅ | ❌ | ❌ | ❌ |
+| Agregar recipient de org | ✅ | ❌ | ❌ | ❌ |
+| Actualizar preferencias de org recipient | ✅ | ❌ | ❌ | ❌ |
+| Eliminar recipient de org | ✅ | ❌ | ❌ | ❌ |
+
+### Notificaciones Telegram (SuperAdmin)
+
+| Acción | SUPER_ADMIN | ADMIN | SUPERVISOR | ANALYST |
+|--------|:-----------:|:-----:|:----------:|:-------:|
+| Ver/editar Telegram ID propio | ✅ | ❌ | ❌ | ❌ |
+| Configurar preferencias de notificación | ✅ | ❌ | ❌ | ❌ |
+
+### Gestión de Crisis
+
+| Acción | ADMIN | SUPERVISOR | ANALYST |
+|--------|:-----:|:----------:|:-------:|
+| Ver lista de crisis | ✅ | ✅ | ✅ |
+| Ver detalle de crisis | ✅ | ✅ | ✅ |
+| Cambiar estado de crisis | ✅ | ✅ | ❌ |
+| Agregar notas a crisis | ✅ | ✅ | ✅ |
+| Asignar responsable | ✅ | ✅ | ❌ |
+
+### Borradores de Comunicados
+
+| Acción | ADMIN | SUPERVISOR | ANALYST |
+|--------|:-----:|:----------:|:-------:|
+| Ver borradores | ✅ | ✅ | ✅ |
+| Crear borrador | ✅ | ✅ | ✅ |
+| Aprobar borrador | ✅ | ✅ | ❌ |
+| Publicar borrador | ✅ | ✅ | ❌ |
+| Descartar borrador | ✅ | ✅ | ❌ |
+
+### Reglas de Alerta
+
+| Acción | ADMIN | SUPERVISOR | ANALYST |
+|--------|:-----:|:----------:|:-------:|
+| Ver reglas | ✅ | ✅ | ✅ |
+| Crear regla | ✅ | ✅ | ❌ |
+| Editar regla | ✅ | ✅ | ❌ |
+| Activar/Desactivar regla | ✅ | ✅ | ❌ |
+| Eliminar regla | ✅ | ❌ | ❌ |
+
+### AI Media Briefs
+
+| Acción | ADMIN | SUPERVISOR | ANALYST |
+|--------|:-----:|:----------:|:-------:|
+| Ver briefs | ✅ | ✅ | ✅ |
+| Ver detalle de brief | ✅ | ✅ | ✅ |
+| Ver ultimo brief | ✅ | ✅ | ✅ |
+
+### Campañas
+
+| Acción | ADMIN | SUPERVISOR | ANALYST |
+|--------|:-----:|:----------:|:-------:|
+| Ver campañas | ✅ | ✅ | ✅ |
+| Crear campaña | ✅ | ✅ | ❌ |
+| Editar campaña | ✅ | ✅ | ❌ |
+| Eliminar campaña | ✅ | ❌ | ❌ |
+| Vincular menciones | ✅ | ✅ | ✅ |
+| Auto-vincular menciones | ✅ | ✅ | ❌ |
+| Agregar notas | ✅ | ✅ | ✅ |
 
 ---
 
@@ -177,21 +246,37 @@ return prisma.client.findMany({
 
 ## Casos de Uso por Rol
 
+### SUPER_ADMIN
+- Gestionar todas las organizaciones (crear, editar, eliminar)
+- Reasignar clientes entre organizaciones
+- Crear usuarios en cualquier organización
+- Ver estadísticas globales del sistema
+- Configurar notificaciones Telegram personales (10 tipos)
+- Gestionar destinatarios Telegram a nivel de organización
+- Recibir notificaciones de TODOS los clientes del sistema
+
 ### ADMIN
 - Configurar el sistema inicialmente
 - Gestionar fuentes RSS
 - Crear y administrar usuarios
 - Aprobar solicitudes de fuentes
 - Modificar configuraciones del sistema
+- Gestionar crisis y aprobar comunicados
+- Crear y administrar reglas de alerta
+- Crear y gestionar campañas
 
 ### SUPERVISOR
 - Supervisar todos los clientes y menciones
 - Gestionar tareas del equipo
 - Ver reportes y analíticas completos
 - Crear clientes y configurarlos
+- Gestionar crisis y aprobar comunicados
+- Crear reglas de alerta
+- Crear y gestionar campañas
 
 ### ANALYST
 - Trabajar en tareas asignadas
 - Ver clientes y sus menciones
 - Generar comunicados para menciones
 - Solicitar nuevas fuentes
+- Ver crisis, briefs y campañas (solo lectura)

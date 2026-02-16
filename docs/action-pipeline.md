@@ -48,28 +48,51 @@ Documentacion del pipeline de datos accionables generados por MediaBot: desde la
 
 ---
 
-## 2. Como se accionan hoy
+## 2. Como se accionan (estado actual — Sprint 14+)
 
-### generateResponse (Comunicados)
-- El usuario abre el detalle de una mencion
+### generateResponse (Comunicados) ✅ COMPLETADO
+- El usuario abre el detalle de una mencion (media o social)
 - Hace clic en "Generar Comunicado" y selecciona un tono
-- El comunicado se muestra en un modal
-- **Limitacion:** El usuario debe copiar manualmente el texto. No hay persistencia, no hay seguimiento de si se envio, ni historial de comunicados generados.
+- Se crea un `ResponseDraft` persistido en BD con workflow: DRAFT → IN_REVIEW → APPROVED → PUBLISHED
+- Solo ADMIN/SUPERVISOR pueden aprobar
+- Pagina dedicada: `/dashboard/responses`
 
-### CrisisAlert (Alertas de crisis)
+### CrisisAlert (Alertas de crisis) ✅ COMPLETADO
 - Se crea automaticamente en la BD con status `ACTIVE`
-- Se envia notificacion por Telegram al grupo del cliente
-- La tabla tiene campos `resolvedBy`, `resolvedAt`, `notes` para gestion
-- **Limitacion:** No hay UI para gestionar crisis. No se puede cambiar status, agregar notas ni ver timeline desde el dashboard.
+- Se envia notificacion por Telegram (multi-nivel: cliente, org, SuperAdmin)
+- UI completa en `/dashboard/crisis` y `/dashboard/crisis/[id]`
+- Cambiar status, agregar notas, asignar responsable, ver timeline
+- Badge en sidebar con conteo de crisis activas
 
-### WeeklyInsights (Insights semanales)
+### WeeklyInsights (Insights semanales) ✅ COMPLETADO
 - Se generan y almacenan automaticamente cada semana
 - El campo `insights` contiene `recommendedActions` como array de strings
-- **Limitacion:** Las acciones recomendadas se muestran pero no se trackean. No hay manera de marcar una recomendacion como completada o asignarla a alguien.
+- ActionItems se crean automaticamente desde `recommendedActions`
+- Timeline con paginacion infinita en `/dashboard/intelligence`
+- Cada ActionItem se puede trackear: PENDING → IN_PROGRESS → COMPLETED
 
-### suggestedAction (Acciones sugeridas)
+### suggestedAction (Acciones sugeridas) ✅ COMPLETADO
 - Se muestra en la pagina de detalle de mencion como texto
-- **Limitacion:** Es solo informativo. No hay flujo de trabajo para actuar sobre la sugerencia, ni seguimiento de si se llevo a cabo.
+- Se puede crear un `ActionItem` desde la accion sugerida
+- Se puede crear una `Task` vinculada a la mencion
+
+### AlertRules (Reglas de alerta) ✅ COMPLETADO
+- 6 tipos: NEGATIVE_SPIKE, VOLUME_SURGE, NO_MENTIONS, SOV_DROP, COMPETITOR_SPIKE, SENTIMENT_SHIFT
+- Worker evalua cada 30 min con cooldown de 1 hora
+- UI de gestion en `/dashboard/alert-rules` con CRUD completo
+- Notificaciones Telegram multi-nivel cuando se activa una regla
+
+### DailyBrief (Brief ejecutivo IA) ✅ COMPLETADO
+- Generado automaticamente en el digest diario (8 AM)
+- Contenido: highlights, comparativa, watchList, temas emergentes, acciones
+- Dashboard en `/dashboard/briefs`
+- Notificacion Telegram `BRIEF_READY`
+
+### Campaign Tracking ✅ COMPLETADO
+- CRUD de campanas con estados y comparativa pre/post
+- Auto-vinculacion de menciones por rango de fechas
+- Crisis linkage para medir respuesta a crisis
+- Dashboard en `/dashboard/campaigns` y `/dashboard/campaigns/[id]`
 
 ---
 

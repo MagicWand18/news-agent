@@ -235,6 +235,105 @@ await trpc.settings.reset.mutate({
 
 ---
 
+## Endpoints de Notificaciones Telegram (SuperAdmin)
+
+Gestionan las preferencias de notificación Telegram del SuperAdmin.
+
+### getTelegramPrefs
+
+Obtiene el Telegram ID y preferencias de notificación del usuario actual.
+
+| Propiedad | Valor |
+|-----------|-------|
+| Tipo | Query |
+| Auth | Requerido |
+| Permisos | **Super Admin** |
+
+**Input:** Ninguno
+
+**Output:**
+```typescript
+{
+  telegramUserId: string | null;
+  preferences: Record<string, boolean> | null;  // null = todo ON
+}
+```
+
+---
+
+### updateTelegramId
+
+Guarda o cambia el ID de Telegram del SuperAdmin.
+
+| Propiedad | Valor |
+|-----------|-------|
+| Tipo | Mutation |
+| Auth | Requerido |
+| Permisos | **Super Admin** |
+
+**Input:**
+| Campo | Tipo | Requerido | Descripción |
+|-------|------|-----------|-------------|
+| `telegramUserId` | `string` | Sí | ID numérico de Telegram del usuario |
+
+**Output:**
+```typescript
+{
+  success: true;
+  telegramUserId: string;
+}
+```
+
+**Notas:**
+- El ID se puede obtener enviando `/start` al bot y usando `/vincular`
+- Campo `telegramUserId` en User es unique
+
+---
+
+### updateTelegramPrefs
+
+Guarda las preferencias de tipos de notificación del SuperAdmin.
+
+| Propiedad | Valor |
+|-----------|-------|
+| Tipo | Mutation |
+| Auth | Requerido |
+| Permisos | **Super Admin** |
+
+**Input:**
+| Campo | Tipo | Requerido | Descripción |
+|-------|------|-----------|-------------|
+| `preferences` | `Record<string, boolean>` | Sí | Mapa de tipo de notificación → habilitado |
+
+**Ejemplo de preferences:**
+```json
+{
+  "MENTION_ALERT": true,
+  "CRISIS_ALERT": true,
+  "EMERGING_TOPIC": true,
+  "DAILY_DIGEST": true,
+  "ALERT_RULE": true,
+  "CRISIS_STATUS": true,
+  "RESPONSE_DRAFT": false,
+  "BRIEF_READY": true,
+  "CAMPAIGN_REPORT": false,
+  "WEEKLY_REPORT": true
+}
+```
+
+**Output:**
+```typescript
+{
+  success: true;
+}
+```
+
+**Notas:**
+- Los 10 tipos de notificación se definen en `TELEGRAM_NOTIFICATION_TYPES`
+- Un valor `false` desactiva ese tipo; `true` o ausente = activado
+
+---
+
 ## Notas de Implementación
 
 - Las configuraciones se cachean en memoria para mejor rendimiento

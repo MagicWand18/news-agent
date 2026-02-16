@@ -15,6 +15,7 @@ Documentación de los comandos del bot de Telegram de MediaBot.
 | `/clientes` | Sí | Simple | Listar clientes activos |
 | `/keywords` | Sí | Simple | Ver/gestionar keywords de un cliente |
 | `/vincular` | Sí | Simple | Vincular grupo/chat a un cliente |
+| `/vincular_org` | Sí | Simple | Vincular grupo/chat a una organización (recibe TODO) |
 | `/desvincular` | Sí | Simple | Desvincular chat actual de un cliente |
 | `/destinatarios` | Sí | Simple | Ver destinatarios de un cliente |
 | `/tarea` | Sí | Conversación | Crear nueva tarea |
@@ -175,6 +176,39 @@ Vincula el chat/grupo actual a un cliente para recibir alertas.
 **Errores comunes:**
 - Cliente no encontrado
 - Chat ya vinculado
+
+---
+
+### /vincular_org <nombre_organizacion>
+
+Vincula el chat/grupo actual a una organización para recibir TODAS las notificaciones de todos los clientes de esa org.
+
+**Archivo:** `commands/vincular-org.ts`
+
+**Requiere:** Usuario registrado
+
+**Uso:** `/vincular_org Crisalida`
+
+**Comportamiento:**
+1. Busca la organización por nombre (case-insensitive, búsqueda parcial)
+2. Crea o reactiva un `OrgTelegramRecipient` con `chatId = ctx.chat.id`
+3. Preferencias iniciales: `null` (todos los tipos de notificación activados)
+4. Confirma con nombre de la org y conteo de clientes
+
+**Ejemplo:**
+```
+Usuario: /vincular_org Crisalida
+Bot: ✅ Grupo vinculado a la organización Crisalida.
+
+Recibirás TODAS las notificaciones de los 5 clientes de esta organización.
+
+💡 Puedes ajustar qué tipos de notificación recibir desde el dashboard.
+```
+
+**Errores:**
+- "No estas registrado en el sistema" — usuario sin sesión
+- "No se encontro una organización con el nombre X" — nombre no coincide
+- Sin argumentos: muestra uso y ejemplo
 
 ---
 

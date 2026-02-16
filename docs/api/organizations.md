@@ -283,3 +283,120 @@ Array<{
 **Notas:**
 - Ordenado por nombre ascendente
 - No incluye conteos ni fechas para mejor rendimiento
+
+---
+
+## Endpoints de Destinatarios Telegram (Org-Level)
+
+Gestionan destinatarios Telegram a nivel de organización. Estos recipients reciben notificaciones de TODOS los clientes de la org.
+
+### listOrgTelegramRecipients
+
+Lista los destinatarios Telegram de una organización.
+
+| Propiedad | Valor |
+|-----------|-------|
+| Tipo | Query |
+| Auth | Super Admin |
+| Permisos | Solo Super Admin |
+
+**Input:**
+| Campo | Tipo | Requerido | Descripcion |
+|-------|------|-----------|-------------|
+| `orgId` | `string` | Si | ID de la organizacion |
+
+**Output:**
+```typescript
+Array<{
+  id: string;
+  orgId: string;
+  chatId: string;
+  label: string | null;
+  active: boolean;
+  preferences: Record<string, boolean> | null;  // null = todo ON
+  createdAt: Date;
+}>
+```
+
+---
+
+### addOrgTelegramRecipient
+
+Agrega un destinatario Telegram a una organización.
+
+| Propiedad | Valor |
+|-----------|-------|
+| Tipo | Mutation |
+| Auth | Super Admin |
+| Permisos | Solo Super Admin |
+
+**Input:**
+| Campo | Tipo | Requerido | Descripcion |
+|-------|------|-----------|-------------|
+| `orgId` | `string` | Si | ID de la organizacion |
+| `chatId` | `string` | Si | ID del chat/grupo de Telegram |
+| `label` | `string` | No | Etiqueta descriptiva (ej: "Grupo Crisalida") |
+
+**Output:**
+```typescript
+OrgTelegramRecipient  // El recipient creado
+```
+
+**Notas:**
+- `preferences` se inicializa como `null` (todos los tipos de notificación activados)
+- Si ya existe un recipient con el mismo `orgId + chatId`, se reactiva
+
+---
+
+### updateOrgRecipientPreferences
+
+Actualiza las preferencias de notificación de un destinatario de organización.
+
+| Propiedad | Valor |
+|-----------|-------|
+| Tipo | Mutation |
+| Auth | Super Admin |
+| Permisos | Solo Super Admin |
+
+**Input:**
+| Campo | Tipo | Requerido | Descripcion |
+|-------|------|-----------|-------------|
+| `id` | `string` | Si | ID del recipient |
+| `preferences` | `Record<string, boolean>` | Si | Mapa de tipo → habilitado |
+
+**Ejemplo de preferences:**
+```json
+{
+  "MENTION_ALERT": true,
+  "CRISIS_ALERT": true,
+  "DAILY_DIGEST": false,
+  "WEEKLY_REPORT": false
+}
+```
+
+**Output:**
+```typescript
+OrgTelegramRecipient  // El recipient actualizado
+```
+
+---
+
+### removeOrgTelegramRecipient
+
+Desactiva un destinatario Telegram de organización.
+
+| Propiedad | Valor |
+|-----------|-------|
+| Tipo | Mutation |
+| Auth | Super Admin |
+| Permisos | Solo Super Admin |
+
+**Input:**
+| Campo | Tipo | Requerido | Descripcion |
+|-------|------|-----------|-------------|
+| `id` | `string` | Si | ID del recipient |
+
+**Output:**
+```typescript
+OrgTelegramRecipient  // El recipient desactivado (active: false)
+```

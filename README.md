@@ -185,7 +185,7 @@ pnpm dev:bot                # Solo bot
 | NewsData | 30 min | API de noticias con filtro por pais |
 | GDELT | 15 min | Base de datos global de eventos |
 | Google CSE | 2 horas | Busqueda personalizada de Google |
-| Social Media | 30 min | Twitter, Instagram, TikTok via EnsembleData API |
+| Social Media | 30 min | Instagram, TikTok, YouTube via EnsembleData API |
 
 ## Gestion de Fuentes RSS (Sprint 8)
 
@@ -345,16 +345,18 @@ Dashboard avanzado de inteligencia de medios en `/dashboard/intelligence`:
 Sistema completo de monitoreo de redes sociales integrado al dashboard.
 
 ### Plataformas Soportadas
-- **Twitter/X**: Búsqueda por handle, hashtag y keywords
 - **Instagram**: Monitoreo de cuentas y hashtags
-- **TikTok**: Detección de menciones en videos
+- **TikTok**: Detección de menciones en videos y búsqueda por keywords
+- **YouTube**: Monitoreo de canales, búsqueda de videos y comentarios
+
+> **Nota:** Twitter/X se mantiene en el schema para backward compatibility con datos existentes pero está oculto del UI.
 
 ### Funcionalidades
 - **Colector Social**: Recolecta menciones cada 30 minutos via EnsembleData API
 - **Análisis AI**: Sentimiento y relevancia de menciones sociales
-- **Dashboard dedicado**: `/dashboard/social-mentions` con filtros avanzados
+- **Dashboard dedicado**: `/dashboard/social-mentions` con filtros avanzados, bulk select/delete/export
 - **Métricas de engagement**: Likes, comentarios, shares, views
-- **Detalle de mención**: Vista completa con métricas y contexto
+- **Detalle de mención**: Vista completa con métricas, contexto, generación de comunicados y borradores vinculados
 
 ### Configuración por Cliente
 - Cuentas a monitorear (propias y competidores)
@@ -377,7 +379,7 @@ Sistema multi-tenant completo para gestionar múltiples agencias.
 ### Workers no inician
 1. Verificar que Redis este corriendo: `docker-compose ps`
 2. Verificar `REDIS_URL` en `.env`
-3. Revisar logs: `npm run dev:workers`
+3. Revisar logs: `pnpm dev:workers`
 
 ### Menciones no aparecen
 1. Verificar que hay clientes activos con keywords
@@ -385,9 +387,10 @@ Sistema multi-tenant completo para gestionar múltiples agencias.
 3. Verificar threshold de pre-filtro (default: 0.6)
 
 ### Notificaciones no llegan
-1. Verificar que el cliente tiene `telegramGroupId` configurado
+1. Verificar que el cliente tiene destinatarios Telegram configurados (nivel cliente, org o SuperAdmin)
 2. Verificar que el bot esta en el grupo de Telegram
-3. Revisar logs del notification worker
+3. Verificar preferencias de notificacion (Settings > Notificaciones Telegram para SuperAdmin)
+4. Revisar logs del notification worker
 
 ### Crisis no se detectan
 1. Verificar settings de crisis en `/dashboard/settings`
@@ -438,15 +441,73 @@ Seguimiento de acciones recomendadas por la IA:
 ### Reglas de Alerta Configurables
 
 Worker que evalua reglas personalizadas cada 30 minutos:
-- Tipos: NEGATIVE_SPIKE, VOLUME_SURGE, NO_MENTIONS (+ stubs para SOV_DROP, COMPETITOR_SPIKE, SENTIMENT_SHIFT)
+- 6 tipos: NEGATIVE_SPIKE, VOLUME_SURGE, NO_MENTIONS, SOV_DROP, COMPETITOR_SPIKE, SENTIMENT_SHIFT
+- SOV_DROP compara SOV actual vs periodo anterior
+- COMPETITOR_SPIKE detecta spikes via ClientCompetitor
+- SENTIMENT_SHIFT detecta ratio de menciones negativas elevado
 - Genera notificaciones in-app y Telegram cuando se cumplen condiciones
 - Cooldown de 1 hora para evitar duplicados
+- Pagina de gestion: `/dashboard/alert-rules` con CRUD completo, toggles y modal dinamico por tipo
+
+## Sprint 14: Action Pipeline Completo
+
+- Generacion de comunicados desde menciones sociales (boton "Generar comunicado" en social-mentions/[id])
+- Secciones de borradores vinculados en detalle de mencion social
+- Intelligence timeline con paginacion infinita, cards expandibles, action items y temas principales
+- Insights semanales con recomendaciones accionables
+
+## AI Media Brief (Sprint 15)
+
+Sistema de resumen ejecutivo diario generado con IA.
+
+### Funcionalidades
+- **Generacion automatica**: Brief diario integrado al digest (cron 8:00 AM)
+- **Contenido AI**: Highlights, comparativa vs dia anterior, watchList, temas emergentes, acciones pendientes
+- **Modelo**: `DailyBrief` con unique constraint `[clientId, date]`
+- **Dashboard**: `/dashboard/briefs` con card destacada del ultimo brief + timeline colapsable con infinite scroll
+- **Intelligence**: Seccion "Ultimo Brief" con highlights, watchList y link a briefs
+- **Telegram**: Seccion de brief incluida en el digest diario
+
+## Campaign Tracking (Sprint 16)
+
+Sistema de seguimiento de campanas para agencias de PR.
+
+### Funcionalidades
+- **CRUD completo**: Crear, editar, eliminar campanas con nombre, descripcion, fechas y presupuesto
+- **Auto-vinculacion**: Vincula automaticamente menciones del cliente dentro del rango de fechas de la campana
+- **Comparativa pre-campana**: Calcula metricas del mismo periodo antes del inicio vs durante (delta %)
+- **Crisis linkage**: Campo opcional `crisisAlertId` para vincular campanas de defensa con crisis
+- **Notas**: Timeline de notas por campana con tipos configurables
+- **Estados**: DRAFT, ACTIVE, PAUSED, COMPLETED, CANCELLED
+
+### Paginas
+- `/dashboard/campaigns` — Lista con filtros por cliente y status, modal de crear/editar
+- `/dashboard/campaigns/[id]` — Detalle con stats, comparativa, menciones vinculadas, notas
+
+## Sistema de Notificaciones Telegram
+
+Sistema multi-nivel de notificaciones con 10 tipos y preferencias configurables.
+
+### 3 Niveles de Destinatarios
+1. **Nivel cliente**: `TelegramRecipient` — recibe notificaciones solo del cliente vinculado
+2. **Nivel organizacion**: `OrgTelegramRecipient` — recibe notificaciones de TODOS los clientes de la org
+3. **Nivel SuperAdmin**: Via `User.telegramUserId` — recibe notificaciones de TODO el sistema
+
+### 10 Tipos de Notificacion
+Alertas de menciones, Alertas de crisis, Temas emergentes, Digest diario, Reglas de alerta, Cambio de estado de crisis, Borrador de comunicado, Brief diario listo, Reporte de campana, Reporte semanal
+
+### Preferencias
+- Cada tipo puede activarse/desactivarse individualmente por destinatario
+- SuperAdmin configura desde `/dashboard/settings` (seccion "Notificaciones Telegram")
+- Recipients de org se gestionan desde `/dashboard/agencies/[id]`
+- Bot command `/vincular_org <nombre_org>` para vincular grupo a organizacion
+- Deduplicacion por chatId (cliente > org > superadmin)
 
 ## Documentacion Adicional
 
 - [ARCHITECTURE.md](docs/ARCHITECTURE.md) - Arquitectura detallada
 - [PLAN.md](docs/PLAN.md) - Roadmap y decisiones tecnicas
-- [API Reference](docs/api/README.md) - Documentacion de 14 routers tRPC
+- [API Reference](docs/api/README.md) - Documentacion de 18 routers tRPC
 - [Action Pipeline](docs/action-pipeline.md) - Pipeline de datos accionables
 - [Environment Reference](docs/env-reference.md) - Variables de entorno
 - [Troubleshooting](docs/troubleshooting.md) - Guia de resolucion de problemas

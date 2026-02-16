@@ -59,7 +59,7 @@ Cada colector normaliza articulos al tipo `NormalizedArticle`:
 | `newsdata.ts` | NewsData.io | 30 min | API de noticias con filtro pais |
 | `gdelt.ts` | GDELT | 15 min | Base de datos global de eventos |
 | `google.ts` | Google CSE | 2 horas | Busqueda personalizada |
-| `social.ts` | EnsembleData | 30 min | Twitter, Instagram, TikTok |
+| `social.ts` | EnsembleData | 30 min | Instagram, TikTok, YouTube |
 
 ### 2. Ingestion (`packages/workers/src/collectors/ingest.ts`)
 
