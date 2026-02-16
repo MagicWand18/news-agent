@@ -24,6 +24,8 @@ import {
   AlertTriangle,
   Trash2,
   CheckSquare,
+  FileText,
+  MessageSquareReply,
   X as XIcon,
 } from "lucide-react";
 import { TwitterIcon, InstagramIcon, TikTokIcon, YouTubeIcon } from "@/components/platform-icons";
@@ -77,6 +79,8 @@ export default function SocialMentionDetailPage() {
   const [deleteMessage, setDeleteMessage] = useState<string | null>(null);
   const [showTaskModal, setShowTaskModal] = useState(false);
   const [taskForm, setTaskForm] = useState({ title: "", description: "", priority: "MEDIUM" as "URGENT" | "HIGH" | "MEDIUM" | "LOW" });
+  const [showDraftModal, setShowDraftModal] = useState(false);
+  const [draftMessage, setDraftMessage] = useState<string | null>(null);
   const pollingRef = useRef<NodeJS.Timeout | null>(null);
 
   // Limpiar polling al desmontar
@@ -149,6 +153,20 @@ export default function SocialMentionDetailPage() {
       setTaskForm({ title: "", description: "", priority: "MEDIUM" });
     },
   });
+
+  const generateResponseMutation = trpc.social.generateResponse.useMutation({
+    onSuccess: (data) => {
+      setDraftMessage(`"${data.title}" creado exitosamente.`);
+      setShowDraftModal(true);
+      linkedDrafts.refetch();
+    },
+    onError: (error) => {
+      setDraftMessage(`Error: ${error.message}`);
+      setShowDraftModal(true);
+    },
+  });
+
+  const linkedDrafts = trpc.responses.list.useQuery({ socialMentionId: id });
 
   const handleDelete = () => {
     deleteMutation.mutate({ id });
@@ -278,6 +296,18 @@ export default function SocialMentionDetailPage() {
               <CheckSquare className="h-4 w-4" />
               Crear tarea
             </button>
+            <button
+              onClick={() => generateResponseMutation.mutate({ socialMentionId: id })}
+              disabled={generateResponseMutation.isPending}
+              className="inline-flex items-center gap-1.5 rounded-lg bg-blue-50 dark:bg-blue-900/20 px-4 py-2 text-sm font-medium text-blue-700 dark:text-blue-400 transition-colors hover:bg-blue-100 dark:hover:bg-blue-900/40 disabled:opacity-50"
+            >
+              {generateResponseMutation.isPending ? (
+                <Loader2 className="h-4 w-4 animate-spin" />
+              ) : (
+                <FileText className="h-4 w-4" />
+              )}
+              Generar comunicado
+            </button>
             {/* Botón extraer comentarios (solo Instagram y TikTok) */}
             {mention.platform !== "TWITTER" && (
               <div className="relative">
@@ -384,6 +414,32 @@ export default function SocialMentionDetailPage() {
               : "bg-green-50 dark:bg-green-900/20 text-green-700 dark:text-green-300"
           )}>
             {extractionMessage}
+          </div>
+        )}
+
+        {/* Modal de comunicado generado */}
+        {showDraftModal && (
+          <div className="mt-4 rounded-lg border border-blue-200 dark:border-blue-800 bg-blue-50 dark:bg-blue-900/20 p-4">
+            <p className="text-sm font-medium text-blue-700 dark:text-blue-300">
+              Comunicado generado exitosamente
+            </p>
+            <p className="mt-1 text-xs text-blue-600 dark:text-blue-400">
+              {draftMessage}
+            </p>
+            <div className="mt-3 flex gap-2">
+              <button
+                onClick={() => setShowDraftModal(false)}
+                className="rounded-md px-3 py-1.5 text-sm text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-700"
+              >
+                Cerrar
+              </button>
+              <Link
+                href="/dashboard/responses"
+                className="rounded-md bg-blue-600 px-3 py-1.5 text-sm font-medium text-white hover:bg-blue-700"
+              >
+                Ver borradores
+              </Link>
+            </div>
           </div>
         )}
 
@@ -507,6 +563,52 @@ export default function SocialMentionDetailPage() {
           </div>
         </dl>
       </div>
+
+      {/* Borradores vinculados */}
+      {linkedDrafts.data && linkedDrafts.data.drafts.length > 0 && (
+        <div className="rounded-xl bg-white dark:bg-gray-800 p-6 shadow-sm dark:shadow-gray-900/20">
+          <div className="flex items-center gap-2 mb-4">
+            <FileText className="h-5 w-5 text-blue-500" />
+            <h3 className="text-lg font-semibold text-gray-900 dark:text-white">
+              Borradores de comunicado
+            </h3>
+            <span className="rounded-full bg-blue-100 dark:bg-blue-900/30 px-2 py-0.5 text-xs font-medium text-blue-700 dark:text-blue-300">
+              {linkedDrafts.data.drafts.length}
+            </span>
+          </div>
+          <div className="space-y-3">
+            {linkedDrafts.data.drafts.map((draft) => (
+              <Link
+                key={draft.id}
+                href="/dashboard/responses"
+                className="block rounded-lg border dark:border-gray-700 p-4 hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-colors"
+              >
+                <div className="flex items-center justify-between">
+                  <div>
+                    <p className="font-medium text-gray-900 dark:text-white">{draft.title}</p>
+                    <p className="mt-1 text-sm text-gray-500 dark:text-gray-400 line-clamp-2">
+                      {draft.body.slice(0, 150)}...
+                    </p>
+                  </div>
+                  <span className={cn(
+                    "rounded-full px-2.5 py-0.5 text-xs font-medium",
+                    draft.status === "DRAFT" ? "bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-300"
+                      : draft.status === "APPROVED" ? "bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-300"
+                      : draft.status === "IN_REVIEW" ? "bg-yellow-100 dark:bg-yellow-900/30 text-yellow-700 dark:text-yellow-300"
+                      : draft.status === "PUBLISHED" ? "bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300"
+                      : "bg-red-100 dark:bg-red-900/30 text-red-600 dark:text-red-400"
+                  )}>
+                    {draft.status}
+                  </span>
+                </div>
+                <p className="mt-2 text-xs text-gray-400 dark:text-gray-500">
+                  {new Date(draft.createdAt).toLocaleDateString("es-ES", { day: "2-digit", month: "short", hour: "2-digit", minute: "2-digit" })}
+                </p>
+              </Link>
+            ))}
+          </div>
+        </div>
+      )}
 
       {/* Create Task Modal */}
       {showTaskModal && (

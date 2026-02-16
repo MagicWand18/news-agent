@@ -35,6 +35,7 @@ import {
   XCircle,
   Loader2,
   Download,
+  ChevronDown,
 } from "lucide-react";
 import { FilterBar, FilterSelect } from "@/components/filters";
 import { TIME_PERIOD_OPTIONS } from "@/lib/filter-constants";
@@ -56,8 +57,11 @@ export default function IntelligencePage() {
   const topics = trpc.intelligence.getTopics.useQuery(
     { clientId: clientId || undefined, days: Number(days) }
   );
-  const insights = trpc.intelligence.getWeeklyInsights.useQuery(
-    { clientId: clientId || undefined, limit: 4 }
+  const insights = trpc.intelligence.getWeeklyInsights.useInfiniteQuery(
+    { clientId: clientId || undefined, limit: 6 },
+    {
+      getNextPageParam: (lastPage) => lastPage.nextCursor,
+    }
   );
   const sourceTiers = trpc.intelligence.getSourceTiers.useQuery();
 
@@ -312,9 +316,8 @@ export default function IntelligencePage() {
         </div>
       </div>
 
-      {/* Row 3: Topics + Insights */}
-      <div className="grid grid-cols-1 gap-6 lg:grid-cols-2" data-tour-id="intelligence-topics">
-        {/* Topics */}
+      {/* Row 3: Topics */}
+      <div data-tour-id="intelligence-topics">
         <div className="rounded-xl border border-gray-100 dark:border-gray-700 bg-white dark:bg-gray-800 p-6 shadow-sm dark:shadow-gray-900/20">
           <div className="mb-4 flex items-center justify-between">
             <div>
@@ -347,39 +350,54 @@ export default function IntelligencePage() {
             <EmptyState message="Sin temas detectados" />
           )}
         </div>
+      </div>
 
-        {/* AI Insights */}
-        <div className="rounded-xl border border-gray-100 dark:border-gray-700 bg-white dark:bg-gray-800 p-6 shadow-sm dark:shadow-gray-900/20">
-          <div className="mb-4 flex items-center gap-2">
-            <Lightbulb className="h-5 w-5 text-amber-500" />
-            <h3 className="font-semibold text-gray-900 dark:text-white">Recomendaciones IA</h3>
-          </div>
-          {insights.isLoading ? (
-            <LoadingSpinner />
-          ) : (insights.data?.insights?.length ?? 0) > 0 ? (
-            <div className="space-y-4">
-              {insights.data?.insights?.slice(0, 2).map((insight) => (
-                <InsightCard
-                  key={insight.id}
-                  clientName={insight.clientName}
-                  weekStart={new Date(insight.weekStart)}
-                  insights={insight.insights as string[]}
-                  sovData={insight.sovData}
-                />
-              ))}
-            </div>
-          ) : (
-            <div className="flex flex-col items-center justify-center py-8 text-center">
-              <div className="mb-3 flex h-12 w-12 items-center justify-center rounded-full bg-amber-100 dark:bg-amber-900/30">
-                <Lightbulb className="h-6 w-6 text-amber-500" />
-              </div>
-              <p className="text-sm text-gray-500 dark:text-gray-400">Los insights se generan semanalmente</p>
-              <p className="mt-1 text-xs text-gray-400 dark:text-gray-500">
-                Disponibles cada lunes con análisis de la semana anterior
-              </p>
-            </div>
-          )}
+      {/* Row 3.5: Insights Timeline */}
+      <div className="rounded-xl border border-gray-100 dark:border-gray-700 bg-white dark:bg-gray-800 p-6 shadow-sm dark:shadow-gray-900/20">
+        <div className="mb-4 flex items-center gap-2">
+          <Lightbulb className="h-5 w-5 text-amber-500" />
+          <h3 className="font-semibold text-gray-900 dark:text-white">Timeline de Insights</h3>
         </div>
+        {insights.isLoading ? (
+          <LoadingSpinner />
+        ) : (insights.data?.pages?.[0]?.insights?.length ?? 0) > 0 ? (
+          <div className="space-y-4">
+            {insights.data?.pages.map((page) =>
+              page.insights.map((insight) => (
+                <ExpandableInsightCard
+                  key={insight.id}
+                  insight={insight}
+                />
+              ))
+            )}
+            {insights.hasNextPage && (
+              <button
+                onClick={() => insights.fetchNextPage()}
+                disabled={insights.isFetchingNextPage}
+                className="w-full rounded-lg border border-gray-200 dark:border-gray-700 px-4 py-3 text-sm font-medium text-gray-600 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-colors disabled:opacity-50"
+              >
+                {insights.isFetchingNextPage ? (
+                  <span className="inline-flex items-center gap-2">
+                    <Loader2 className="h-4 w-4 animate-spin" />
+                    Cargando...
+                  </span>
+                ) : (
+                  "Cargar más insights"
+                )}
+              </button>
+            )}
+          </div>
+        ) : (
+          <div className="flex flex-col items-center justify-center py-8 text-center">
+            <div className="mb-3 flex h-12 w-12 items-center justify-center rounded-full bg-amber-100 dark:bg-amber-900/30">
+              <Lightbulb className="h-6 w-6 text-amber-500" />
+            </div>
+            <p className="text-sm text-gray-500 dark:text-gray-400">Los insights se generan semanalmente</p>
+            <p className="mt-1 text-xs text-gray-400 dark:text-gray-500">
+              Disponibles cada lunes con análisis de la semana anterior
+            </p>
+          </div>
+        )}
       </div>
 
       {/* Row 3.5: Action Items */}
@@ -628,6 +646,135 @@ function TopicRow({
         </div>
       </div>
       <span className="text-sm font-semibold text-gray-600 dark:text-gray-300">{count}</span>
+    </div>
+  );
+}
+
+function ExpandableInsightCard({
+  insight,
+}: {
+  insight: {
+    id: string;
+    clientName: string;
+    weekStart: Date | string;
+    insights: string[];
+    sovData: { sov: number; trend: string };
+    topTopics: { name: string; count: number }[];
+  };
+}) {
+  const [expanded, setExpanded] = useState(false);
+
+  // Fetch action items cuando está expandido
+  const actionItems = trpc.intelligence.getInsightActionItems.useQuery(
+    { insightId: insight.id },
+    { enabled: expanded }
+  );
+
+  const TrendIcon =
+    insight.sovData.trend === "up" ? TrendingUp : insight.sovData.trend === "down" ? TrendingDown : Minus;
+  const trendColor =
+    insight.sovData.trend === "up"
+      ? "text-emerald-600 dark:text-emerald-400"
+      : insight.sovData.trend === "down"
+        ? "text-red-600 dark:text-red-400"
+        : "text-gray-500 dark:text-gray-400";
+
+  const weekDate = new Date(insight.weekStart);
+
+  return (
+    <div className="rounded-lg border border-gray-100 dark:border-gray-600 bg-gray-50 dark:bg-gray-700/50 overflow-hidden">
+      {/* Header - clickable */}
+      <button
+        onClick={() => setExpanded(!expanded)}
+        className="w-full flex items-center justify-between p-4 text-left hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
+      >
+        <div className="flex items-center gap-3">
+          <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-amber-100 dark:bg-amber-900/30">
+            <Lightbulb className="h-4 w-4 text-amber-500" />
+          </div>
+          <div>
+            <span className="font-medium text-gray-900 dark:text-white">{insight.clientName}</span>
+            <p className="text-xs text-gray-500 dark:text-gray-400">
+              Semana del {weekDate.toLocaleDateString("es-ES", { day: "2-digit", month: "short", year: "numeric" })}
+            </p>
+          </div>
+        </div>
+        <div className="flex items-center gap-3">
+          <span className={`flex items-center gap-1 text-sm ${trendColor}`}>
+            <TrendIcon className="h-4 w-4" />
+            {insight.sovData.sov?.toFixed(1) || 0}% SOV
+          </span>
+          <ChevronDown className={cn("h-4 w-4 text-gray-400 transition-transform", expanded && "rotate-180")} />
+        </div>
+      </button>
+
+      {/* Expandable content */}
+      {expanded && (
+        <div className="border-t border-gray-200 dark:border-gray-600 p-4 space-y-4">
+          {/* Insights list */}
+          <div>
+            <h4 className="text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Recomendaciones</h4>
+            <ul className="space-y-2">
+              {insight.insights.map((text, index) => (
+                <li key={index} className="flex items-start gap-2 text-sm text-gray-600 dark:text-gray-300">
+                  <Lightbulb className="mt-0.5 h-4 w-4 flex-shrink-0 text-amber-500" />
+                  <span>{text}</span>
+                </li>
+              ))}
+            </ul>
+          </div>
+
+          {/* Top Topics */}
+          {insight.topTopics && insight.topTopics.length > 0 && (
+            <div>
+              <h4 className="text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Temas principales</h4>
+              <div className="flex flex-wrap gap-2">
+                {insight.topTopics.map((topic) => (
+                  <span
+                    key={topic.name}
+                    className="inline-flex items-center gap-1 rounded-full bg-gray-200 dark:bg-gray-600 px-2.5 py-1 text-xs font-medium text-gray-700 dark:text-gray-200"
+                  >
+                    <Tag className="h-3 w-3" />
+                    {topic.name}
+                    <span className="text-gray-500 dark:text-gray-400">({topic.count})</span>
+                  </span>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {/* Action Items */}
+          {actionItems.data && actionItems.data.length > 0 && (
+            <div>
+              <h4 className="text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                Acciones vinculadas ({actionItems.data.length})
+              </h4>
+              <div className="space-y-2">
+                {actionItems.data.map((item) => (
+                  <div
+                    key={item.id}
+                    className="flex items-center gap-2 rounded-md bg-white dark:bg-gray-800 px-3 py-2 text-sm"
+                  >
+                    {item.status === "COMPLETED" ? (
+                      <CheckCircle className="h-4 w-4 text-green-500 flex-shrink-0" />
+                    ) : item.status === "IN_PROGRESS" ? (
+                      <Clock className="h-4 w-4 text-blue-500 flex-shrink-0" />
+                    ) : (
+                      <div className="h-4 w-4 rounded-full border-2 border-gray-300 dark:border-gray-600 flex-shrink-0" />
+                    )}
+                    <span className={cn(
+                      "text-gray-700 dark:text-gray-300",
+                      (item.status === "COMPLETED" || item.status === "NOT_APPLICABLE") && "line-through text-gray-400 dark:text-gray-500"
+                    )}>
+                      {item.description}
+                    </span>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+        </div>
+      )}
     </div>
   );
 }

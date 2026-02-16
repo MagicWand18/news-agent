@@ -218,41 +218,41 @@ export const intelligenceRouter = router({
     }),
 
   /**
-   * Obtiene insights semanales generados por IA.
+   * Obtiene insights semanales generados por IA con paginación cursor-based.
    */
   getWeeklyInsights: protectedProcedure
     .input(
       z.object({
         clientId: z.string().optional(),
-        limit: z.number().min(1).max(10).default(4),
+        limit: z.number().min(1).max(20).default(6),
+        cursor: z.string().optional(),
       })
     )
     .query(async ({ input, ctx }) => {
-      // Para Super Admin sin orgId, devolver vacío o todos según contexto
       const orgId = ctx.user.orgId;
 
-      const insights = input.clientId
-        ? await prisma.weeklyInsight.findMany({
-            where: { clientId: input.clientId, client: { orgId: orgId ?? undefined } },
-            include: { client: { select: { id: true, name: true } } },
-            orderBy: { weekStart: "desc" },
-            take: input.limit,
-          })
+      const whereBase = input.clientId
+        ? { clientId: input.clientId, ...(orgId && { client: { orgId } }) }
         : orgId
-          ? await prisma.weeklyInsight.findMany({
-              where: { client: { orgId } },
-              include: { client: { select: { id: true, name: true } } },
-              orderBy: { weekStart: "desc" },
-              take: input.limit,
-            })
-          : await prisma.weeklyInsight.findMany({
-              include: { client: { select: { id: true, name: true } } },
-              orderBy: { weekStart: "desc" },
-              take: input.limit,
-            });
+          ? { client: { orgId } }
+          : {};
+
+      const insights = await prisma.weeklyInsight.findMany({
+        where: {
+          ...whereBase,
+          ...(input.cursor && { id: { lt: input.cursor } }),
+        },
+        include: { client: { select: { id: true, name: true } } },
+        orderBy: { weekStart: "desc" },
+        take: input.limit + 1,
+      });
+
+      const hasMore = insights.length > input.limit;
+      const items = hasMore ? insights.slice(0, -1) : insights;
+      const nextCursor = hasMore ? items[items.length - 1]?.id : undefined;
 
       return {
-        insights: insights.map((i) => ({
+        insights: items.map((i) => ({
           id: i.id,
           clientId: i.clientId,
           clientName: i.client.name,
@@ -262,7 +262,32 @@ export const intelligenceRouter = router({
           topTopics: i.topTopics as { name: string; count: number }[],
           createdAt: i.createdAt,
         })),
+        nextCursor,
+        hasMore,
       };
+    }),
+
+  /**
+   * Obtiene action items vinculados a un insight específico.
+   */
+  getInsightActionItems: protectedProcedure
+    .input(z.object({ insightId: z.string() }))
+    .query(async ({ input, ctx }) => {
+      const orgFilter = ctx.user.isSuperAdmin ? {} : { client: { orgId: ctx.user.orgId! } };
+
+      const items = await prisma.actionItem.findMany({
+        where: {
+          source: "weekly_insight",
+          sourceId: input.insightId,
+          ...orgFilter,
+        },
+        include: {
+          assignee: { select: { id: true, name: true } },
+        },
+        orderBy: { createdAt: "desc" },
+      });
+
+      return items;
     }),
 
   /**

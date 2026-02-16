@@ -25,6 +25,7 @@ import {
   ChevronRight,
   AlertTriangle,
   MessageSquareReply,
+  Bell,
 } from "lucide-react";
 import { signOut, useSession } from "next-auth/react";
 import { useState } from "react";
@@ -46,6 +47,7 @@ const tourIdMap: Record<string, string> = {
   "/dashboard/crisis": "nav-crisis",
   "/dashboard/responses": "nav-responses",
   "/dashboard/sources": "nav-sources",
+  "/dashboard/alert-rules": "nav-alert-rules",
   "/dashboard/tasks": "nav-tasks",
   "/dashboard/team": "nav-team",
   "/dashboard/settings": "nav-settings",
@@ -61,6 +63,7 @@ const navigation = [
   { name: "Crisis", href: "/dashboard/crisis", icon: AlertTriangle },
   { name: "Respuestas", href: "/dashboard/responses", icon: MessageSquareReply },
   { name: "Fuentes", href: "/dashboard/sources", icon: Rss, separator: true },
+  { name: "Reglas de Alerta", href: "/dashboard/alert-rules", icon: Bell },
   { name: "Tareas", href: "/dashboard/tasks", icon: CheckSquare },
   { name: "Equipo", href: "/dashboard/team", icon: UserCog, separator: true },
   { name: "Agencias", href: "/dashboard/agencies", icon: Building2, superAdminOnly: true },

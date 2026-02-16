@@ -830,6 +830,114 @@ Genera:
     }),
 
   /**
+   * Genera un borrador de comunicado (ResponseDraft) a partir de una mención social.
+   * Usa Gemini para generar el contenido del comunicado.
+   */
+  generateResponse: protectedProcedure
+    .input(
+      z.object({
+        socialMentionId: z.string(),
+        tone: z.enum(["PROFESSIONAL", "DEFENSIVE", "CLARIFICATION", "CELEBRATORY"]).optional(),
+      })
+    )
+    .mutation(async ({ input, ctx }) => {
+      // 1. Fetch social mention with client
+      const whereClause = ctx.user.isSuperAdmin
+        ? { id: input.socialMentionId }
+        : { id: input.socialMentionId, client: { orgId: ctx.user.orgId! } };
+
+      const mention = await prisma.socialMention.findFirst({
+        where: whereClause,
+        include: { client: true },
+      });
+
+      if (!mention) {
+        throw new TRPCError({ code: "NOT_FOUND", message: "Mención social no encontrada" });
+      }
+
+      // 2. Call Gemini to generate draft
+      const { getGeminiModel, cleanJsonResponse } = await import("@mediabot/shared");
+      const model = getGeminiModel();
+
+      const toneInstruction = input.tone
+        ? `El tono DEBE ser ${input.tone}.`
+        : `Selecciona el tono mas apropiado basado en el sentimiento del post.`;
+
+      const prompt = `Eres un experto en comunicacion corporativa y relaciones publicas.
+Genera un borrador de comunicado de prensa en respuesta a esta mencion en redes sociales.
+
+Cliente: ${mention.client.name}
+Industria: ${mention.client.industry || "No especificada"}
+Descripcion: ${mention.client.description || "No disponible"}
+
+Post en redes sociales:
+Plataforma: ${mention.platform}
+Autor: @${mention.authorHandle}
+Contenido: ${mention.content || "No disponible"}
+Likes: ${mention.likes}, Comentarios: ${mention.comments}, Compartidos: ${mention.shares}
+
+Analisis previo:
+Sentimiento: ${mention.sentiment || "No analizado"}
+Resumen: ${mention.aiSummary || "No disponible"}
+
+${toneInstruction}
+
+Responde UNICAMENTE con JSON valido, sin markdown ni texto adicional:
+{
+  "title": "Titulo del comunicado (conciso y profesional)",
+  "body": "Cuerpo completo del comunicado (3-4 parrafos, incluye contexto, posicion del cliente, datos relevantes y cierre)",
+  "tone": "PROFESSIONAL",
+  "audience": "Publico objetivo principal",
+  "callToAction": "Siguiente paso recomendado para el equipo de PR",
+  "keyMessages": ["Mensaje clave 1", "Mensaje clave 2", "Mensaje clave 3"]
+}
+
+Tonos validos: PROFESSIONAL, DEFENSIVE, CLARIFICATION, CELEBRATORY`;
+
+      try {
+        const genResult = await model.generateContent({
+          contents: [{ role: "user", parts: [{ text: prompt }] }],
+          generationConfig: { maxOutputTokens: 1536, temperature: 0.4 },
+        });
+
+        const rawText = genResult.response.text();
+        const cleaned = cleanJsonResponse(rawText);
+        const parsed = JSON.parse(cleaned);
+
+        // 3. Create ResponseDraft linked to socialMention
+        const draft = await prisma.responseDraft.create({
+          data: {
+            title: parsed.title || `Comunicado: @${mention.authorHandle}`,
+            body: parsed.body || "",
+            tone: parsed.tone || input.tone || "PROFESSIONAL",
+            audience: parsed.audience || "Medios generales",
+            callToAction: parsed.callToAction || "",
+            keyMessages: parsed.keyMessages || [],
+            socialMentionId: input.socialMentionId,
+            createdById: ctx.user.id,
+          },
+        });
+
+        return draft;
+      } catch (error) {
+        console.error("[Social] generateResponse error:", error);
+        // Create fallback draft
+        return prisma.responseDraft.create({
+          data: {
+            title: `Comunicado sobre post de @${mention.authorHandle}`,
+            body: "Error al generar el comunicado automático. Por favor, redacte manualmente.",
+            tone: input.tone || "PROFESSIONAL",
+            audience: "Medios generales",
+            callToAction: "Revisar y completar manualmente",
+            keyMessages: ["Revisar post original", "Definir posición del cliente"],
+            socialMentionId: input.socialMentionId,
+            createdById: ctx.user.id,
+          },
+        });
+      }
+    }),
+
+  /**
    * Exporta menciones sociales como array de objetos planos (para CSV).
    */
   exportSocialMentions: protectedProcedure
