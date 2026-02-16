@@ -19,6 +19,7 @@ import {
   Share2,
 } from "lucide-react";
 import { FilterBar, FilterSelect } from "@/components/filters";
+import { ExportButton } from "@/components/export-button";
 
 interface BriefContent {
   highlights: string[];
@@ -161,9 +162,12 @@ function LatestBriefCard({ brief }: { brief: { id: string; date: string | Date; 
               </p>
             </div>
           </div>
-          <span className="rounded-full bg-brand-100 dark:bg-brand-900/40 px-3 py-1 text-xs font-medium text-brand-700 dark:text-brand-300">
-            Ultimo brief
-          </span>
+          <div className="flex items-center gap-2">
+            <ExportButton type="brief" referenceId={brief.id} />
+            <span className="rounded-full bg-brand-100 dark:bg-brand-900/40 px-3 py-1 text-xs font-medium text-brand-700 dark:text-brand-300">
+              Ultimo brief
+            </span>
+          </div>
         </div>
       </div>
 

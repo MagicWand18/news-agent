@@ -28,6 +28,7 @@ import {
   Trash2,
   Tag,
 } from "lucide-react";
+import { ExportButton } from "@/components/export-button";
 
 const STATUS_CONFIG: Record<string, { label: string; color: string }> = {
   DRAFT: { label: "Borrador", color: "bg-gray-100 text-gray-700 dark:bg-gray-700 dark:text-gray-300" },
@@ -176,8 +177,9 @@ export default function CampaignDetailPage() {
             )}
           </div>
 
-          {/* Status transitions + auto-link */}
+          {/* Status transitions + auto-link + export */}
           <div className="flex flex-wrap gap-2">
+            <ExportButton type="campaign" referenceId={id} />
             {availableTransitions.map((nextStatus) => {
               const conf = STATUS_CONFIG[nextStatus];
               return (

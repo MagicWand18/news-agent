@@ -10,6 +10,7 @@ import { useState } from "react";
 import { ArrowLeft, Plus, X, BarChart3, Target, TrendingUp, TrendingDown, Minus, Trash2, Settings, Search, Calendar, Loader2, MessageCircle, Building2, Users, User, RefreshCw, ArrowRightLeft, Clock, Archive, Bell, Shield, AlertTriangle as AlertTriangleIcon } from "lucide-react";
 import { useSession } from "next-auth/react";
 import Link from "next/link";
+import { ExportButton } from "@/components/export-button";
 import {
   BarChart,
   Bar,
@@ -112,6 +113,7 @@ export default function ClientDetailPage() {
           </p>
         </div>
         <div className="flex items-center gap-3">
+          <ExportButton type="client" referenceId={id} />
           <span
             className={`rounded-full px-3 py-1 text-sm font-medium ${
               c.active ? "bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400" : "bg-gray-100 text-gray-600 dark:bg-gray-700 dark:text-gray-300"

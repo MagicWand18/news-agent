@@ -28,6 +28,7 @@ import {
   Bell,
   FileText,
   Target,
+  Crown,
 } from "lucide-react";
 import { signOut, useSession } from "next-auth/react";
 import { useState } from "react";
@@ -40,6 +41,7 @@ import { useSidebar } from "@/hooks/use-sidebar";
 // Mapeo de href a tour-id para el tour de onboarding
 const tourIdMap: Record<string, string> = {
   "/dashboard": "nav-dashboard",
+  "/dashboard/executive": "nav-executive",
   "/dashboard/agencies": "nav-agencies",
   "/dashboard/clients": "nav-clients",
   "/dashboard/mentions": "nav-mentions",
@@ -59,6 +61,7 @@ const tourIdMap: Record<string, string> = {
 
 const navigation = [
   { name: "Dashboard", href: "/dashboard", icon: LayoutDashboard },
+  { name: "Ejecutivo", href: "/dashboard/executive", icon: Crown, superAdminOnly: true },
   { name: "Clientes", href: "/dashboard/clients", icon: Users, separator: true },
   { name: "Menciones", href: "/dashboard/mentions", icon: Newspaper },
   { name: "Redes Sociales", href: "/dashboard/social-mentions", icon: Share2 },

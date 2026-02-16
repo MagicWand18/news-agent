@@ -46,6 +46,9 @@ model User {
 
   // Preferencias de notificaciones Telegram para SuperAdmins
   telegramNotifPrefs     Json?           // { "MENTION_ALERT": true, "DAILY_DIGEST": false, ... } null = todo ON
+
+  // Shared Reports
+  sharedReports          SharedReport[]
 }
 
 enum Role {
@@ -113,6 +116,9 @@ model Client {
 
   // Campaigns
   campaigns    Campaign[]
+
+  // Shared Reports
+  sharedReports SharedReport[]
 }
 
 model Keyword {
@@ -824,4 +830,30 @@ model OrgTelegramRecipient {
 
   @@unique([orgId, chatId])
   @@index([orgId, active])
+}
+
+// ==================== SHARED REPORTS ====================
+
+enum ReportType {
+  CAMPAIGN
+  BRIEF
+  CLIENT_SUMMARY
+}
+
+model SharedReport {
+  id          String     @id @default(cuid())
+  publicId    String     @unique @default(cuid())
+  clientId    String
+  client      Client     @relation(fields: [clientId], references: [id], onDelete: Cascade)
+  type        ReportType
+  title       String
+  data        Json       // Snapshot de los datos al momento de generar
+  createdBy   String
+  creator     User       @relation(fields: [createdBy], references: [id])
+  expiresAt   DateTime   // 7 días por defecto
+  createdAt   DateTime   @default(now())
+
+  @@index([publicId])
+  @@index([clientId])
+  @@index([expiresAt])
 }
