@@ -356,8 +356,8 @@ export const campaignsRouter = router({
         });
       }
 
-      const dateFilter = {
-        createdAt: {
+      const mentionDateFilter = {
+        publishedAt: {
           gte: campaign.startDate,
           ...(campaign.endDate && { lte: campaign.endDate }),
         },
@@ -365,7 +365,7 @@ export const campaignsRouter = router({
 
       // Vincular menciones de medios del periodo
       const mentions = await prisma.mention.findMany({
-        where: { clientId: campaign.clientId, ...dateFilter },
+        where: { clientId: campaign.clientId, ...mentionDateFilter },
         select: { id: true },
       });
 
@@ -380,8 +380,14 @@ export const campaignsRouter = router({
       }
 
       // Vincular menciones sociales del periodo
+      const socialDateFilter = {
+        postedAt: {
+          gte: campaign.startDate,
+          ...(campaign.endDate && { lte: campaign.endDate }),
+        },
+      };
       const socialMentions = await prisma.socialMention.findMany({
-        where: { clientId: campaign.clientId, ...dateFilter },
+        where: { clientId: campaign.clientId, ...socialDateFilter },
         select: { id: true },
       });
 
@@ -429,6 +435,7 @@ export const campaignsRouter = router({
               id: true,
               sentiment: true,
               relevance: true,
+              publishedAt: true,
               createdAt: true,
               article: { select: { source: true, title: true } },
             },
@@ -507,21 +514,21 @@ export const campaignsRouter = router({
         const preMentions = await prisma.mention.count({
           where: {
             clientId: campaign.clientId,
-            createdAt: { gte: preStart, lt: preEnd },
+            publishedAt: { gte: preStart, lt: preEnd },
           },
         });
 
         const preSocialMentions = await prisma.socialMention.count({
           where: {
             clientId: campaign.clientId,
-            createdAt: { gte: preStart, lt: preEnd },
+            postedAt: { gte: preStart, lt: preEnd },
           },
         });
 
         const preNegative = await prisma.mention.count({
           where: {
             clientId: campaign.clientId,
-            createdAt: { gte: preStart, lt: preEnd },
+            publishedAt: { gte: preStart, lt: preEnd },
             sentiment: "NEGATIVE",
           },
         });
@@ -529,7 +536,7 @@ export const campaignsRouter = router({
         const prePositive = await prisma.mention.count({
           where: {
             clientId: campaign.clientId,
-            createdAt: { gte: preStart, lt: preEnd },
+            publishedAt: { gte: preStart, lt: preEnd },
             sentiment: "POSITIVE",
           },
         });
@@ -557,7 +564,7 @@ export const campaignsRouter = router({
       > = {};
 
       for (const lm of linkedMentions) {
-        const day = lm.mention.createdAt.toISOString().split("T")[0];
+        const day = (lm.mention.publishedAt || lm.mention.createdAt).toISOString().split("T")[0];
         if (!dailySentiment[day]) {
           dailySentiment[day] = { date: day, positive: 0, negative: 0, neutral: 0, total: 0 };
         }

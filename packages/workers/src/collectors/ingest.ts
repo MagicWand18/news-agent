@@ -137,6 +137,7 @@ async function matchArticle(
         keywordMatched: match.keyword,
         snippet,
         isLegacy,
+        publishedAt: article.publishedAt ? new Date(article.publishedAt) : null,
       },
     });
 

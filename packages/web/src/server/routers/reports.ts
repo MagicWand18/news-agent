@@ -84,10 +84,10 @@ export const reportsRouter = router({
         const preEnd = campaign.startDate;
 
         const [preMentions, preSocial, prePositive, preNegative] = await Promise.all([
-          prisma.mention.count({ where: { clientId: campaign.clientId, createdAt: { gte: preStart, lt: preEnd } } }),
-          prisma.socialMention.count({ where: { clientId: campaign.clientId, createdAt: { gte: preStart, lt: preEnd } } }),
-          prisma.mention.count({ where: { clientId: campaign.clientId, createdAt: { gte: preStart, lt: preEnd }, sentiment: "POSITIVE" } }),
-          prisma.mention.count({ where: { clientId: campaign.clientId, createdAt: { gte: preStart, lt: preEnd }, sentiment: "NEGATIVE" } }),
+          prisma.mention.count({ where: { clientId: campaign.clientId, publishedAt: { gte: preStart, lt: preEnd } } }),
+          prisma.socialMention.count({ where: { clientId: campaign.clientId, postedAt: { gte: preStart, lt: preEnd } } }),
+          prisma.mention.count({ where: { clientId: campaign.clientId, publishedAt: { gte: preStart, lt: preEnd }, sentiment: "POSITIVE" } }),
+          prisma.mention.count({ where: { clientId: campaign.clientId, publishedAt: { gte: preStart, lt: preEnd }, sentiment: "NEGATIVE" } }),
         ]);
 
         preCampaignStats = {
@@ -194,17 +194,17 @@ export const reportsRouter = router({
         crises,
         campaigns,
       ] = await Promise.all([
-        prisma.mention.count({ where: { clientId: input.clientId, createdAt: { gte: since } } }),
-        prisma.socialMention.count({ where: { clientId: input.clientId, createdAt: { gte: since } } }),
+        prisma.mention.count({ where: { clientId: input.clientId, publishedAt: { gte: since } } }),
+        prisma.socialMention.count({ where: { clientId: input.clientId, postedAt: { gte: since } } }),
         prisma.mention.groupBy({
           by: ["sentiment"],
-          where: { clientId: input.clientId, createdAt: { gte: since } },
+          where: { clientId: input.clientId, publishedAt: { gte: since } },
           _count: true,
         }),
         prisma.$queryRawUnsafe<{ source: string; count: number }[]>(
           `SELECT a.source, CAST(COUNT(*) AS INTEGER) as count
            FROM "Mention" m JOIN "Article" a ON m."articleId" = a.id
-           WHERE m."clientId" = $1 AND m."createdAt" >= $2
+           WHERE m."clientId" = $1 AND COALESCE(m."publishedAt", m."createdAt") >= $2
            GROUP BY a.source ORDER BY count DESC LIMIT 10`,
           input.clientId,
           since
@@ -222,9 +222,9 @@ export const reportsRouter = router({
 
       // Mentions by week
       const mentionsByWeek = await prisma.$queryRawUnsafe<{ week: string; count: number }[]>(
-        `SELECT CAST(DATE_TRUNC('week', "createdAt") AS TEXT) as week, CAST(COUNT(*) AS INTEGER) as count
-         FROM "Mention" WHERE "clientId" = $1 AND "createdAt" >= $2
-         GROUP BY DATE_TRUNC('week', "createdAt") ORDER BY week ASC`,
+        `SELECT CAST(DATE_TRUNC('week', COALESCE("publishedAt", "createdAt")) AS TEXT) as week, CAST(COUNT(*) AS INTEGER) as count
+         FROM "Mention" WHERE "clientId" = $1 AND COALESCE("publishedAt", "createdAt") >= $2
+         GROUP BY DATE_TRUNC('week', COALESCE("publishedAt", "createdAt")) ORDER BY week ASC`,
         input.clientId,
         since
       );
@@ -311,11 +311,11 @@ export const reportsRouter = router({
           // Snapshot de datos del último mes
           const since = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000);
           const [mentionCount, socialCount, sentimentGroups] = await Promise.all([
-            prisma.mention.count({ where: { clientId: client.id, createdAt: { gte: since } } }),
-            prisma.socialMention.count({ where: { clientId: client.id, createdAt: { gte: since } } }),
+            prisma.mention.count({ where: { clientId: client.id, publishedAt: { gte: since } } }),
+            prisma.socialMention.count({ where: { clientId: client.id, postedAt: { gte: since } } }),
             prisma.mention.groupBy({
               by: ["sentiment"],
-              where: { clientId: client.id, createdAt: { gte: since } },
+              where: { clientId: client.id, publishedAt: { gte: since } },
               _count: true,
             }),
           ]);

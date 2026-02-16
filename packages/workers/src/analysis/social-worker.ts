@@ -167,7 +167,7 @@ export async function enqueuePendingSocialAnalysis(): Promise<number> {
   const pendingMentions = await prisma.socialMention.findMany({
     where: {
       analyzed: false,
-      createdAt: {
+      postedAt: {
         gte: new Date(Date.now() - 24 * 60 * 60 * 1000),
       },
     },

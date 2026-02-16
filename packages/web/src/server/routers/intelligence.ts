@@ -162,7 +162,7 @@ export const intelligenceRouter = router({
         FROM "Mention" m
         JOIN "Client" c ON m."clientId" = c.id
         WHERE m.topic IS NOT NULL
-        AND m."createdAt" >= $1
+        AND COALESCE(m."publishedAt", m."createdAt") >= $1
         ${filterSql}
         GROUP BY m.topic
         ORDER BY count DESC
@@ -192,7 +192,7 @@ export const intelligenceRouter = router({
         FROM "Mention" m
         JOIN "Client" c ON m."clientId" = c.id
         WHERE m.topic IS NOT NULL
-        AND m."createdAt" >= $1
+        AND COALESCE(m."publishedAt", m."createdAt") >= $1
         ${emergingFilters.join(" ")}
         GROUP BY m.topic
         HAVING COUNT(*) >= 3
@@ -348,7 +348,7 @@ export const intelligenceRouter = router({
         prisma.mention.findMany({
           where: {
             clientId: input.clientId,
-            createdAt: { gte: startDate, lte: endDate },
+            publishedAt: { gte: startDate, lte: endDate },
           },
           include: { article: true },
           orderBy: { relevance: "desc" },
@@ -479,7 +479,7 @@ export const intelligenceRouter = router({
         FROM "Mention" m
         JOIN "Client" c ON m."clientId" = c.id
         WHERE c."orgId" = ${orgId}
-        AND m."createdAt" >= ${last7d}
+        AND COALESCE(m."publishedAt", m."createdAt") >= ${last7d}
         AND m.topic IS NOT NULL
       `,
       // Temas emergentes (>3 menciones en 24h)
@@ -489,7 +489,7 @@ export const intelligenceRouter = router({
           FROM "Mention" m
           JOIN "Client" c ON m."clientId" = c.id
           WHERE c."orgId" = ${orgId}
-          AND m."createdAt" >= ${last24h}
+          AND COALESCE(m."publishedAt", m."createdAt") >= ${last24h}
           AND m.topic IS NOT NULL
           GROUP BY topic
           HAVING COUNT(*) >= 3
@@ -500,8 +500,8 @@ export const intelligenceRouter = router({
         SELECT AVG(mention_count::float / NULLIF(total_count::float, 0) * 100) as avg
         FROM (
           SELECT c.id,
-            (SELECT COUNT(*) FROM "Mention" WHERE "clientId" = c.id AND "createdAt" >= ${last7d}) as mention_count,
-            (SELECT COUNT(*) FROM "Mention" m2 JOIN "Client" c2 ON m2."clientId" = c2.id WHERE c2."orgId" = ${orgId} AND m2."createdAt" >= ${last7d}) as total_count
+            (SELECT COUNT(*) FROM "Mention" WHERE "clientId" = c.id AND COALESCE("publishedAt", "createdAt") >= ${last7d}) as mention_count,
+            (SELECT COUNT(*) FROM "Mention" m2 JOIN "Client" c2 ON m2."clientId" = c2.id WHERE c2."orgId" = ${orgId} AND COALESCE(m2."publishedAt", m2."createdAt") >= ${last7d}) as total_count
           FROM "Client" c
           WHERE c."orgId" = ${orgId} AND c.active = true
         ) subq
@@ -521,7 +521,7 @@ export const intelligenceRouter = router({
         JOIN "Client" c ON m."clientId" = c.id
         LEFT JOIN "SourceTier" st ON LOWER(REGEXP_REPLACE(a.source, '^www\\.', '')) = st.domain
         WHERE c."orgId" = ${orgId}
-        AND m."createdAt" >= ${last7d}
+        AND COALESCE(m."publishedAt", m."createdAt") >= ${last7d}
       `,
     ]);
 
@@ -556,8 +556,8 @@ async function getMentionsWithTier(
     JOIN "Article" a ON m."articleId" = a.id
     LEFT JOIN "SourceTier" st ON LOWER(REGEXP_REPLACE(a.source, '^www\\.', '')) = st.domain
     WHERE m."clientId" = ${clientId}
-    AND m."createdAt" >= ${startDate}
-    AND m."createdAt" <= ${endDate}
+    AND COALESCE(m."publishedAt", m."createdAt") >= ${startDate}
+    AND COALESCE(m."publishedAt", m."createdAt") <= ${endDate}
   `;
 
   return {
@@ -590,13 +590,13 @@ async function getSOVHistory(
       prisma.mention.count({
         where: {
           clientId,
-          createdAt: { gte: weekStart, lte: weekEnd },
+          publishedAt: { gte: weekStart, lte: weekEnd },
         },
       }),
       prisma.mention.count({
         where: {
           client: { orgId },
-          createdAt: { gte: weekStart, lte: weekEnd },
+          publishedAt: { gte: weekStart, lte: weekEnd },
         },
       }),
     ]);

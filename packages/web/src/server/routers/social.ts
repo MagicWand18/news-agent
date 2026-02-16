@@ -288,11 +288,10 @@ Genera:
       const orgId = getEffectiveOrgId(ctx.user, input.orgId);
       const clientOrgFilter = orgId ? { client: { orgId } } : {};
 
-      // Combinar dateFrom y dateTo en un solo objeto createdAt
-      // (spreads separados con la misma key se sobreescriben)
-      const createdAtFilter = (input.dateFrom || input.dateTo)
+      // Combinar dateFrom y dateTo en un filtro postedAt
+      const postedAtFilter = (input.dateFrom || input.dateTo)
         ? {
-            createdAt: {
+            postedAt: {
               ...(input.dateFrom && { gte: input.dateFrom }),
               ...(input.dateTo && { lte: input.dateTo }),
             },
@@ -306,7 +305,7 @@ Genera:
           ...(input.platform && { platform: input.platform }),
           ...(input.sentiment && { sentiment: input.sentiment }),
           ...(input.sourceType && { sourceType: input.sourceType }),
-          ...createdAtFilter,
+          ...postedAtFilter,
           ...(input.cursor && { id: { lt: input.cursor } }),
         },
         include: {
@@ -348,7 +347,7 @@ Genera:
           where: {
             ...clientOrgFilter,
             ...(input.clientId && { clientId: input.clientId }),
-            createdAt: { gte: since },
+            postedAt: { gte: since },
           },
         }),
         prisma.socialMention.groupBy({
@@ -356,7 +355,7 @@ Genera:
           where: {
             ...clientOrgFilter,
             ...(input.clientId && { clientId: input.clientId }),
-            createdAt: { gte: since },
+            postedAt: { gte: since },
           },
           _count: { id: true },
         }),
@@ -365,7 +364,7 @@ Genera:
           where: {
             ...clientOrgFilter,
             ...(input.clientId && { clientId: input.clientId }),
-            createdAt: { gte: since },
+            postedAt: { gte: since },
           },
           _count: { id: true },
         }),
@@ -374,7 +373,7 @@ Genera:
           where: {
             ...clientOrgFilter,
             ...(input.clientId && { clientId: input.clientId }),
-            createdAt: { gte: since },
+            postedAt: { gte: since },
           },
           _count: { id: true },
         }),
@@ -441,12 +440,12 @@ Genera:
       const mentions = await prisma.socialMention.findMany({
         where: {
           clientId: input.clientId,
-          createdAt: { gte: since },
+          postedAt: { gte: since },
           ...(input.platform && { platform: input.platform }),
           ...(input.sentiment && { sentiment: input.sentiment }),
           ...(input.cursor && { id: { lt: input.cursor } }),
         },
-        orderBy: { createdAt: "desc" },
+        orderBy: { postedAt: "desc" },
         take: input.limit + 1,
       });
 
@@ -541,23 +540,23 @@ Genera:
       const [total, byPlatform, bySentiment, topMentions] = await Promise.all([
         // Total de menciones
         prisma.socialMention.count({
-          where: { clientId: input.clientId, createdAt: { gte: since } },
+          where: { clientId: input.clientId, postedAt: { gte: since } },
         }),
         // Por plataforma
         prisma.socialMention.groupBy({
           by: ["platform"],
-          where: { clientId: input.clientId, createdAt: { gte: since } },
+          where: { clientId: input.clientId, postedAt: { gte: since } },
           _count: { id: true },
         }),
         // Por sentimiento
         prisma.socialMention.groupBy({
           by: ["sentiment"],
-          where: { clientId: input.clientId, createdAt: { gte: since } },
+          where: { clientId: input.clientId, postedAt: { gte: since } },
           _count: { id: true },
         }),
         // Top menciones por engagement
         prisma.socialMention.findMany({
-          where: { clientId: input.clientId, createdAt: { gte: since } },
+          where: { clientId: input.clientId, postedAt: { gte: since } },
           orderBy: [{ likes: "desc" }, { comments: "desc" }],
           take: 5,
         }),
@@ -975,9 +974,9 @@ Tonos validos: PROFESSIONAL, DEFENSIVE, CLARIFICATION, CELEBRATORY`;
       const orgId = getEffectiveOrgId(ctx.user, input.orgId);
       const clientOrgFilter = orgId ? { client: { orgId } } : {};
 
-      const createdAtFilter = (input.dateFrom || input.dateTo)
+      const postedAtFilter = (input.dateFrom || input.dateTo)
         ? {
-            createdAt: {
+            postedAt: {
               ...(input.dateFrom && { gte: input.dateFrom }),
               ...(input.dateTo && { lte: input.dateTo }),
             },
@@ -990,7 +989,7 @@ Tonos validos: PROFESSIONAL, DEFENSIVE, CLARIFICATION, CELEBRATORY`;
           ...(input.clientId && { clientId: input.clientId }),
           ...(input.platform && { platform: input.platform }),
           ...(input.sentiment && { sentiment: input.sentiment }),
-          ...createdAtFilter,
+          ...postedAtFilter,
         },
         include: {
           client: { select: { name: true } },

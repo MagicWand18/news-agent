@@ -182,10 +182,10 @@ export const organizationsRouter = router({
       prisma.user.count(),
       prisma.client.count({ where: { active: true } }),
       prisma.mention.count({
-        where: { createdAt: { gte: startOfToday } },
+        where: { publishedAt: { gte: startOfToday } },
       }),
       prisma.mention.count({
-        where: { createdAt: { gte: startOfWeek } },
+        where: { publishedAt: { gte: startOfWeek } },
       }),
       prisma.crisisAlert.count({
         where: { status: "ACTIVE" },

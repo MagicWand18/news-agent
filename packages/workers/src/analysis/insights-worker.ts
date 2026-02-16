@@ -40,7 +40,7 @@ export function startInsightsWorker() {
           const mentions = await prisma.mention.findMany({
             where: {
               clientId: client.id,
-              createdAt: { gte: weekStart },
+              publishedAt: { gte: weekStart },
             },
             include: { article: true },
             orderBy: { relevance: "desc" },
@@ -50,7 +50,7 @@ export function startInsightsWorker() {
           const previousWeekMentions = await prisma.mention.count({
             where: {
               clientId: client.id,
-              createdAt: {
+              publishedAt: {
                 gte: previousWeekStart,
                 lt: weekStart,
               },

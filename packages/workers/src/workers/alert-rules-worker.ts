@@ -141,7 +141,7 @@ async function evaluateRule(rule: {
         where: {
           clientId: rule.clientId,
           sentiment: "NEGATIVE",
-          createdAt: { gte: since },
+          publishedAt: { gte: since },
         },
       });
 
@@ -157,10 +157,10 @@ async function evaluateRule(rule: {
 
       const [currentCount, historicalCount] = await Promise.all([
         prisma.mention.count({
-          where: { clientId: rule.clientId, createdAt: { gte: last24h } },
+          where: { clientId: rule.clientId, publishedAt: { gte: last24h } },
         }),
         prisma.mention.count({
-          where: { clientId: rule.clientId, createdAt: { gte: comparisonStart, lt: last24h } },
+          where: { clientId: rule.clientId, publishedAt: { gte: comparisonStart, lt: last24h } },
         }),
       ]);
 
@@ -176,7 +176,7 @@ async function evaluateRule(rule: {
       const since = new Date(Date.now() - hours * 60 * 60 * 1000);
 
       const count = await prisma.mention.count({
-        where: { clientId: rule.clientId, createdAt: { gte: since } },
+        where: { clientId: rule.clientId, publishedAt: { gte: since } },
       });
 
       return count === 0;
@@ -198,19 +198,19 @@ async function evaluateRule(rule: {
 
       const [currentClient, currentTotal] = await Promise.all([
         prisma.mention.count({
-          where: { clientId: rule.clientId, createdAt: { gte: currentStart } },
+          where: { clientId: rule.clientId, publishedAt: { gte: currentStart } },
         }),
         prisma.mention.count({
-          where: { client: { orgId: client.orgId }, createdAt: { gte: currentStart } },
+          where: { client: { orgId: client.orgId }, publishedAt: { gte: currentStart } },
         }),
       ]);
 
       const [previousClient, previousTotal] = await Promise.all([
         prisma.mention.count({
-          where: { clientId: rule.clientId, createdAt: { gte: previousStart, lt: currentStart } },
+          where: { clientId: rule.clientId, publishedAt: { gte: previousStart, lt: currentStart } },
         }),
         prisma.mention.count({
-          where: { client: { orgId: client.orgId }, createdAt: { gte: previousStart, lt: currentStart } },
+          where: { client: { orgId: client.orgId }, publishedAt: { gte: previousStart, lt: currentStart } },
         }),
       ]);
 
@@ -260,10 +260,10 @@ async function evaluateRule(rule: {
       for (const comp of competitorClients) {
         const [currentCount, previousCount] = await Promise.all([
           prisma.mention.count({
-            where: { clientId: comp.id, createdAt: { gte: currentStart } },
+            where: { clientId: comp.id, publishedAt: { gte: currentStart } },
           }),
           prisma.mention.count({
-            where: { clientId: comp.id, createdAt: { gte: previousStart, lt: currentStart } },
+            where: { clientId: comp.id, publishedAt: { gte: previousStart, lt: currentStart } },
           }),
         ]);
 
@@ -287,19 +287,19 @@ async function evaluateRule(rule: {
 
       const [currentTotal, currentNegative] = await Promise.all([
         prisma.mention.count({
-          where: { clientId: rule.clientId, createdAt: { gte: currentStart } },
+          where: { clientId: rule.clientId, publishedAt: { gte: currentStart } },
         }),
         prisma.mention.count({
-          where: { clientId: rule.clientId, sentiment: "NEGATIVE", createdAt: { gte: currentStart } },
+          where: { clientId: rule.clientId, sentiment: "NEGATIVE", publishedAt: { gte: currentStart } },
         }),
       ]);
 
       const [previousTotal, previousNegative] = await Promise.all([
         prisma.mention.count({
-          where: { clientId: rule.clientId, createdAt: { gte: previousStart, lt: currentStart } },
+          where: { clientId: rule.clientId, publishedAt: { gte: previousStart, lt: currentStart } },
         }),
         prisma.mention.count({
-          where: { clientId: rule.clientId, sentiment: "NEGATIVE", createdAt: { gte: previousStart, lt: currentStart } },
+          where: { clientId: rule.clientId, sentiment: "NEGATIVE", publishedAt: { gte: previousStart, lt: currentStart } },
         }),
       ]);
 

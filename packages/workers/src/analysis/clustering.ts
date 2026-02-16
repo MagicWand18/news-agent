@@ -138,7 +138,7 @@ export async function findClusterParent(params: {
   const recentMentions = await prisma.mention.findMany({
     where: {
       clientId,
-      createdAt: { gte: since },
+      publishedAt: { gte: since },
       parentMentionId: null, // Only look at cluster parents
     },
     include: {

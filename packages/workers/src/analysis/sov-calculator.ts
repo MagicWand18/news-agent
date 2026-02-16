@@ -182,7 +182,7 @@ async function getMentionsWithWeights(
   const mentions = await prisma.mention.findMany({
     where: {
       clientId,
-      createdAt: {
+      publishedAt: {
         gte: startDate,
         lte: endDate,
       },
@@ -242,7 +242,7 @@ export async function getSOVHistory(
     const totalMentions = await prisma.mention.count({
       where: {
         client: { orgId: client.orgId },
-        createdAt: { gte: weekStart, lte: weekEnd },
+        publishedAt: { gte: weekStart, lte: weekEnd },
       },
     });
 

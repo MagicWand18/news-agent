@@ -388,6 +388,7 @@ export async function executeGroundingSearch(
             sentiment: "NEUTRAL",
             relevance: 6,
             isLegacy,
+            publishedAt: article.publishedAt || null,
           },
         });
         mentionsCreated++;
@@ -486,7 +487,7 @@ export async function checkLowMentions(
     const count = await prisma.mention.count({
       where: {
         clientId,
-        createdAt: {
+        publishedAt: {
           gte: dayStart,
           lte: dayEnd,
         },

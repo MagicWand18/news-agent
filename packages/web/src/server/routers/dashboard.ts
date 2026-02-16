@@ -60,7 +60,7 @@ export const dashboardRouter = router({
     const clientIdOrgFilter = { ...clientOrgFilter, ...clientIdFilter };
 
     // Filtro de fecha para el periodo seleccionado
-    const dateFilter = since ? { createdAt: { gte: since } } : {};
+    const dateFilter = since ? { publishedAt: { gte: since } } : {};
 
     const [
       clientCount,
@@ -72,7 +72,7 @@ export const dashboardRouter = router({
     ] = await Promise.all([
       prisma.client.count({ where: { ...orgFilter, active: true } }),
       prisma.mention.count({
-        where: { ...clientIdOrgFilter, isLegacy: false, createdAt: { gte: last24h } },
+        where: { ...clientIdOrgFilter, isLegacy: false, publishedAt: { gte: last24h } },
       }),
       prisma.mention.count({
         where: { ...clientIdOrgFilter, isLegacy: false, ...dateFilter },
@@ -93,14 +93,14 @@ export const dashboardRouter = router({
           filters.push({ sql: `AND "clientId" = $P`, params: [input.clientId] });
         }
         const dateSince = since || new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000);
-        filters.push({ sql: `AND "createdAt" >= $P`, params: [dateSince] });
+        filters.push({ sql: `AND COALESCE("publishedAt", "createdAt") >= $P`, params: [dateSince] });
 
         const { sql, params } = buildRawQuery(
-          `SELECT CAST(DATE("createdAt") AS TEXT) as date, CAST(COUNT(*) AS INTEGER) as count`,
+          `SELECT CAST(DATE(COALESCE("publishedAt", "createdAt")) AS TEXT) as date, CAST(COUNT(*) AS INTEGER) as count`,
           `FROM "Mention"`,
           `1=1`,
           filters,
-          `GROUP BY DATE("createdAt")`,
+          `GROUP BY DATE(COALESCE("publishedAt", "createdAt"))`,
           `ORDER BY date ASC`
         );
         return prisma.$queryRawUnsafe<{ date: string; count: number }[]>(sql, ...params);
@@ -176,7 +176,7 @@ export const dashboardRouter = router({
 
       // Construir filtros SQL dinámicos
       const mentionFilters: { sql: string; params: unknown[] }[] = [
-        { sql: `AND m."createdAt" >= $P`, params: [since] },
+        { sql: `AND COALESCE(m."publishedAt", m."createdAt") >= $P`, params: [since] },
       ];
       if (orgId) {
         mentionFilters.push({ sql: `AND c."orgId" = $P`, params: [orgId] });
@@ -191,11 +191,11 @@ export const dashboardRouter = router({
             // 1. Mentions by day
             (() => {
               const { sql, params } = buildRawQuery(
-                `SELECT CAST(DATE(m."createdAt") AS TEXT) as date, CAST(COUNT(*) AS INTEGER) as count`,
+                `SELECT CAST(DATE(COALESCE(m."publishedAt", m."createdAt")) AS TEXT) as date, CAST(COUNT(*) AS INTEGER) as count`,
                 `FROM "Mention" m JOIN "Client" c ON m."clientId" = c.id`,
                 `1=1`,
                 mentionFilters,
-                `GROUP BY DATE(m."createdAt")`,
+                `GROUP BY DATE(COALESCE(m."publishedAt", m."createdAt"))`,
                 `ORDER BY date ASC`
               );
               return prisma.$queryRawUnsafe<{ date: string; count: number }[]>(sql, ...params);
@@ -204,11 +204,11 @@ export const dashboardRouter = router({
             // 2. Sentiment trend by week
             (() => {
               const { sql, params } = buildRawQuery(
-                `SELECT CAST(DATE_TRUNC('week', m."createdAt") AS TEXT) as week, m.sentiment, CAST(COUNT(*) AS INTEGER) as count`,
+                `SELECT CAST(DATE_TRUNC('week', COALESCE(m."publishedAt", m."createdAt")) AS TEXT) as week, m.sentiment, CAST(COUNT(*) AS INTEGER) as count`,
                 `FROM "Mention" m JOIN "Client" c ON m."clientId" = c.id`,
                 `1=1`,
                 mentionFilters,
-                `GROUP BY DATE_TRUNC('week', m."createdAt"), m.sentiment`,
+                `GROUP BY DATE_TRUNC('week', COALESCE(m."publishedAt", m."createdAt")), m.sentiment`,
                 `ORDER BY week ASC`
               );
               return prisma.$queryRawUnsafe<{ week: string; sentiment: string; count: number }[]>(sql, ...params);
@@ -217,7 +217,7 @@ export const dashboardRouter = router({
             // 3. Top sources
             (() => {
               const sourceFilters: { sql: string; params: unknown[] }[] = [
-                { sql: `AND m."createdAt" >= $P`, params: [since] },
+                { sql: `AND COALESCE(m."publishedAt", m."createdAt") >= $P`, params: [since] },
               ];
               if (orgId) sourceFilters.push({ sql: `AND c."orgId" = $P`, params: [orgId] });
               if (input.clientId) sourceFilters.push({ sql: `AND m."clientId" = $P`, params: [input.clientId] });
@@ -239,7 +239,7 @@ export const dashboardRouter = router({
               by: ["keywordMatched"],
               where: {
                 ...clientWhereClause,
-                createdAt: { gte: since },
+                publishedAt: { gte: since },
               },
               _count: { id: true },
               orderBy: { _count: { id: "desc" } },
@@ -251,7 +251,7 @@ export const dashboardRouter = router({
               by: ["urgency"],
               where: {
                 ...clientWhereClause,
-                createdAt: { gte: since },
+                publishedAt: { gte: since },
               },
               _count: { id: true },
             }),
@@ -323,7 +323,7 @@ export const dashboardRouter = router({
           where: {
             ...clientOrgFilter,
             ...clientIdFilter,
-            createdAt: { gte: since },
+            postedAt: { gte: since },
           },
         }),
         prisma.socialMention.groupBy({
@@ -331,7 +331,7 @@ export const dashboardRouter = router({
           where: {
             ...clientOrgFilter,
             ...clientIdFilter,
-            createdAt: { gte: since },
+            postedAt: { gte: since },
           },
           _count: { id: true },
         }),
@@ -374,7 +374,7 @@ export const dashboardRouter = router({
 
       // Filtros SQL dinámicos para social
       const socialFilters: { sql: string; params: unknown[] }[] = [
-        { sql: `AND sm."createdAt" >= $P`, params: [since] },
+        { sql: `AND COALESCE(sm."postedAt", sm."createdAt") >= $P`, params: [since] },
       ];
       if (orgId) socialFilters.push({ sql: `AND c."orgId" = $P`, params: [orgId] });
       if (input.clientId) socialFilters.push({ sql: `AND sm."clientId" = $P`, params: [input.clientId] });
@@ -384,11 +384,11 @@ export const dashboardRouter = router({
         // Menciones por día
         (() => {
           const { sql, params } = buildRawQuery(
-            `SELECT CAST(DATE(sm."createdAt") AS TEXT) as date, CAST(COUNT(*) AS INTEGER) as count`,
+            `SELECT CAST(DATE(COALESCE(sm."postedAt", sm."createdAt")) AS TEXT) as date, CAST(COUNT(*) AS INTEGER) as count`,
             `FROM "SocialMention" sm JOIN "Client" c ON sm."clientId" = c.id`,
             `1=1`,
             socialFilters,
-            `GROUP BY DATE(sm."createdAt")`,
+            `GROUP BY DATE(COALESCE(sm."postedAt", sm."createdAt"))`,
             `ORDER BY date ASC`
           );
           return prisma.$queryRawUnsafe<{ date: string; count: number }[]>(sql, ...params);
@@ -398,7 +398,7 @@ export const dashboardRouter = router({
           by: ["platform"],
           where: {
             ...clientWhereClause,
-            createdAt: { gte: since },
+            postedAt: { gte: since },
           },
           _count: { id: true },
         }),
@@ -407,14 +407,14 @@ export const dashboardRouter = router({
           by: ["sentiment"],
           where: {
             ...clientWhereClause,
-            createdAt: { gte: since },
+            postedAt: { gte: since },
           },
           _count: { id: true },
         }),
         // Top autores por engagement
         (() => {
           const authorFilters: { sql: string; params: unknown[] }[] = [
-            { sql: `AND sm."createdAt" >= $P`, params: [since] },
+            { sql: `AND COALESCE(sm."postedAt", sm."createdAt") >= $P`, params: [since] },
             { sql: `AND sm."authorHandle" IS NOT NULL`, params: [] },
           ];
           if (orgId) authorFilters.push({ sql: `AND c."orgId" = $P`, params: [orgId] });

@@ -778,6 +778,13 @@ IMPORTANTE: Genera 8-12 keywords variados basados en las noticias.`;
 
       // Crear menciones de articulos seleccionados
       if (input.selectedArticleIds && input.selectedArticleIds.length > 0) {
+        // Obtener publishedAt de los artículos para denormalizar
+        const articles = await prisma.article.findMany({
+          where: { id: { in: input.selectedArticleIds } },
+          select: { id: true, publishedAt: true },
+        });
+        const articleDateMap = new Map(articles.map((a) => [a.id, a.publishedAt]));
+
         for (const articleId of input.selectedArticleIds) {
           try {
             await prisma.mention.create({
@@ -787,6 +794,7 @@ IMPORTANTE: Genera 8-12 keywords variados basados en las noticias.`;
                 keywordMatched: input.name,
                 sentiment: "NEUTRAL",
                 relevance: 7,
+                publishedAt: articleDateMap.get(articleId) || null,
               },
             });
           } catch {
@@ -1198,7 +1206,7 @@ IMPORTANTE: Genera 8-12 keywords variados basados en las noticias.`;
       const clientMentions = await prisma.mention.count({
         where: {
           clientId: client.id,
-          createdAt: { gte: since },
+          publishedAt: { gte: since },
         },
       });
 

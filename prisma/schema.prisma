@@ -176,6 +176,9 @@ model Mention {
   // Legacy: artículo publicado antes de que el cliente fuera creado (contexto histórico)
   isLegacy       Boolean   @default(false)
 
+  // Fecha de publicación del artículo (denormalizada de Article.publishedAt para queries temporales)
+  publishedAt    DateTime?
+
   // Clustering
   parentMentionId String?
   parentMention   Mention?  @relation("MentionCluster", fields: [parentMentionId], references: [id])
@@ -192,6 +195,9 @@ model Mention {
   @@index([parentMentionId])
   @@index([clientId, parentMentionId, createdAt])
   @@index([topicClusterId])
+  @@index([clientId, publishedAt])
+  @@index([clientId, isLegacy, publishedAt])
+  @@index([clientId, parentMentionId, publishedAt])
 }
 
 enum Sentiment {

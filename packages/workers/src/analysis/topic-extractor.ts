@@ -129,7 +129,7 @@ export async function detectEmergingTopics(
     FROM "Mention" m
     JOIN "Client" c ON m."clientId" = c.id
     WHERE c."orgId" = ${orgId}
-    AND m."createdAt" >= ${since}
+    AND COALESCE(m."publishedAt", m."createdAt") >= ${since}
     AND m.topic IS NOT NULL
     GROUP BY m.topic
     HAVING COUNT(*) >= ${threshold}
@@ -144,7 +144,7 @@ export async function detectEmergingTopics(
       where: {
         client: { orgId },
         topic: topic.topic,
-        createdAt: {
+        publishedAt: {
           gte: weekAgo,
           lt: since,
         },
@@ -192,7 +192,7 @@ export async function getTopicStats(
       SUM(CASE WHEN sentiment = 'NEUTRAL' OR sentiment = 'MIXED' THEN 1 ELSE 0 END) as neutral
     FROM "Mention"
     WHERE "clientId" = ${clientId}
-    AND "createdAt" >= ${since}
+    AND COALESCE("publishedAt", "createdAt") >= ${since}
     AND topic IS NOT NULL
     GROUP BY topic
     ORDER BY count DESC
@@ -207,14 +207,14 @@ export async function getTopicStats(
           where: {
             clientId,
             topic: t.topic,
-            createdAt: { gte: since, lt: midpoint },
+            publishedAt: { gte: since, lt: midpoint },
           },
         }),
         prisma.mention.count({
           where: {
             clientId,
             topic: t.topic,
-            createdAt: { gte: midpoint },
+            publishedAt: { gte: midpoint },
           },
         }),
       ]);
@@ -241,14 +241,14 @@ export async function getTopicStats(
     prisma.mention.count({
       where: {
         clientId,
-        createdAt: { gte: since },
+        publishedAt: { gte: since },
         topic: { not: null },
       },
     }),
     prisma.mention.count({
       where: {
         clientId,
-        createdAt: { gte: since },
+        publishedAt: { gte: since },
         topic: null,
       },
     }),

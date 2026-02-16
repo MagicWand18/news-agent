@@ -40,22 +40,22 @@ export const executiveRouter = router({
         ] = await Promise.all([
           // Menciones periodo actual
           prisma.mention.count({
-            where: { createdAt: { gte: currentStart }, isLegacy: false },
+            where: { publishedAt: { gte: currentStart }, isLegacy: false },
           }),
           // Menciones periodo anterior
           prisma.mention.count({
             where: {
-              createdAt: { gte: previousStart, lt: currentStart },
+              publishedAt: { gte: previousStart, lt: currentStart },
               isLegacy: false,
             },
           }),
           // Social menciones periodo actual
           prisma.socialMention.count({
-            where: { createdAt: { gte: currentStart } },
+            where: { postedAt: { gte: currentStart } },
           }),
           // Social menciones periodo anterior
           prisma.socialMention.count({
-            where: { createdAt: { gte: previousStart, lt: currentStart } },
+            where: { postedAt: { gte: previousStart, lt: currentStart } },
           }),
           // Crisis activas periodo actual
           prisma.crisisAlert.count({
@@ -75,14 +75,14 @@ export const executiveRouter = router({
           // Sentimiento positivo (periodo actual)
           prisma.mention.count({
             where: {
-              createdAt: { gte: currentStart },
+              publishedAt: { gte: currentStart },
               isLegacy: false,
               sentiment: "POSITIVE",
             },
           }),
           // Total menciones para sentimiento (periodo actual)
           prisma.mention.count({
-            where: { createdAt: { gte: currentStart }, isLegacy: false },
+            where: { publishedAt: { gte: currentStart }, isLegacy: false },
           }),
         ]);
 
@@ -173,14 +173,14 @@ export const executiveRouter = router({
                   where: {
                     clientId: { in: clientIds },
                     isLegacy: false,
-                    createdAt: { gte: since },
+                    publishedAt: { gte: since },
                   },
                 }),
                 // Social menciones en el periodo
                 prisma.socialMention.count({
                   where: {
                     clientId: { in: clientIds },
-                    createdAt: { gte: since },
+                    postedAt: { gte: since },
                   },
                 }),
                 // Crisis activas
@@ -195,7 +195,7 @@ export const executiveRouter = router({
                   where: {
                     clientId: { in: clientIds },
                     isLegacy: false,
-                    createdAt: { gte: since },
+                    publishedAt: { gte: since },
                     sentiment: "POSITIVE",
                   },
                 }),
@@ -204,7 +204,7 @@ export const executiveRouter = router({
                   where: {
                     clientId: { in: clientIds },
                     isLegacy: false,
-                    createdAt: { gte: since },
+                    publishedAt: { gte: since },
                   },
                 }),
                 // Top client por menciones
@@ -213,7 +213,7 @@ export const executiveRouter = router({
                   where: {
                     clientId: { in: clientIds },
                     isLegacy: false,
-                    createdAt: { gte: since },
+                    publishedAt: { gte: since },
                   },
                   _count: { id: true },
                   orderBy: { _count: { id: "desc" } },
@@ -301,7 +301,7 @@ export const executiveRouter = router({
           where: {
             clientId: { in: allClientIds },
             isLegacy: false,
-            createdAt: { gte: last7d },
+            publishedAt: { gte: last7d },
           },
         });
 
@@ -333,16 +333,16 @@ export const executiveRouter = router({
             ] = await Promise.all([
               // --- Periodo actual ---
               prisma.mention.count({
-                where: { clientId: client.id, isLegacy: false, createdAt: { gte: last7d } },
+                where: { clientId: client.id, isLegacy: false, publishedAt: { gte: last7d } },
               }),
               prisma.mention.count({
-                where: { clientId: client.id, isLegacy: false, createdAt: { gte: last7d }, sentiment: "POSITIVE" },
+                where: { clientId: client.id, isLegacy: false, publishedAt: { gte: last7d }, sentiment: "POSITIVE" },
               }),
               prisma.mention.count({
-                where: { clientId: client.id, isLegacy: false, createdAt: { gte: last7d }, sentiment: "NEGATIVE" },
+                where: { clientId: client.id, isLegacy: false, publishedAt: { gte: last7d }, sentiment: "NEGATIVE" },
               }),
               prisma.mention.count({
-                where: { clientId: client.id, isLegacy: false, createdAt: { gte: last7d } },
+                where: { clientId: client.id, isLegacy: false, publishedAt: { gte: last7d } },
               }),
               prisma.crisisAlert.count({
                 where: { clientId: client.id, status: "ACTIVE" },
@@ -365,7 +365,7 @@ export const executiveRouter = router({
               prisma.socialMention.count({
                 where: {
                   clientId: client.id,
-                  createdAt: { gte: last7d },
+                  postedAt: { gte: last7d },
                   OR: [
                     { likes: { gte: 10 } },
                     { comments: { gte: 10 } },
@@ -374,17 +374,17 @@ export const executiveRouter = router({
                 },
               }),
               prisma.socialMention.count({
-                where: { clientId: client.id, createdAt: { gte: last7d } },
+                where: { clientId: client.id, postedAt: { gte: last7d } },
               }),
               // --- Periodo anterior ---
               prisma.mention.count({
-                where: { clientId: client.id, isLegacy: false, createdAt: { gte: prev7d, lt: last7d } },
+                where: { clientId: client.id, isLegacy: false, publishedAt: { gte: prev7d, lt: last7d } },
               }),
               prisma.mention.count({
-                where: { clientId: client.id, isLegacy: false, createdAt: { gte: prev7d, lt: last7d }, sentiment: "POSITIVE" },
+                where: { clientId: client.id, isLegacy: false, publishedAt: { gte: prev7d, lt: last7d }, sentiment: "POSITIVE" },
               }),
               prisma.mention.count({
-                where: { clientId: client.id, isLegacy: false, createdAt: { gte: prev7d, lt: last7d } },
+                where: { clientId: client.id, isLegacy: false, publishedAt: { gte: prev7d, lt: last7d } },
               }),
               prisma.crisisAlert.count({
                 where: { clientId: client.id, status: "ACTIVE", createdAt: { gte: prev7d, lt: last7d } },
@@ -401,7 +401,7 @@ export const executiveRouter = router({
               prisma.socialMention.count({
                 where: {
                   clientId: client.id,
-                  createdAt: { gte: prev7d, lt: last7d },
+                  postedAt: { gte: prev7d, lt: last7d },
                   OR: [
                     { likes: { gte: 10 } },
                     { comments: { gte: 10 } },
@@ -410,7 +410,7 @@ export const executiveRouter = router({
                 },
               }),
               prisma.socialMention.count({
-                where: { clientId: client.id, createdAt: { gte: prev7d, lt: last7d } },
+                where: { clientId: client.id, postedAt: { gte: prev7d, lt: last7d } },
               }),
             ]);
 
@@ -652,11 +652,11 @@ export const executiveRouter = router({
         let paramIdx = 1;
 
         // Filtro de fecha para menciones
-        let mentionWhere = `WHERE m."createdAt" >= $${paramIdx} AND m."isLegacy" = false`;
+        let mentionWhere = `WHERE COALESCE(m."publishedAt", m."createdAt") >= $${paramIdx} AND m."isLegacy" = false`;
         params.push(since);
         paramIdx++;
 
-        let socialWhere = `WHERE sm."createdAt" >= $${paramIdx}`;
+        let socialWhere = `WHERE COALESCE(sm."postedAt", sm."createdAt") >= $${paramIdx}`;
         params.push(since);
         paramIdx++;
 
@@ -677,11 +677,11 @@ export const executiveRouter = router({
             CAST(EXTRACT(HOUR FROM combined."createdAt") AS INTEGER) as "hour",
             CAST(COUNT(*) AS INTEGER) as "count"
           FROM (
-            SELECT m."createdAt"
+            SELECT COALESCE(m."publishedAt", m."createdAt") as "createdAt"
             FROM "Mention" m
             ${mentionWhere}
             UNION ALL
-            SELECT sm."createdAt"
+            SELECT COALESCE(sm."postedAt", sm."createdAt") as "createdAt"
             FROM "SocialMention" sm
             ${socialWhere}
           ) combined

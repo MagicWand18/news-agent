@@ -147,14 +147,50 @@ export async function getAllRecipientsForClient(
 }
 
 /**
+ * Desactiva un destinatario de Telegram en la BD según su nivel (source).
+ * Se llama automáticamente cuando un envío falla con error permanente.
+ */
+async function disableRecipient(
+  chatId: string,
+  source: "client" | "org" | "superadmin"
+): Promise<void> {
+  try {
+    switch (source) {
+      case "client":
+        await prisma.telegramRecipient.updateMany({
+          where: { chatId, active: true },
+          data: { active: false },
+        });
+        break;
+      case "org":
+        await prisma.orgTelegramRecipient.updateMany({
+          where: { chatId, active: true },
+          data: { active: false },
+        });
+        break;
+      case "superadmin":
+        // Para SuperAdmin, limpiar telegramUserId en lugar de desactivar el user
+        await prisma.user.updateMany({
+          where: { telegramUserId: chatId, isSuperAdmin: true },
+          data: { telegramUserId: null },
+        });
+        break;
+    }
+  } catch (err) {
+    console.error(`Failed to disable recipient ${chatId} (${source}):`, err);
+  }
+}
+
+/**
  * Envía un mensaje a múltiples destinatarios de Telegram.
- * Retorna el número de envíos exitosos y fallidos.
+ * Auto-desactiva destinatarios con errores permanentes (chat not found, bot blocked, etc).
+ * Retorna el número de envíos exitosos, fallidos y desactivados.
  */
 export async function sendToMultipleRecipients(
-  recipients: Array<{ chatId: string; label?: string | null }>,
+  recipients: Array<{ chatId: string; label?: string | null; source?: "client" | "org" | "superadmin" }>,
   message: string,
   options?: { reply_markup?: InlineKeyboard; parse_mode?: "Markdown" | "HTML" }
-): Promise<{ sent: number; failed: number }> {
+): Promise<{ sent: number; failed: number; disabled: number }> {
   const results = await Promise.allSettled(
     recipients.map((r) =>
       bot.api.sendMessage(r.chatId, message, options)
@@ -163,19 +199,35 @@ export async function sendToMultipleRecipients(
 
   let sent = 0;
   let failed = 0;
+  let disabled = 0;
 
   for (const [i, result] of results.entries()) {
     if (result.status === "fulfilled") {
       sent++;
     } else {
       failed++;
-      console.error(
-        `Failed to send to ${recipients[i].label || recipients[i].chatId}: ${result.reason}`
-      );
+      const reason = String(result.reason);
+      const recipient = recipients[i];
+
+      // Errores permanentes que justifican desactivar al destinatario
+      const isPermanentError =
+        /chat not found|bot was blocked|user is deactivated|PEER_ID_INVALID|bot was kicked/i.test(reason);
+
+      if (isPermanentError && recipient.source) {
+        disabled++;
+        await disableRecipient(recipient.chatId, recipient.source);
+        console.warn(
+          `Auto-disabled ${recipient.label || recipient.chatId} (${recipient.source}): ${reason}`
+        );
+      } else {
+        console.error(
+          `Failed to send to ${recipient.label || recipient.chatId}: ${reason}`
+        );
+      }
     }
   }
 
-  return { sent, failed };
+  return { sent, failed, disabled };
 }
 
 /**
@@ -190,13 +242,13 @@ export async function sendNotification(
     keyboard?: InlineKeyboard;
     parseMode?: "Markdown";
   }
-): Promise<{ sent: number; failed: number }> {
+): Promise<{ sent: number; failed: number; disabled: number }> {
   const recipients = await getAllRecipientsForClient(clientId, notifType, {
     recipientTypes: options?.recipientTypes,
   });
 
   if (recipients.length === 0) {
-    return { sent: 0, failed: 0 };
+    return { sent: 0, failed: 0, disabled: 0 };
   }
 
   return sendToMultipleRecipients(recipients, message, {

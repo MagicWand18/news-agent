@@ -34,7 +34,7 @@ export function startDigestWorker() {
         const mentions = await prisma.mention.findMany({
           where: {
             clientId: client.id,
-            createdAt: { gte: since },
+            publishedAt: { gte: since },
           },
           include: { article: true },
           orderBy: { relevance: "desc" },
@@ -44,7 +44,7 @@ export function startDigestWorker() {
         const socialMentions = await prisma.socialMention.findMany({
           where: {
             clientId: client.id,
-            createdAt: { gte: since },
+            postedAt: { gte: since },
           },
           orderBy: [{ likes: "desc" }],
         });
@@ -107,7 +107,7 @@ export function startDigestWorker() {
           const yesterdayMentions = await prisma.mention.findMany({
             where: {
               clientId: client.id,
-              createdAt: { gte: yesterdayStart, lt: since },
+              publishedAt: { gte: yesterdayStart, lt: since },
             },
           });
 
@@ -121,10 +121,10 @@ export function startDigestWorker() {
           // SOV rápido: contar menciones del cliente vs total en la org
           const [clientMentionCount, totalOrgMentions] = await Promise.all([
             prisma.mention.count({
-              where: { clientId: client.id, createdAt: { gte: since } },
+              where: { clientId: client.id, publishedAt: { gte: since } },
             }),
             prisma.mention.count({
-              where: { client: { orgId: client.orgId }, createdAt: { gte: since } },
+              where: { client: { orgId: client.orgId }, publishedAt: { gte: since } },
             }),
           ]);
           const sovPercentage = totalOrgMentions > 0 ? (clientMentionCount / totalOrgMentions) * 100 : 0;
@@ -132,10 +132,10 @@ export function startDigestWorker() {
           // SOV de ayer
           const [clientYesterdayCount, totalYesterdayCount] = await Promise.all([
             prisma.mention.count({
-              where: { clientId: client.id, createdAt: { gte: yesterdayStart, lt: since } },
+              where: { clientId: client.id, publishedAt: { gte: yesterdayStart, lt: since } },
             }),
             prisma.mention.count({
-              where: { client: { orgId: client.orgId }, createdAt: { gte: yesterdayStart, lt: since } },
+              where: { client: { orgId: client.orgId }, publishedAt: { gte: yesterdayStart, lt: since } },
             }),
           ]);
           const yesterdaySov = totalYesterdayCount > 0 ? (clientYesterdayCount / totalYesterdayCount) * 100 : 0;

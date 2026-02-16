@@ -31,7 +31,7 @@ export async function checkForCrisis(clientId: string): Promise<CrisisCheckResul
     where: {
       clientId,
       sentiment: "NEGATIVE",
-      createdAt: { gte: windowStart },
+      publishedAt: { gte: windowStart },
     },
   });
 
