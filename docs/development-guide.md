@@ -463,6 +463,70 @@ python3 tests/e2e/test_telegram_notifs.py      # Telegram notifications
 
 ---
 
+## Temporal Queries Pattern
+
+Al trabajar con filtros temporales en MediaBot, es crítico usar el campo correcto para evitar falsos positivos (por ejemplo, crisis falsas disparadas por artículos viejos recolectados en batch).
+
+### Campos correctos por modelo
+
+| Modelo | Campo temporal correcto | NO usar |
+|--------|------------------------|---------|
+| `Mention` | `publishedAt` | `createdAt` para filtros temporales |
+| `SocialMention` | `postedAt` | `createdAt` para filtros temporales |
+
+### En queries de Prisma
+
+```typescript
+// CORRECTO — filtrar menciones de las últimas 24 horas
+const recentMentions = await prisma.mention.findMany({
+  where: {
+    publishedAt: { gte: new Date(Date.now() - 24 * 60 * 60 * 1000) },
+  },
+});
+
+// INCORRECTO — esto incluye artículos viejos recolectados recientemente
+const recentMentions = await prisma.mention.findMany({
+  where: {
+    createdAt: { gte: new Date(Date.now() - 24 * 60 * 60 * 1000) },
+  },
+});
+```
+
+### En raw SQL
+
+Usar `COALESCE` para manejar registros antiguos que no tengan el campo poblado:
+
+```sql
+-- Para Mention
+WHERE COALESCE(m."publishedAt", m."createdAt") >= NOW() - INTERVAL '24 hours'
+
+-- Para SocialMention
+WHERE COALESCE(sm."postedAt", sm."createdAt") >= NOW() - INTERVAL '24 hours'
+```
+
+### Cuándo SÍ usar `createdAt`
+
+- Para ordenar resultados en la UI (mostrar los más recientes primero por fecha de ingreso)
+- Para mostrar timestamps de "agregado al sistema" en la interfaz
+- Para lógica no temporal (paginación por cursor, auditoría, etc.)
+
+### Al crear menciones
+
+Siempre establecer `publishedAt` desde la fecha de publicación del artículo fuente:
+
+```typescript
+await prisma.mention.create({
+  data: {
+    // ... otros campos
+    publishedAt: article.publishedAt || null,
+  },
+});
+```
+
+Si `publishedAt` es `null`, las queries con `COALESCE` caerán automáticamente a `createdAt` como fallback.
+
+---
+
 ## Convenciones
 
 ### Nombres de Archivos

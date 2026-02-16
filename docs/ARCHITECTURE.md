@@ -417,11 +417,25 @@ Auto-archivado de menciones antiguas:
 **Alertas inmediatas:**
 - Menciones con `urgency` HIGH o CRITICAL
 - Se envian via Telegram al grupo del cliente
+- **3 niveles de destinatarios**: Cliente (TelegramRecipient) → Organización (OrgTelegramRecipient) → SuperAdmin (User.telegramUserId)
+- Resolución centralizada en `recipients.ts`: `getAllRecipientsForClient()` consolida, deduplica por chatId y filtra por preferencias
 
 **Digest diario:**
 - Se ejecuta a las 8:00 AM
 - Resumen de todas las menciones del dia anterior
 - Agrupadas por cliente
+
+**Filtro de antigüedad (30 días):**
+
+Menciones y posts con más de 30 días de antigüedad NO generan notificaciones ni alertas de crisis. Esto previene que artículos viejos recién descubiertos por colectores o grounding disparen alertas falsas.
+
+| Worker | Campo evaluado | Comportamiento |
+|--------|---------------|----------------|
+| `analysis/worker.ts` | `mention.publishedAt` (fallback `article.publishedAt`) | Skip notificación + skip crisis check |
+| `analysis/social-worker.ts` | `socialMention.postedAt` | Skip notificación Telegram |
+| `notifications/worker.ts` | `mention.publishedAt` (fallback `article.publishedAt`) | Skip envío + marca `notified=true` (safety net) |
+
+La verificación en `analysis/worker.ts` es la barrera principal; la verificación en `notifications/worker.ts` actúa como red de seguridad por si una mención se encola directamente.
 
 ## Modelo de Datos
 
@@ -458,7 +472,7 @@ Auto-archivado de menciones antiguas:
 | `Client` | Entidad monitoreada (ej: empresa, politico) |
 | `Keyword` | Terminos a buscar (tipos: NAME, BRAND, COMPETITOR, TOPIC, ALIAS) |
 | `Article` | Articulo colectado de cualquier fuente |
-| `Mention` | Match de articulo con cliente |
+| `Mention` | Match de articulo con cliente (incluye `publishedAt` denormalizado) |
 | `Task` | Tarea asignada a usuario para seguimiento |
 | `EmergingTopicNotification` | Registro de notificaciones de temas emergentes |
 | `RssSource` | Fuente RSS configurable (300+ medios mexicanos) |
@@ -479,49 +493,77 @@ Auto-archivado de menciones antiguas:
 | `OrgTelegramRecipient` | Destinatario Telegram a nivel organización |
 | `SharedReport` | Reporte compartido con URL pública y expiración (Sprint 17) |
 
+### Campo `Mention.publishedAt` (denormalizado)
+
+Campo `DateTime?` que almacena la fecha de publicación del artículo directamente en la mención, evitando JOINs costosos para queries temporales.
+
+**Origen del dato:**
+- `ingest.ts`: Copia `article.publishedAt` al crear la mención durante el matching de keywords
+- `grounding-service.ts`: Copia `article.publishedAt` al crear menciones desde búsquedas con Gemini
+- `clients.ts` (createWithOnboarding): Copia `article.publishedAt` al importar artículos durante el onboarding
+
+**Uso en queries:**
+- Todos los filtros temporales del dashboard, intelligence, executive y reports usan `publishedAt` en lugar de `createdAt`
+- Raw SQL usa `COALESCE("publishedAt", "createdAt")` como fallback para menciones creadas antes de la migración que no tienen el campo poblado
+- Índices de base de datos: `[clientId, publishedAt]`, `[clientId, isLegacy, publishedAt]`, `[clientId, parentMentionId, publishedAt]`
+
+**Beneficio principal:**
+- Permite filtrar menciones por fecha real de publicación del artículo, no por fecha de ingesta al sistema
+- Evita que artículos viejos recién descubiertos por colectores o grounding aparezcan como noticias recientes
+- Previene falsas alertas de crisis y notificaciones de artículos antiguos (ver filtro de 30 días en sección de Notificaciones)
+
 ## Sistema de Colas (BullMQ)
 
 ```
 ┌─────────────────────────────────────────────────────────────────┐
-│                         REDIS / BULLMQ                           │
+│                    REDIS / BULLMQ (28 colas)                      │
 ├─────────────────────────────────────────────────────────────────┤
 │                                                                 │
-│   SCHEDULED JOBS (Cron patterns)                                │
-│   ─────────────────────────────                                 │
-│   collect-rss      : */10 * * * *  (cada 10 min)                │
-│   collect-newsdata : */30 * * * *  (cada 30 min)                │
-│   collect-gdelt    : */15 * * * *  (cada 15 min)                │
-│   collect-google   : 0 */2 * * *   (cada 2 horas)               │
-│   daily-digest     : 0 8 * * *     (8:00 AM diario)             │
+│   COLLECTOR QUEUES (Cron patterns)                              │
+│   ────────────────────────────────                              │
+│   collect-rss          : */10 * * * *  (cada 10 min)            │
+│   collect-newsdata     : */30 * * * *  (cada 30 min)            │
+│   collect-gdelt        : */15 * * * *  (cada 15 min)            │
+│   collect-google       : 0 */2 * * *   (cada 2 horas)           │
+│   collect-social       : */30 * * * *  (cada 30 min)            │
+│   collect-gnews        : Google News RSS para fuentes sin feed  │
+│   collect-gnews-client : Google News búsqueda por cliente       │
 │                                                                 │
-│   ON-DEMAND QUEUES                                              │
+│   PROCESSING QUEUES                                             │
+│   ─────────────────                                             │
+│   ingest-article       : Procesar articulo individual           │
+│   analyze-mention      : Analizar mencion con AI                │
+│   analyze-social       : Analizar menciones sociales con AI     │
+│   extract-topic        : Extraer tema de mencion con AI         │
+│   extract-social-comments : Extraer comentarios de posts        │
+│   onboarding           : Generar keywords iniciales para cliente│
+│   crisis-check         : Verificar condiciones de crisis        │
+│                                                                 │
+│   SCHEDULED ANALYSIS QUEUES                                     │
+│   ──────────────────────────                                    │
+│   notify-digest        : 0 8 * * * (8:00 AM diario)            │
+│   weekly-insights      : Generar insights semanales (Lun 6AM)   │
+│   weekly-report        : Reporte semanal                        │
+│   emerging-topics      : Detectar temas emergentes (cada 4h)    │
+│   watchdog-mentions    : Vigilancia de menciones                │
+│                                                                 │
+│   GROUNDING QUEUES                                              │
 │   ────────────────                                              │
-│   ingest-article   : Procesar articulo individual               │
-│   analyze-mention  : Analizar mencion con AI                    │
-│   notify-alert     : Enviar alerta Telegram                     │
-│   onboarding       : Generar keywords iniciales para cliente    │
-│   extract-topic    : Extraer tema de mencion con AI             │
-│   weekly-insights  : Generar insights semanales (Lun 6:00 AM)   │
-│   emerging-topics  : Detectar temas emergentes (cada 4h)        │
-│   notify-emerging  : Notificar tema emergente via Telegram      │
-│   grounding-check  : Verificar menciones bajas (7:00 AM)        │
-│   grounding-weekly : Grounding semanal programado (6:00 AM)     │
-│   grounding-execute: Ejecutar búsqueda con Gemini               │
-│                                                                 │
-│   SOCIAL MEDIA QUEUES                                           │
-│   ───────────────────                                           │
-│   collect-social   : */30 * * * *  (cada 30 min)                │
-│   analyze-social   : Analizar menciones sociales con AI         │
-│   notify-social    : Notificar menciones relevantes             │
+│   grounding-check      : Verificar menciones bajas (7:00 AM)   │
+│   grounding-weekly     : Grounding semanal programado (6:00 AM)│
+│   grounding-execute    : Ejecutar búsqueda con Gemini           │
 │                                                                 │
 │   ACTION PIPELINE QUEUES (Sprint 13+)                           │
 │   ───────────────────────────────────                           │
-│   check-alert-rules : */30 * * * * (cada 30 min)               │
+│   check-alert-rules    : */30 * * * * (cada 30 min)            │
 │   archive-old-mentions : 0 3 * * * (3:00 AM diario)            │
 │                                                                 │
 │   NOTIFICATION QUEUES                                           │
 │   ────────────────────                                          │
-│   notify-telegram   : Notificación genérica multi-nivel         │
+│   notify-alert         : Alerta inmediata por mención urgente   │
+│   notify-crisis        : Alerta de crisis detectada             │
+│   notify-emerging-topic: Notificar tema emergente via Telegram  │
+│   notify-telegram      : Notificación genérica multi-nivel      │
 │                                                                 │
 └─────────────────────────────────────────────────────────────────┘
 ```
@@ -931,6 +973,13 @@ El sistema detecta automaticamente situaciones de crisis mediaticas.
 | `count >= threshold * 3` | CRITICAL |
 | `count >= threshold * 2` | HIGH |
 | `count >= threshold` | MEDIUM |
+
+### Protección contra Falsas Crisis (publishedAt)
+
+El filtro de 30 días en `analysis/worker.ts` previene falsas alertas de crisis:
+- Si `publishedAt` > 30 días, se omite la llamada a `processMentionForCrisis()`
+- Esto evita que artículos negativos antiguos (recién descubiertos por grounding o colectores) sumen al conteo de negativos en la ventana de crisis
+- Sin este filtro, un lote de artículos viejos negativos podría superar el threshold y crear una CrisisAlert espuria
 
 ### Acciones Disponibles
 

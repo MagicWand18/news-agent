@@ -34,13 +34,13 @@ MediaBot is a media monitoring platform for PR agencies. It monitors news source
 
 | File | Purpose |
 |------|---------|
-| `prisma/schema.prisma` | Database models |
+| `prisma/schema.prisma` | Database models (Mention.publishedAt denormalized from Article) |
 | `packages/web/src/server/routers/` | tRPC API endpoints |
 | `packages/web/src/app/dashboard/` | Dashboard pages |
 | `packages/web/src/components/platform-icons.tsx` | Iconos SVG compartidos de plataformas sociales |
 | `packages/web/src/components/social-mention-row.tsx` | Componente de fila de mencion social (con checkbox para bulk select) |
 | `packages/shared/src/telegram-notification-types.ts` | Constantes y tipos de 10 notificaciones Telegram |
-| `packages/workers/src/notifications/recipients.ts` | Resolución centralizada de destinatarios Telegram (3 niveles) |
+| `packages/workers/src/notifications/recipients.ts` | Resolución centralizada de destinatarios Telegram (3 niveles, filtro 30 días) |
 | `packages/workers/src/queues.ts` | Job queues and cron schedules (25 colas) |
 | `packages/workers/src/collectors/social.ts` | Social media collector (EnsembleData) |
 | `packages/web/src/server/routers/social.ts` | Social media monitoring API (18 endpoints, incl. generateResponse) |
@@ -55,9 +55,9 @@ MediaBot is a media monitoring platform for PR agencies. It monitors news source
 | `packages/web/src/lib/pdf/` | PDF generators (campaign, brief, client, utils) |
 | `packages/web/src/components/export-button.tsx` | Reusable export dropdown (PDF + share link) |
 | `packages/workers/src/workers/alert-rules-worker.ts` | Alert rule evaluation - 6 types (cron */30) |
-| `packages/workers/src/analysis/crisis-detector.ts` | Auto crisis detection on negative spikes |
+| `packages/workers/src/analysis/crisis-detector.ts` | Auto crisis detection on negative spikes (uses publishedAt/postedAt) |
 | `packages/workers/src/analysis/ai.ts` | AI functions (analyze, brief, insights, response, etc.) |
-| `packages/workers/src/notifications/digest.ts` | Daily digest worker with AI Media Brief |
+| `packages/workers/src/notifications/digest.ts` | Daily digest worker with AI Media Brief (uses publishedAt/postedAt) |
 | `deploy/remote-deploy.sh` | Production deployment script |
 
 ## Social Media Features
@@ -111,6 +111,7 @@ MediaBot is a media monitoring platform for PR agencies. It monitors news source
 - **UI Agencia**: Sección "Destinatarios Telegram por defecto" con CRUD + toggles por recipient
 - **Bot**: Comando `/vincular_org <nombre_org>` para vincular grupo/chat a toda una organización
 - **Router endpoints**: 4 en organizations.ts (listOrgTelegramRecipients, addOrgTelegramRecipient, updateOrgRecipientPreferences, removeOrgTelegramRecipient), 3 en settings.ts (getTelegramPrefs, updateTelegramPrefs, updateTelegramId)
+- **Filtro 30 días**: Notificaciones omiten menciones con publishedAt > 30 días y social mentions con postedAt > 30 días para evitar spam de artículos antiguos recopilados recientemente
 
 ## Executive Dashboard + Exportable Reports (Sprint 17)
 
@@ -124,6 +125,16 @@ MediaBot is a media monitoring platform for PR agencies. It monitors news source
 - **ExportButton integrado en**: campaigns/[id], briefs, clients/[id]
 - **Sidebar**: Item "Ejecutivo" con icono Crown (superAdminOnly), 20 routers total
 - **Health Score formula**: Volume 20%, Sentiment 25%, SOV 15%, CrisisFree 20%, ResponseRate 10%, Engagement 10%
+
+## publishedAt Migration (Post-Sprint 17)
+
+- **Campo nuevo**: `publishedAt DateTime?` en modelo Mention (denormalizado desde Article.publishedAt)
+- **Queries temporales**: Todos los queries temporales ahora usan `publishedAt` (Mention) y `postedAt` (SocialMention) en lugar de `createdAt`
+- **Backward compatibility**: Raw SQL usa `COALESCE("publishedAt", "createdAt")` para menciones sin publishedAt
+- **21 archivos modificados**: schema, collectors, workers (crisis-detector, alert-rules, insights, digest), web routers (dashboard, intelligence, social, executive, campaigns, briefs, reports, clients)
+- **Motivación**: Previene falsas alertas de crisis cuando artículos antiguos se recopilan con createdAt reciente
+- **Telegram 30-day filter**: Notificaciones omiten menciones/posts con más de 30 días de antigüedad (basado en publishedAt/postedAt)
+- **Backfill**: Script SQL para poblar publishedAt desde Article.publishedAt en menciones existentes (ver Commands)
 
 ## Commands
 
@@ -145,6 +156,9 @@ FORCE_DEPLOY=1 bash deploy/remote-deploy.sh  # Force rebuild
 # Check production logs
 ssh -i ~/.ssh/newsaibot-telegram-ssh root@159.65.97.78 \
   "cd /opt/mediabot && docker compose -f docker-compose.prod.yml logs -f"
+
+# Backfill publishedAt (after schema migration)
+ssh root@159.65.97.78 "cd /opt/mediabot && docker compose -f docker-compose.prod.yml exec -T postgres psql -U mediabot -c 'UPDATE \"Mention\" m SET \"publishedAt\" = a.\"publishedAt\" FROM \"Article\" a WHERE m.\"articleId\" = a.id AND m.\"publishedAt\" IS NULL'"
 ```
 
 ## Testing

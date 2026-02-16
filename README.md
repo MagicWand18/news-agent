@@ -1,13 +1,13 @@
 # MediaBot
 
-Sistema de monitoreo de medios con inteligencia artificial para clientes corporativos.
+Sistema de monitoreo de medios con inteligencia artificial para agencias de PR. 35 modelos Prisma, 22 enums, 20 routers tRPC, 20 páginas de dashboard, 25+ workers.
 
 ## Stack Tecnologico
 
-- **Frontend**: Next.js 15, React, TailwindCSS, tRPC
-- **Backend Workers**: BullMQ, Node.js
+- **Frontend**: Next.js 15, React, TailwindCSS, tRPC (20 páginas de dashboard, 20 routers)
+- **Backend Workers**: BullMQ, Node.js (25+ workers, 29 colas)
 - **Bot**: Grammy (Telegram)
-- **Database**: PostgreSQL + Prisma ORM
+- **Database**: PostgreSQL + Prisma ORM (35 modelos, 22 enums)
 - **Cache/Queue**: Redis
 - **AI**: Anthropic Claude (claude-3-5-haiku)
 
@@ -484,6 +484,10 @@ Sistema de seguimiento de campanas para agencias de PR.
 - `/dashboard/campaigns` — Lista con filtros por cliente y status, modal de crear/editar
 - `/dashboard/campaigns/[id]` — Detalle con stats, comparativa, menciones vinculadas, notas
 
+## Migración publishedAt (2026-02-16)
+
+Campo `publishedAt` denormalizado en `Mention` para lógica temporal correcta. Resuelve el problema de crisis falsas generadas por artículos viejos que se recolectaban como nuevos. Filtro de 30 días aplicado en notificaciones para evitar alertas sobre contenido antiguo.
+
 ## Sistema de Notificaciones Telegram
 
 Sistema multi-nivel de notificaciones con 10 tipos y preferencias configurables.
@@ -507,7 +511,7 @@ Alertas de menciones, Alertas de crisis, Temas emergentes, Digest diario, Reglas
 
 - [ARCHITECTURE.md](docs/ARCHITECTURE.md) - Arquitectura detallada
 - [PLAN.md](docs/PLAN.md) - Roadmap y decisiones tecnicas
-- [API Reference](docs/api/README.md) - Documentacion de 18 routers tRPC
+- [API Reference](docs/api/README.md) - Documentacion de 20 routers tRPC
 - [Action Pipeline](docs/action-pipeline.md) - Pipeline de datos accionables
 - [Environment Reference](docs/env-reference.md) - Variables de entorno
 - [Troubleshooting](docs/troubleshooting.md) - Guia de resolucion de problemas

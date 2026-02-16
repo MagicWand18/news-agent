@@ -323,3 +323,81 @@ ssh root@server "cd /opt/mediabot && docker compose -f docker-compose.prod.yml e
 ```
 
 El digest solo se envia si hay menciones nuevas en el periodo. Si no hay menciones, no se genera ni envia.
+
+---
+
+## 11. Crisis falsas por artículos viejos
+
+**Síntomas:**
+- Múltiples CrisisAlert ACTIVE se crean al mismo tiempo
+- Las crisis se disparan cuando se recolectan artículos antiguos en batch
+- Falsos positivos de "pico negativo" sin que haya noticias realmente nuevas
+
+**Posibles causas:**
+- El sistema usaba `createdAt` (fecha de registro en la base de datos) en lugar de la fecha de publicación real del artículo para la lógica temporal
+- Al recolectar artículos viejos, todos obtienen un `createdAt` reciente, simulando un spike falso
+
+**Soluciones:**
+
+Se agregó el campo `publishedAt` al modelo Mention y se migraron todas las queries temporales para usar `publishedAt` en lugar de `createdAt` (2026-02-16).
+
+```bash
+# Verificar que publishedAt está poblado en las menciones recientes
+ssh root@server "cd /opt/mediabot && docker compose -f docker-compose.prod.yml exec -T postgres \
+  psql -U mediabot -c 'SELECT COUNT(*) FROM \"Mention\" WHERE \"publishedAt\" IS NULL'"
+```
+
+**Prevención:** Las notificaciones ahora omiten menciones cuyo `publishedAt` es mayor a 30 días de antigüedad, evitando alertas por artículos históricos recolectados tardíamente.
+
+---
+
+## 12. Error al guardar Telegram ID en Settings
+
+**Síntomas:**
+- `prisma.user.update()` falla con "No record found for an update" al guardar el Telegram ID
+- El formulario de Settings muestra un error inesperado al intentar vincular el Telegram ID
+
+**Posibles causas:**
+- Cache del navegador de un deployment anterior envía un formato de request incompatible con la versión actual del API
+
+**Soluciones:**
+
+Hacer hard refresh del navegador para limpiar el cache:
+
+- **Safari (macOS):** Cmd + Option + R
+- **Chrome / Edge:** Ctrl + Shift + R (o Cmd + Shift + R en macOS)
+- **Firefox:** Ctrl + Shift + R (o Cmd + Shift + R en macOS)
+
+Si el problema persiste, limpiar completamente el cache del navegador o abrir en ventana de incógnito.
+
+---
+
+## 13. Prisma db push no aplica cambios en producción
+
+**Síntomas:**
+- Columnas nuevas no existen en la base de datos después del deploy
+- Errores como `column "publishedAt" does not exist` en runtime
+- El schema de Prisma tiene campos que la base de datos no reconoce
+
+**Posibles causas:**
+- El script de deploy puede no ejecutar `prisma db push` automáticamente
+- El container se reconstruyó pero el schema no se aplicó a la base de datos
+
+**Soluciones:**
+
+Ejecutar manualmente dentro del container:
+
+```bash
+ssh root@server "cd /opt/mediabot && docker compose -f docker-compose.prod.yml exec -T web \
+  npx prisma db push --schema=prisma/schema.prisma --accept-data-loss"
+```
+
+Verificar que los cambios se aplicaron:
+
+```bash
+# Listar columnas de una tabla específica
+ssh root@server "cd /opt/mediabot && docker compose -f docker-compose.prod.yml exec -T postgres \
+  psql -U mediabot -c '\\d \"Mention\"'"
+```
+
+**Nota:** `--accept-data-loss` es necesario si Prisma detecta cambios que podrían perder datos (por ejemplo, cambiar tipos de columna). Siempre hacer backup antes de ejecutar en producción.

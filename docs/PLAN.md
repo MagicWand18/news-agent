@@ -66,6 +66,7 @@ MediaBot es un sistema de monitoreo de medios que permite a agencias de comunica
 | **Executive Dashboard** | OK | Dashboard ejecutivo multi-org para Super Admin con KPIs, health scores, heatmap (Sprint 17) |
 | **Reportes PDF** | OK | Generación de PDF para campañas, briefs y clientes con PDFKit (Sprint 17) |
 | **Links compartidos** | OK | SharedReport con URL pública, expiración 7 días, página /shared/[id] (Sprint 17) |
+| **Migración publishedAt** | OK | Campo denormalizado en Mention para lógica temporal correcta, filtro 30 días en notificaciones |
 
 ### Funciones de IA
 
@@ -106,6 +107,7 @@ MediaBot es un sistema de monitoreo de medios que permite a agencias de comunica
 - [x] **Cron jobs no repiten**: BullMQ v5.1.0 tenia bugs con `upsertJobScheduler`. Solucion: actualizar a v5.56+ y usar cron patterns.
 - [x] **Falsos positivos en menciones**: Palabras comunes como "presidencia" generaban menciones irrelevantes. Solucion: Pre-filtrado con AI.
 - [x] **Onboarding no se dispara**: Conectado trigger al crear cliente.
+- [x] **Crisis falsas por artículos viejos**: Migración publishedAt + filtro 30 días en notificaciones (2026-02-16)
 
 ### Pendientes
 
