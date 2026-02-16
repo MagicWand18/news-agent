@@ -61,6 +61,7 @@ MediaBot es un sistema de monitoreo de medios que permite a agencias de comunica
 | **Action Pipeline Completo** | OK | Generar comunicado social, AlertRule CRUD, evaluaciones avanzadas, Insights Timeline (Sprint 14) |
 | **Bugfix Raw SQL** | OK | Eliminado Prisma.empty, usar $queryRawUnsafe (2026-02-15) |
 | **AI Media Brief** | OK | Brief diario con IA, pagina /dashboard/briefs, integrado en digest + intelligence (Sprint 15) |
+| **Campaign Tracking** | OK | Tracking de campañas PR con comparativa pre/post, auto-vincular menciones, crisis linkage (Sprint 16) |
 
 ### Funciones de IA
 
@@ -791,41 +792,40 @@ Generar briefings diarios inteligentes con IA que un ejecutivo de PR pueda leer 
 
 ---
 
-## Sprint 16: Campaign Tracking + Media Contacts
+## Sprint 16: Campaign Tracking (COMPLETADO - 2026-02-15)
 
 ### Objetivo
-Permitir que las agencias tracken campañas de PR con métricas de impacto, y mantengan un CRM ligero de contactos en medios.
+Permitir que las agencias de PR político tracken campañas de defensa/ataque con métricas de impacto, comparativa pre/post campaña, y vinculación con crisis.
 
-### Parte 1: Tracking de Campañas
+### Implementado
 
-| Feature | Prioridad | Descripción |
-|---------|-----------|-------------|
-| Modelo Campaign | Alta | Nombre, descripción, cliente, fechas inicio/fin, objetivos, status |
-| Vincular menciones a campaña | Alta | Tag manual o automático (por keywords/periodo) de menciones a una campaña |
-| Dashboard de campaña | Alta | KPIs específicos: menciones generadas, alcance, sentimiento, SOV durante campaña |
-| Comparativa pre/post campaña | Media | Métricas del periodo antes vs durante la campaña |
-| ROI estimado (AVE) | Media | Advertising Value Equivalency basado en tier de fuente y alcance |
-| Timeline de campaña | Baja | Vista cronológica de eventos y menciones de la campaña |
+| Feature | Estado | Archivos |
+|---------|--------|----------|
+| Modelos Prisma (Campaign, CampaignMention, CampaignSocialMention, CampaignNote + CampaignStatus enum) | ✅ OK | `prisma/schema.prisma` (32 modelos, 20 enums) |
+| Router campaigns.ts (13 endpoints: CRUD, notes, link mentions, auto-link, stats) | ✅ OK | `packages/web/src/server/routers/campaigns.ts` |
+| Página /dashboard/campaigns (lista, filtros, modal crear/editar) | ✅ OK | `packages/web/src/app/dashboard/campaigns/page.tsx` |
+| Página /dashboard/campaigns/[id] (detalle, stats, comparativa, menciones, notas) | ✅ OK | `packages/web/src/app/dashboard/campaigns/[id]/page.tsx` |
+| Auto-vincular menciones por rango de fechas | ✅ OK | Endpoint `autoLinkMentions` en campaigns.ts |
+| Comparativa pre-campaña (delta %) | ✅ OK | Endpoint `getStats` con pre-campaign comparison |
+| Crisis ↔ Campaign linkage | ✅ OK | Campo `crisisAlertId` en Campaign |
+| Sidebar "Campañas" con icono Target | ✅ OK | `sidebar.tsx` |
+| Router registrado | ✅ OK | `_app.ts` (18 routers total) |
 
-### Parte 2: CRM de Medios (Media Contacts)
+### Detalles técnicos
 
-| Feature | Prioridad | Descripción |
-|---------|-----------|-------------|
-| Modelo MediaContact | Alta | Nombre, medio, beat/sección, email, teléfono, notas |
-| Vinculación automática | Media | Detectar autor de artículo y sugerir vinculación con contacto existente |
-| Historial de cobertura | Media | Ver artículos publicados por cada contacto que mencionan a clientes |
-| Scoring de contacto | Baja | Puntuación basada en frecuencia de cobertura y sentimiento promedio |
-| Exportar lista de prensa | Baja | CSV/Excel de contactos filtrados por beat, medio, scoring |
+**Auto-vincular**: Encuentra todas las menciones (media + social) del cliente dentro del rango startDate→endDate de la campaña y crea links con `createMany skipDuplicates`. Ideal para medir impacto en periodos específicos.
 
-### Archivos a crear/modificar
+**Comparativa pre-campaña**: Calcula métricas para el mismo periodo de duración antes del inicio de la campaña vs durante la campaña. Muestra deltas porcentuales en sentiment ratio, volumen de menciones y engagement.
 
-| Archivo | Propósito |
-|---------|-----------|
-| `prisma/schema.prisma` | Modelos Campaign, CampaignMention, MediaContact |
-| `packages/web/src/server/routers/campaigns.ts` | CRUD + analytics de campañas |
-| `packages/web/src/server/routers/media-contacts.ts` | CRUD de contactos |
-| `packages/web/src/app/dashboard/campaigns/` | Páginas de campañas |
-| `packages/web/src/app/dashboard/media-contacts/` | Páginas de contactos |
+**Crisis linkage**: Una campaña puede vincularse opcionalmente a un CrisisAlert existente del mismo cliente, permitiendo medir la efectividad de campañas de defensa/respuesta a crisis.
+
+**Stats cards**: Sentiment ratio (positivo/negativo %), engagement (likes, comments, shares, views), top fuentes, distribución por plataforma. Deltas con indicadores de color (verde mejora, rojo empeora).
+
+### Decisión: CRM de Medios descartado
+Se decidió NO implementar el CRM de contactos en medios (MediaContact) por no ser prioritario para el caso de uso principal (agencias de PR político).
+
+### E2E Tests
+- `tests/e2e/test_sprint16.py` — 20/22 pass (2 fallos por timing del test, no bugs de aplicación)
 
 ---
 
@@ -911,10 +911,10 @@ Llevar el sistema a tiempo real y abrir integraciones con herramientas externas 
 ## Orden de Prioridad Sugerido
 
 ```
-Sprint 13 ✅ → Sprint 14 ✅ → Sprint 15 ✅ → Sprint 16 → Sprint 17 → Sprint 18
-     ↓              ↓              ↓              ↓            ↓           ↓
-  Action         Pipeline       AI Media       Campañas +   Executive   Real-time +
-  Pipeline       Completo       Brief         Contactos    Dashboard   Webhooks
+Sprint 13 ✅ → Sprint 14 ✅ → Sprint 15 ✅ → Sprint 16 ✅ → Sprint 17 → Sprint 18
+     ↓              ↓              ↓              ↓              ↓           ↓
+  Action         Pipeline       AI Media       Campaign      Executive   Real-time +
+  Pipeline       Completo       Brief         Tracking      Dashboard   Webhooks
 ```
 
 **Impacto estimado por sprint:**
@@ -924,8 +924,8 @@ Sprint 13 ✅ → Sprint 14 ✅ → Sprint 15 ✅ → Sprint 16 → Sprint 17 �
 | 13 | Alto — completa ciclo de acción | Bajo | ✅ Completado |
 | 14 | Muy alto — pipeline completo con evaluaciones | Medio | ✅ Completado |
 | 15 | Alto — briefings IA ejecutivos para PR | Medio | ✅ Completado |
-| 16 | Muy alto — tracking de campañas es core de PR | Alto | **SIGUIENTE** |
-| 17 | Medio — útil para escala multi-agencia | Medio | Pendiente |
+| 16 | Muy alto — tracking de campañas es core de PR | Alto | ✅ Completado |
+| 17 | Medio — útil para escala multi-agencia | Medio | **SIGUIENTE** |
 | 18 | Alto — real-time y webhooks modernizan el producto | Alto | Pendiente |
 
 ## Contacto

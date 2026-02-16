@@ -19,11 +19,11 @@ MediaBot is a media monitoring platform for PR agencies. It monitors news source
 ```
 /
 ├── packages/
-│   ├── web/          # Next.js frontend + tRPC API (17 dashboard pages, 17 routers)
+│   ├── web/          # Next.js frontend + tRPC API (19 dashboard pages, 18 routers)
 │   ├── workers/      # Background jobs (5 collectors, 20+ workers, 24 colas)
 │   ├── bot/          # Telegram bot (Grammy)
 │   └── shared/       # Shared code (prisma, config, types, ai-client)
-├── prisma/           # Database schema (27 models, 19 enums)
+├── prisma/           # Database schema (32 models, 20 enums)
 ├── deploy/           # Deployment scripts
 ├── docs/             # Documentation (architecture, plan, guides)
 └── tests/            # Test files
@@ -46,6 +46,7 @@ MediaBot is a media monitoring platform for PR agencies. It monitors news source
 | `packages/web/src/server/routers/responses.ts` | Response draft workflow API (6 endpoints) |
 | `packages/web/src/server/routers/alertRules.ts` | Alert rules CRUD API (6 endpoints) |
 | `packages/web/src/server/routers/briefs.ts` | Daily briefs API (3 endpoints: list, getById, getLatest) |
+| `packages/web/src/server/routers/campaigns.ts` | Campaign tracking API (13 endpoints: CRUD, notes, link mentions, auto-link, stats) |
 | `packages/web/src/server/routers/organizations.ts` | Multi-tenant organization management |
 | `packages/workers/src/workers/alert-rules-worker.ts` | Alert rule evaluation - 6 types (cron */30) |
 | `packages/workers/src/analysis/crisis-detector.ts` | Auto crisis detection on negative spikes |
@@ -71,6 +72,16 @@ MediaBot is a media monitoring platform for PR agencies. It monitors news source
 - **Social Mentions Detail**: Botón "Generar comunicado" crea ResponseDraft vinculado, sección de borradores vinculados
 - **Intelligence**: Timeline de insights con paginación infinita, cards expandibles, action items vinculados, sección "Temas Principales"
 - **Sidebar**: Badge de crisis activas, items "Crisis", "Respuestas" y "Reglas de Alerta"
+
+## Campaign Tracking (Sprint 16)
+
+- **Modelos**: Campaign (con CampaignStatus enum + crisisAlertId linkage), CampaignMention, CampaignSocialMention, CampaignNote
+- **Router**: `campaigns.ts` (13 endpoints: list, getById, create, update, delete, addNote, addMentions, removeMention, addSocialMentions, removeSocialMention, autoLinkMentions, getStats, getMentions/getSocialMentions)
+- **Paginas**: `/dashboard/campaigns` (lista con filtros cliente/status, modal crear/editar), `/dashboard/campaigns/[id]` (detalle con stats, comparativa pre-campaña, menciones vinculadas, notas timeline)
+- **Auto-vincular**: Vincula automaticamente menciones del cliente dentro del rango de fechas de la campana
+- **Comparativa pre-campana**: Calcula metricas del mismo periodo antes del inicio vs durante la campana (delta %)
+- **Crisis linkage**: Campana puede vincularse opcionalmente a un CrisisAlert para medir respuesta a crisis
+- **Sidebar**: Item "Campanas" con icono Target
 
 ## AI Media Brief (Sprint 15)
 
@@ -114,6 +125,7 @@ ssh -i ~/.ssh/newsaibot-telegram-ssh root@159.65.97.78 \
 | `tests/e2e/test_sprint14.py` | Sprint 14 features: alert rules, intelligence timeline, social detail, responses, crisis |
 | `tests/e2e/test_sprint14_social.py` | Social mention detail with super admin account |
 | `tests/e2e/test_sprint15.py` | Sprint 15 features: briefs page, sidebar item, intelligence brief section |
+| `tests/e2e/test_sprint16.py` | Sprint 16 features: campaigns page, create campaign, campaign detail, auto-link |
 
 **Usage**:
 ```bash
