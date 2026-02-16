@@ -1,89 +1,14 @@
 import { Worker } from "bullmq";
-import { connection, QUEUE_NAMES } from "../queues.js";
+import { connection, QUEUE_NAMES, getQueue } from "../queues.js";
 import { prisma } from "@mediabot/shared";
 import { generateDigestSummary, generateDailyBrief } from "../analysis/ai.js";
 import type { DailyBriefResult } from "../analysis/ai.js";
-import { bot } from "./bot-instance.js";
 import { createWeeklyReportNotification } from "./inapp-creator.js";
-
-/**
- * Obtiene los destinatarios de Telegram para un cliente.
- * Primero busca en TelegramRecipient, luego fallback a campos legacy.
- */
-async function getRecipientsForClient(
-  clientId: string,
-  types: ("AGENCY_INTERNAL" | "CLIENT_GROUP" | "CLIENT_INDIVIDUAL")[],
-  legacyGroupId?: string | null,
-  legacyClientGroupId?: string | null
-): Promise<Array<{ chatId: string; label: string | null; type: string }>> {
-  // Buscar en la nueva tabla
-  const recipients = await prisma.telegramRecipient.findMany({
-    where: {
-      clientId,
-      active: true,
-      type: { in: types },
-    },
-    select: {
-      chatId: true,
-      label: true,
-      type: true,
-    },
-  });
-
-  // Si encontramos recipients, usarlos
-  if (recipients.length > 0) {
-    return recipients;
-  }
-
-  // Fallback a campos legacy
-  const fallbackRecipients: Array<{ chatId: string; label: string | null; type: string }> = [];
-
-  if (types.includes("AGENCY_INTERNAL") && legacyGroupId) {
-    fallbackRecipients.push({
-      chatId: legacyGroupId,
-      label: "Grupo Interno (legacy)",
-      type: "AGENCY_INTERNAL",
-    });
-  }
-
-  if (types.includes("CLIENT_GROUP") && legacyClientGroupId) {
-    fallbackRecipients.push({
-      chatId: legacyClientGroupId,
-      label: "Grupo Cliente (legacy)",
-      type: "CLIENT_GROUP",
-    });
-  }
-
-  return fallbackRecipients;
-}
-
-/**
- * Envía un mensaje a múltiples destinatarios de Telegram.
- */
-async function sendToMultipleRecipients(
-  recipients: Array<{ chatId: string; label: string | null; type: string }>,
-  message: string
-): Promise<{ sent: number; failed: number }> {
-  const results = await Promise.allSettled(
-    recipients.map((r) => bot.api.sendMessage(r.chatId, message))
-  );
-
-  let sent = 0;
-  let failed = 0;
-
-  for (const [i, result] of results.entries()) {
-    if (result.status === "fulfilled") {
-      sent++;
-    } else {
-      failed++;
-      console.error(
-        `Failed to send digest to ${recipients[i].label || recipients[i].chatId}: ${result.reason}`
-      );
-    }
-  }
-
-  return { sent, failed };
-}
+import {
+  getAllRecipientsForClient,
+  getClientLevelRecipients,
+  sendToMultipleRecipients,
+} from "./recipients.js";
 
 export function startDigestWorker() {
   const worker = new Worker(
@@ -416,12 +341,14 @@ export function startDigestWorker() {
           }
         }
 
-        // Obtener destinatarios internos de agencia
-        const internalRecipients = await getRecipientsForClient(
+        // Obtener destinatarios internos (nivel cliente + org + superadmin)
+        const internalRecipients = await getAllRecipientsForClient(
           client.id,
-          ["AGENCY_INTERNAL"],
-          client.telegramGroupId,
-          null
+          "DAILY_DIGEST",
+          {
+            recipientTypes: ["AGENCY_INTERNAL"],
+            legacyGroupId: client.telegramGroupId,
+          }
         );
 
         if (internalRecipients.length > 0) {
@@ -429,8 +356,8 @@ export function startDigestWorker() {
           console.log(`📊 Digest sent for ${client.name} (internal): ${sent} delivered, ${failed} failed`);
         }
 
-        // Obtener destinatarios del cliente (grupos e individuales)
-        const clientRecipients = await getRecipientsForClient(
+        // Obtener destinatarios del cliente (solo nivel cliente, sin org/superadmin)
+        const clientRecipients = await getClientLevelRecipients(
           client.id,
           ["CLIENT_GROUP", "CLIENT_INDIVIDUAL"],
           null,
@@ -484,6 +411,54 @@ export function startDigestWorker() {
 
           const { sent, failed } = await sendToMultipleRecipients(clientRecipients, clientMessage);
           console.log(`📊 Digest sent for ${client.name} (client recipients): ${sent} delivered, ${failed} failed`);
+        }
+
+        // Disparar BRIEF_READY si se generó un brief
+        if (briefResult) {
+          try {
+            const notifyQueue = getQueue(QUEUE_NAMES.NOTIFY_TELEGRAM);
+            await notifyQueue.add("brief-ready", {
+              clientId: client.id,
+              type: "BRIEF_READY",
+              message:
+                `📋 BRIEF DIARIO LISTO | ${client.name}\n` +
+                `━━━━━━━━━━━━━━━━━━━━\n\n` +
+                `El brief de hoy para ${client.name} ya esta disponible.\n` +
+                `📊 ${mentions.length} menciones | ${socialMentions.length} posts sociales\n` +
+                (briefResult.highlights.length > 0
+                  ? `\n🔑 ${briefResult.highlights[0]}\n`
+                  : "") +
+                `\nRevisa el brief completo en el dashboard.`,
+            });
+          } catch (err) {
+            console.error(`Failed to queue BRIEF_READY for ${client.name}:`, err);
+          }
+        }
+
+        // Disparar CAMPAIGN_REPORT si hay campañas activas
+        try {
+          const activeCampaigns = await prisma.campaign.findMany({
+            where: { clientId: client.id, status: "ACTIVE" },
+            select: { id: true, name: true },
+          });
+
+          if (activeCampaigns.length > 0) {
+            const campaignNames = activeCampaigns.map((c) => c.name).join(", ");
+            const notifyQueue = getQueue(QUEUE_NAMES.NOTIFY_TELEGRAM);
+            await notifyQueue.add("campaign-report", {
+              clientId: client.id,
+              type: "CAMPAIGN_REPORT",
+              message:
+                `🎯 CAMPANAS ACTIVAS | ${client.name}\n` +
+                `━━━━━━━━━━━━━━━━━━━━\n\n` +
+                `Campañas en curso: ${activeCampaigns.length}\n` +
+                `📋 ${campaignNames}\n` +
+                `📊 Menciones hoy: ${mentions.length} | Social: ${socialMentions.length}\n\n` +
+                `Revisa el detalle de cada campaña en el dashboard.`,
+            });
+          }
+        } catch (err) {
+          console.error(`Failed to queue CAMPAIGN_REPORT for ${client.name}:`, err);
         }
 
         // Log digest

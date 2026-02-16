@@ -918,6 +918,26 @@ Tonos validos: PROFESSIONAL, DEFENSIVE, CLARIFICATION, CELEBRATORY`;
           },
         });
 
+        // Disparar notificación Telegram
+        try {
+          const { getQueue: getQ, QUEUE_NAMES: QN } = await import("@mediabot/shared");
+          const notifyQueue = getQ(QN.NOTIFY_TELEGRAM);
+          await notifyQueue.add("response-draft-social", {
+            clientId: mention.clientId,
+            type: "RESPONSE_DRAFT",
+            message:
+              `📝 BORRADOR DE COMUNICADO | ${mention.client.name}\n` +
+              `━━━━━━━━━━━━━━━━━━━━\n\n` +
+              `📋 ${draft.title}\n` +
+              `🎭 Tono: ${draft.tone}\n` +
+              `📱 Plataforma: ${mention.platform}\n` +
+              `👤 Sobre post de: @${mention.authorHandle}\n\n` +
+              `Revisa y aprueba el borrador en el dashboard.`,
+          });
+        } catch (err) {
+          console.error("Failed to queue RESPONSE_DRAFT notification:", err);
+        }
+
         return draft;
       } catch (error) {
         console.error("[Social] generateResponse error:", error);

@@ -2,95 +2,16 @@ import { Worker } from "bullmq";
 import { connection, QUEUE_NAMES } from "../queues.js";
 import { prisma, config } from "@mediabot/shared";
 import { InlineKeyboard } from "grammy";
-import { bot } from "./bot-instance.js";
 import {
   createMentionNotification,
   createCrisisNotification,
   createEmergingTopicNotification,
 } from "./inapp-creator.js";
-
-/**
- * Obtiene los destinatarios de Telegram para un cliente.
- * Primero busca en TelegramRecipient, luego fallback a campos legacy.
- */
-async function getRecipientsForClient(
-  clientId: string,
-  types: ("AGENCY_INTERNAL" | "CLIENT_GROUP" | "CLIENT_INDIVIDUAL")[],
-  legacyGroupId?: string | null,
-  legacyClientGroupId?: string | null
-): Promise<Array<{ chatId: string; label: string | null; type: string }>> {
-  // Buscar en la nueva tabla
-  const recipients = await prisma.telegramRecipient.findMany({
-    where: {
-      clientId,
-      active: true,
-      type: { in: types },
-    },
-    select: {
-      chatId: true,
-      label: true,
-      type: true,
-    },
-  });
-
-  // Si encontramos recipients, usarlos
-  if (recipients.length > 0) {
-    return recipients;
-  }
-
-  // Fallback a campos legacy
-  const fallbackRecipients: Array<{ chatId: string; label: string | null; type: string }> = [];
-
-  if (types.includes("AGENCY_INTERNAL") && legacyGroupId) {
-    fallbackRecipients.push({
-      chatId: legacyGroupId,
-      label: "Grupo Interno (legacy)",
-      type: "AGENCY_INTERNAL",
-    });
-  }
-
-  if (types.includes("CLIENT_GROUP") && legacyClientGroupId) {
-    fallbackRecipients.push({
-      chatId: legacyClientGroupId,
-      label: "Grupo Cliente (legacy)",
-      type: "CLIENT_GROUP",
-    });
-  }
-
-  return fallbackRecipients;
-}
-
-/**
- * Envía un mensaje a múltiples destinatarios de Telegram.
- * Retorna el número de envíos exitosos.
- */
-async function sendToMultipleRecipients(
-  recipients: Array<{ chatId: string; label: string | null; type: string }>,
-  message: string,
-  options?: { reply_markup?: InlineKeyboard; parse_mode?: "Markdown" | "HTML" }
-): Promise<{ sent: number; failed: number }> {
-  const results = await Promise.allSettled(
-    recipients.map((r) =>
-      bot.api.sendMessage(r.chatId, message, options)
-    )
-  );
-
-  let sent = 0;
-  let failed = 0;
-
-  for (const [i, result] of results.entries()) {
-    if (result.status === "fulfilled") {
-      sent++;
-    } else {
-      failed++;
-      console.error(
-        `Failed to send to ${recipients[i].label || recipients[i].chatId}: ${result.reason}`
-      );
-    }
-  }
-
-  return { sent, failed };
-}
+import {
+  getAllRecipientsForClient,
+  sendToMultipleRecipients,
+  sendNotification,
+} from "./recipients.js";
 
 export function startNotificationWorker() {
   // Standard alert notification worker
@@ -109,12 +30,15 @@ export function startNotificationWorker() {
 
       if (!mention || mention.notified) return;
 
-      // Obtener destinatarios (internos de agencia)
-      const recipients = await getRecipientsForClient(
+      // Obtener destinatarios (nivel cliente + org + superadmin)
+      const recipients = await getAllRecipientsForClient(
         mention.clientId,
-        ["AGENCY_INTERNAL"],
-        mention.client.telegramGroupId,
-        mention.client.clientGroupId
+        "MENTION_ALERT",
+        {
+          recipientTypes: ["AGENCY_INTERNAL"],
+          legacyGroupId: mention.client.telegramGroupId,
+          legacyClientGroupId: mention.client.clientGroupId,
+        }
       );
 
       if (recipients.length === 0) {
@@ -211,12 +135,15 @@ export function startNotificationWorker() {
 
       if (!crisisAlert || crisisAlert.notified) return;
 
-      // Obtener destinatarios (internos de agencia para alertas de crisis)
-      const recipients = await getRecipientsForClient(
+      // Obtener destinatarios (nivel cliente + org + superadmin)
+      const recipients = await getAllRecipientsForClient(
         crisisAlert.clientId,
-        ["AGENCY_INTERNAL"],
-        crisisAlert.client.telegramGroupId,
-        crisisAlert.client.clientGroupId
+        "CRISIS_ALERT",
+        {
+          recipientTypes: ["AGENCY_INTERNAL"],
+          legacyGroupId: crisisAlert.client.telegramGroupId,
+          legacyClientGroupId: crisisAlert.client.clientGroupId,
+        }
       );
 
       if (recipients.length === 0) {
@@ -332,12 +259,14 @@ export function startNotificationWorker() {
         clientMentionCount: number;
       };
 
-      // Obtener destinatarios (internos de agencia para temas emergentes)
-      const recipients = await getRecipientsForClient(
+      // Obtener destinatarios (nivel cliente + org + superadmin)
+      const recipients = await getAllRecipientsForClient(
         clientId,
-        ["AGENCY_INTERNAL"],
-        telegramGroupId, // Fallback legacy
-        null
+        "EMERGING_TOPIC",
+        {
+          recipientTypes: ["AGENCY_INTERNAL"],
+          legacyGroupId: telegramGroupId,
+        }
       );
 
       if (recipients.length === 0) {
@@ -400,7 +329,34 @@ export function startNotificationWorker() {
     console.error(`Emerging topic notification job ${job?.id} failed:`, err);
   });
 
-  console.log(`🔔 Notification workers started (alerts: ${config.workers.notification.concurrency}, crisis: 2, emerging: 2)`);
+  // Worker genérico de notificaciones Telegram
+  const genericTelegramWorker = new Worker(
+    QUEUE_NAMES.NOTIFY_TELEGRAM,
+    async (job) => {
+      const { clientId, type, message, parseMode } = job.data as {
+        clientId: string;
+        type: string;
+        message: string;
+        parseMode?: "Markdown";
+      };
+
+      const { sent, failed } = await sendNotification(
+        clientId,
+        type as import("@mediabot/shared").TelegramNotifType,
+        message,
+        { parseMode }
+      );
+
+      console.log(`📨 Generic telegram notification (${type}): ${sent} delivered, ${failed} failed`);
+    },
+    { connection, concurrency: 3 }
+  );
+
+  genericTelegramWorker.on("failed", (job, err) => {
+    console.error(`Generic telegram notification job ${job?.id} failed:`, err);
+  });
+
+  console.log(`🔔 Notification workers started (alerts: ${config.workers.notification.concurrency}, crisis: 2, emerging: 2, generic: 3)`);
 }
 
 function getTimeAgo(date: Date): string {

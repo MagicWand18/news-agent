@@ -159,12 +159,64 @@ export const responsesRouter = router({
         }
       }
 
-      return prisma.responseDraft.create({
+      const draft = await prisma.responseDraft.create({
         data: {
           ...input,
           createdById: ctx.user.id,
         },
       });
+
+      // Disparar notificación Telegram de nuevo borrador
+      try {
+        let clientId: string | undefined;
+        if (input.mentionId) {
+          const mention = await prisma.mention.findUnique({
+            where: { id: input.mentionId },
+            select: { clientId: true, client: { select: { name: true } } },
+          });
+          clientId = mention?.clientId;
+          if (clientId && mention?.client) {
+            const { getQueue, QUEUE_NAMES } = await import("@mediabot/shared");
+            const notifyQueue = getQueue(QUEUE_NAMES.NOTIFY_TELEGRAM);
+            await notifyQueue.add("response-draft-created", {
+              clientId,
+              type: "RESPONSE_DRAFT",
+              message:
+                `📝 BORRADOR DE COMUNICADO | ${mention.client.name}\n` +
+                `━━━━━━━━━━━━━━━━━━━━\n\n` +
+                `📋 ${draft.title}\n` +
+                `🎭 Tono: ${draft.tone}\n` +
+                `👤 Creado por: ${ctx.user.name || "Usuario"}\n\n` +
+                `Revisa y aprueba el borrador en el dashboard.`,
+            });
+          }
+        } else if (input.socialMentionId) {
+          const sm = await prisma.socialMention.findUnique({
+            where: { id: input.socialMentionId },
+            select: { clientId: true, client: { select: { name: true } } },
+          });
+          clientId = sm?.clientId;
+          if (clientId && sm?.client) {
+            const { getQueue, QUEUE_NAMES } = await import("@mediabot/shared");
+            const notifyQueue = getQueue(QUEUE_NAMES.NOTIFY_TELEGRAM);
+            await notifyQueue.add("response-draft-created", {
+              clientId,
+              type: "RESPONSE_DRAFT",
+              message:
+                `📝 BORRADOR DE COMUNICADO | ${sm.client.name}\n` +
+                `━━━━━━━━━━━━━━━━━━━━\n\n` +
+                `📋 ${draft.title}\n` +
+                `🎭 Tono: ${draft.tone}\n` +
+                `👤 Creado por: ${ctx.user.name || "Usuario"}\n\n` +
+                `Revisa y aprueba el borrador en el dashboard.`,
+            });
+          }
+        }
+      } catch (err) {
+        console.error("Failed to queue RESPONSE_DRAFT notification:", err);
+      }
+
+      return draft;
     }),
 
   /**

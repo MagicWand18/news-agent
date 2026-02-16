@@ -20,10 +20,10 @@ MediaBot is a media monitoring platform for PR agencies. It monitors news source
 /
 ├── packages/
 │   ├── web/          # Next.js frontend + tRPC API (19 dashboard pages, 18 routers)
-│   ├── workers/      # Background jobs (5 collectors, 20+ workers, 24 colas)
+│   ├── workers/      # Background jobs (5 collectors, 20+ workers, 25 colas)
 │   ├── bot/          # Telegram bot (Grammy)
 │   └── shared/       # Shared code (prisma, config, types, ai-client)
-├── prisma/           # Database schema (32 models, 20 enums)
+├── prisma/           # Database schema (33 models, 20 enums)
 ├── deploy/           # Deployment scripts
 ├── docs/             # Documentation (architecture, plan, guides)
 └── tests/            # Test files
@@ -39,7 +39,9 @@ MediaBot is a media monitoring platform for PR agencies. It monitors news source
 | `packages/web/src/app/dashboard/` | Dashboard pages |
 | `packages/web/src/components/platform-icons.tsx` | Iconos SVG compartidos de plataformas sociales |
 | `packages/web/src/components/social-mention-row.tsx` | Componente de fila de mencion social (con checkbox para bulk select) |
-| `packages/workers/src/queues.ts` | Job queues and cron schedules (24 colas) |
+| `packages/shared/src/telegram-notification-types.ts` | Constantes y tipos de 10 notificaciones Telegram |
+| `packages/workers/src/notifications/recipients.ts` | Resolución centralizada de destinatarios Telegram (3 niveles) |
+| `packages/workers/src/queues.ts` | Job queues and cron schedules (25 colas) |
 | `packages/workers/src/collectors/social.ts` | Social media collector (EnsembleData) |
 | `packages/web/src/server/routers/social.ts` | Social media monitoring API (18 endpoints, incl. generateResponse) |
 | `packages/web/src/server/routers/crisis.ts` | Crisis management API (6 endpoints) |
@@ -92,6 +94,19 @@ MediaBot is a media monitoring platform for PR agencies. It monitors news source
 - **Pagina**: `/dashboard/briefs` — card destacada del ultimo brief + timeline colapsable con infinite scroll
 - **Intelligence**: Seccion "Ultimo Brief" con highlights + watchList + link a `/dashboard/briefs`
 - **Sidebar**: Item "Media Brief" con icono FileText entre Intelligence y Crisis
+
+## Telegram Notification System (Sprint 17-prep)
+
+- **3 niveles de destinatarios**: Cliente (TelegramRecipient), Organización (OrgTelegramRecipient), SuperAdmin (User.telegramUserId)
+- **10 tipos de notificación**: MENTION_ALERT, CRISIS_ALERT, EMERGING_TOPIC, DAILY_DIGEST, ALERT_RULE, CRISIS_STATUS, RESPONSE_DRAFT, BRIEF_READY, CAMPAIGN_REPORT, WEEKLY_REPORT
+- **Resolución centralizada**: `packages/workers/src/notifications/recipients.ts` — `getAllRecipientsForClient()` consolida 3 niveles, deduplica, filtra por preferencias
+- **Cola genérica**: `NOTIFY_TELEGRAM` para disparar notificaciones desde cualquier parte del sistema
+- **Preferencias**: Campo `preferences` JSON en OrgTelegramRecipient y `telegramNotifPrefs` JSON en User — null = todo ON
+- **Constantes compartidas**: `packages/shared/src/telegram-notification-types.ts`
+- **UI Settings**: Sección Telegram para SuperAdmin con campo Telegram ID + 10 toggles
+- **UI Agencia**: Sección "Destinatarios Telegram por defecto" con CRUD + toggles por recipient
+- **Bot**: Comando `/vincular_org <nombre_org>` para vincular grupo/chat a toda una organización
+- **Router endpoints**: 4 en organizations.ts (listOrgTelegramRecipients, addOrgTelegramRecipient, updateOrgRecipientPreferences, removeOrgTelegramRecipient), 3 en settings.ts (getTelegramPrefs, updateTelegramPrefs, updateTelegramId)
 
 ## Commands
 

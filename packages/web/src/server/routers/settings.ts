@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { router, protectedProcedure } from "../trpc";
+import { router, protectedProcedure, superAdminProcedure } from "../trpc";
 import { TRPCError } from "@trpc/server";
 import {
   prisma,
@@ -196,6 +196,82 @@ export const settingsRouter = router({
       label: getCategoryLabel(name),
     }));
   }),
+
+  // ==================== TELEGRAM PREFS (SuperAdmin) ====================
+
+  /**
+   * Obtiene el telegramUserId y las preferencias de notificación del SuperAdmin actual.
+   */
+  getTelegramPrefs: superAdminProcedure.query(async ({ ctx }) => {
+    const user = await prisma.user.findUnique({
+      where: { id: ctx.user.id },
+      select: {
+        telegramUserId: true,
+        telegramNotifPrefs: true,
+      },
+    });
+
+    return {
+      telegramUserId: user?.telegramUserId || null,
+      preferences: (user?.telegramNotifPrefs as Record<string, boolean>) || null,
+    };
+  }),
+
+  /**
+   * Actualiza las preferencias de notificación Telegram del SuperAdmin actual.
+   */
+  updateTelegramPrefs: superAdminProcedure
+    .input(
+      z.object({
+        preferences: z.record(z.string(), z.boolean()),
+      })
+    )
+    .mutation(async ({ input, ctx }) => {
+      return prisma.user.update({
+        where: { id: ctx.user.id },
+        data: {
+          telegramNotifPrefs: JSON.parse(JSON.stringify(input.preferences)),
+        },
+        select: {
+          id: true,
+          telegramNotifPrefs: true,
+        },
+      });
+    }),
+
+  /**
+   * Actualiza el ID de Telegram del SuperAdmin actual.
+   */
+  updateTelegramId: superAdminProcedure
+    .input(
+      z.object({
+        telegramUserId: z.string().min(1, "El ID de Telegram es requerido"),
+      })
+    )
+    .mutation(async ({ input, ctx }) => {
+      // Verificar que no esté en uso por otro usuario
+      const existing = await prisma.user.findFirst({
+        where: {
+          telegramUserId: input.telegramUserId,
+          id: { not: ctx.user.id },
+        },
+      });
+      if (existing) {
+        throw new TRPCError({
+          code: "CONFLICT",
+          message: "Este ID de Telegram ya está vinculado a otro usuario",
+        });
+      }
+
+      return prisma.user.update({
+        where: { id: ctx.user.id },
+        data: { telegramUserId: input.telegramUserId },
+        select: {
+          id: true,
+          telegramUserId: true,
+        },
+      });
+    }),
 });
 
 function getCategoryLabel(category: string): string {

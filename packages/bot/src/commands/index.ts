@@ -6,6 +6,7 @@ import { handleStatus } from "./status.js";
 import { handleClientes } from "./clientes.js";
 import { handleKeywords } from "./keywords.js";
 import { handleVincular } from "./vincular.js";
+import { handleVincularOrg } from "./vincular-org.js";
 import { handleDestinatarios, handleDesvincular } from "./destinatarios.js";
 import { handleMisTareas } from "./mis-tareas.js";
 import { handlePendientes } from "./pendientes.js";
@@ -22,6 +23,7 @@ export function registerCommands(bot: Bot<BotContext>) {
   bot.command("clientes", handleClientes);
   bot.command("keywords", handleKeywords);
   bot.command("vincular", handleVincular);
+  bot.command("vincular_org", handleVincularOrg);
   bot.command("desvincular", handleDesvincular);
   bot.command("destinatarios", handleDestinatarios);
   bot.command("tarea", async (ctx) => {

@@ -332,4 +332,100 @@ export const organizationsRouter = router({
       orderBy: { name: "asc" },
     });
   }),
+
+  // ==================== ORG TELEGRAM RECIPIENTS ====================
+
+  /**
+   * Lista destinatarios Telegram de una organización.
+   */
+  listOrgTelegramRecipients: superAdminProcedure
+    .input(z.object({ orgId: z.string() }))
+    .query(async ({ input }) => {
+      return prisma.orgTelegramRecipient.findMany({
+        where: { orgId: input.orgId },
+        orderBy: { createdAt: "desc" },
+      });
+    }),
+
+  /**
+   * Agrega un destinatario Telegram a la organización.
+   * preferences null = todo ON (comportamiento por defecto).
+   */
+  addOrgTelegramRecipient: superAdminProcedure
+    .input(
+      z.object({
+        orgId: z.string(),
+        chatId: z.string().min(1, "El Chat ID es requerido"),
+        label: z.string().optional(),
+      })
+    )
+    .mutation(async ({ input }) => {
+      // Verificar que la org existe
+      const org = await prisma.organization.findUnique({
+        where: { id: input.orgId },
+      });
+      if (!org) {
+        throw new TRPCError({ code: "NOT_FOUND", message: "Organización no encontrada" });
+      }
+
+      return prisma.orgTelegramRecipient.upsert({
+        where: {
+          orgId_chatId: { orgId: input.orgId, chatId: input.chatId },
+        },
+        update: {
+          label: input.label,
+          active: true,
+        },
+        create: {
+          orgId: input.orgId,
+          chatId: input.chatId,
+          label: input.label,
+        },
+      });
+    }),
+
+  /**
+   * Actualiza las preferencias de notificación de un destinatario org.
+   */
+  updateOrgRecipientPreferences: superAdminProcedure
+    .input(
+      z.object({
+        id: z.string(),
+        preferences: z.record(z.string(), z.boolean()),
+      })
+    )
+    .mutation(async ({ input }) => {
+      const recipient = await prisma.orgTelegramRecipient.findUnique({
+        where: { id: input.id },
+      });
+      if (!recipient) {
+        throw new TRPCError({ code: "NOT_FOUND", message: "Destinatario no encontrado" });
+      }
+
+      return prisma.orgTelegramRecipient.update({
+        where: { id: input.id },
+        data: {
+          preferences: JSON.parse(JSON.stringify(input.preferences)),
+        },
+      });
+    }),
+
+  /**
+   * Desactiva un destinatario Telegram de la organización.
+   */
+  removeOrgTelegramRecipient: superAdminProcedure
+    .input(z.object({ id: z.string() }))
+    .mutation(async ({ input }) => {
+      const recipient = await prisma.orgTelegramRecipient.findUnique({
+        where: { id: input.id },
+      });
+      if (!recipient) {
+        throw new TRPCError({ code: "NOT_FOUND", message: "Destinatario no encontrado" });
+      }
+
+      return prisma.orgTelegramRecipient.update({
+        where: { id: input.id },
+        data: { active: false },
+      });
+    }),
 });

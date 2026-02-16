@@ -15,6 +15,7 @@ model Organization {
   users       User[]
   clients     Client[]
   competitors Competitor[]
+  orgTelegramRecipients OrgTelegramRecipient[]
 }
 
 model User {
@@ -42,6 +43,9 @@ model User {
   crisisNotes            CrisisNote[]
   actionItems            ActionItem[]
   campaignNotes          CampaignNote[]
+
+  // Preferencias de notificaciones Telegram para SuperAdmins
+  telegramNotifPrefs     Json?           // { "MENTION_ALERT": true, "DAILY_DIGEST": false, ... } null = todo ON
 }
 
 enum Role {
@@ -803,4 +807,21 @@ model CampaignNote {
   createdAt  DateTime @default(now())
 
   @@index([campaignId, createdAt])
+}
+
+// ==================== ORG-LEVEL TELEGRAM RECIPIENTS ====================
+
+model OrgTelegramRecipient {
+  id          String       @id @default(cuid())
+  orgId       String
+  org         Organization @relation(fields: [orgId], references: [id], onDelete: Cascade)
+  chatId      String
+  label       String?
+  active      Boolean      @default(true)
+  addedBy     String?
+  preferences Json?        // { "MENTION_ALERT": true, "DAILY_DIGEST": false, ... } null = todo ON
+  createdAt   DateTime     @default(now())
+
+  @@unique([orgId, chatId])
+  @@index([orgId, active])
 }

@@ -16,8 +16,15 @@ import {
   Check,
   X,
   BookOpen,
+  Send,
+  Plus,
+  Trash2,
+  ChevronDown,
+  ChevronRight,
+  Save,
 } from "lucide-react";
 import Link from "next/link";
+import { TELEGRAM_NOTIFICATION_TYPES } from "@mediabot/shared";
 
 const roleLabels: Record<string, string> = {
   ADMIN: "Admin",
@@ -448,6 +455,9 @@ function AgencyDetailContent({ orgId }: { orgId: string }) {
         )}
       </div>
 
+      {/* Telegram Recipients Section */}
+      <OrgTelegramRecipientsSection orgId={orgId} />
+
       {/* Clients Section */}
       <div className="rounded-xl bg-white shadow-sm dark:bg-gray-800 dark:shadow-gray-900/20">
         <div className="border-b border-gray-200 px-6 py-4 dark:border-gray-700">
@@ -570,6 +580,242 @@ function AgencyDetailContent({ orgId }: { orgId: string }) {
           </p>
         )}
       </div>
+    </div>
+  );
+}
+
+const NOTIF_TYPES = Object.values(TELEGRAM_NOTIFICATION_TYPES);
+
+/**
+ * Sección de destinatarios Telegram a nivel de organización.
+ * Estos recipients reciben TODAS las notificaciones de todos los clientes de la org.
+ */
+function OrgTelegramRecipientsSection({ orgId }: { orgId: string }) {
+  const recipients = trpc.organizations.listOrgTelegramRecipients.useQuery({ orgId });
+  const addRecipient = trpc.organizations.addOrgTelegramRecipient.useMutation({
+    onSuccess: () => {
+      recipients.refetch();
+      setShowAddForm(false);
+      setNewChatId("");
+      setNewLabel("");
+    },
+  });
+  const removeRecipient = trpc.organizations.removeOrgTelegramRecipient.useMutation({
+    onSuccess: () => recipients.refetch(),
+  });
+  const updatePrefs = trpc.organizations.updateOrgRecipientPreferences.useMutation({
+    onSuccess: () => recipients.refetch(),
+  });
+
+  const [showAddForm, setShowAddForm] = useState(false);
+  const [newChatId, setNewChatId] = useState("");
+  const [newLabel, setNewLabel] = useState("");
+  const [expandedId, setExpandedId] = useState<string | null>(null);
+  const [editingPrefs, setEditingPrefs] = useState<Record<string, boolean>>({});
+
+  const toggleExpand = (id: string, currentPrefs: Record<string, boolean> | null) => {
+    if (expandedId === id) {
+      setExpandedId(null);
+    } else {
+      setExpandedId(id);
+      // Inicializar con preferencias actuales
+      const prefs: Record<string, boolean> = {};
+      for (const type of NOTIF_TYPES) {
+        prefs[type.key] = currentPrefs ? currentPrefs[type.key] !== false : true;
+      }
+      setEditingPrefs(prefs);
+    }
+  };
+
+  const saveRecipientPrefs = (id: string) => {
+    updatePrefs.mutate({ id, preferences: editingPrefs });
+    setExpandedId(null);
+  };
+
+  const activeRecipients = recipients.data?.filter((r) => r.active) || [];
+
+  return (
+    <div className="rounded-xl bg-white shadow-sm dark:bg-gray-800 dark:shadow-gray-900/20">
+      <div className="flex items-center justify-between border-b border-gray-200 px-6 py-4 dark:border-gray-700">
+        <div>
+          <h3 className="flex items-center gap-2 font-semibold text-gray-900 dark:text-white">
+            <Send className="h-4 w-4 text-blue-500" />
+            Destinatarios Telegram por defecto
+          </h3>
+          <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">
+            Estos destinatarios reciben automaticamente las notificaciones de todos los clientes de esta agencia.
+          </p>
+        </div>
+        <button
+          onClick={() => setShowAddForm(!showAddForm)}
+          className="flex items-center gap-1 rounded-lg bg-brand-600 px-3 py-1.5 text-sm text-white hover:bg-brand-700"
+        >
+          <Plus className="h-4 w-4" />
+          Agregar
+        </button>
+      </div>
+
+      {/* Formulario de agregar */}
+      {showAddForm && (
+        <div className="border-b border-gray-200 p-6 dark:border-gray-700">
+          <div className="flex items-end gap-4">
+            <div>
+              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                Chat ID de Telegram
+              </label>
+              <input
+                value={newChatId}
+                onChange={(e) => setNewChatId(e.target.value)}
+                placeholder="Ej: -1001234567890"
+                className="w-56 rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm text-gray-900 placeholder-gray-400 dark:border-gray-600 dark:bg-gray-700 dark:text-white dark:placeholder-gray-500"
+              />
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                Etiqueta (opcional)
+              </label>
+              <input
+                value={newLabel}
+                onChange={(e) => setNewLabel(e.target.value)}
+                placeholder="Ej: Grupo Crisalida"
+                className="w-56 rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm text-gray-900 placeholder-gray-400 dark:border-gray-600 dark:bg-gray-700 dark:text-white dark:placeholder-gray-500"
+              />
+            </div>
+            <div className="flex gap-2">
+              <button
+                onClick={() =>
+                  addRecipient.mutate({
+                    orgId,
+                    chatId: newChatId,
+                    label: newLabel || undefined,
+                  })
+                }
+                disabled={addRecipient.isPending || !newChatId.trim()}
+                className="rounded-lg bg-brand-600 px-4 py-2 text-sm text-white hover:bg-brand-700 disabled:opacity-50"
+              >
+                {addRecipient.isPending ? "Agregando..." : "Agregar"}
+              </button>
+              <button
+                onClick={() => setShowAddForm(false)}
+                className="rounded-lg border border-gray-300 px-4 py-2 text-sm text-gray-700 hover:bg-gray-50 dark:border-gray-600 dark:text-gray-300 dark:hover:bg-gray-700"
+              >
+                Cancelar
+              </button>
+            </div>
+          </div>
+          {addRecipient.error && (
+            <p className="mt-2 text-sm text-red-600">{addRecipient.error.message}</p>
+          )}
+        </div>
+      )}
+
+      {/* Lista de recipients */}
+      {recipients.isLoading ? (
+        <div className="p-6 text-center text-sm text-gray-500">Cargando...</div>
+      ) : activeRecipients.length === 0 ? (
+        <p className="p-6 text-center text-sm text-gray-500 dark:text-gray-400">
+          No hay destinatarios configurados. Agrega uno o usa /vincular_org en Telegram.
+        </p>
+      ) : (
+        <div className="divide-y divide-gray-200 dark:divide-gray-700">
+          {activeRecipients.map((r) => (
+            <div key={r.id}>
+              <div className="flex items-center justify-between px-6 py-3">
+                <button
+                  onClick={() =>
+                    toggleExpand(r.id, r.preferences as Record<string, boolean> | null)
+                  }
+                  className="flex items-center gap-2 text-left"
+                >
+                  {expandedId === r.id ? (
+                    <ChevronDown className="h-4 w-4 text-gray-400" />
+                  ) : (
+                    <ChevronRight className="h-4 w-4 text-gray-400" />
+                  )}
+                  <div>
+                    <p className="text-sm font-medium text-gray-900 dark:text-white">
+                      {r.label || "Sin etiqueta"}
+                    </p>
+                    <p className="text-xs text-gray-500 dark:text-gray-400">
+                      Chat ID: {r.chatId} · Desde{" "}
+                      {new Date(r.createdAt).toLocaleDateString("es-MX")}
+                    </p>
+                  </div>
+                </button>
+                <button
+                  onClick={() => {
+                    if (confirm("Eliminar este destinatario?")) {
+                      removeRecipient.mutate({ id: r.id });
+                    }
+                  }}
+                  disabled={removeRecipient.isPending}
+                  className="rounded p-1 text-gray-400 hover:bg-red-50 hover:text-red-500 dark:hover:bg-red-900/20"
+                  title="Eliminar"
+                >
+                  <Trash2 className="h-4 w-4" />
+                </button>
+              </div>
+
+              {/* Panel expandible con toggles de preferencias */}
+              {expandedId === r.id && (
+                <div className="border-t border-gray-100 bg-gray-50 px-6 py-4 dark:border-gray-700 dark:bg-gray-700/30">
+                  <h4 className="text-xs font-medium uppercase text-gray-500 dark:text-gray-400 mb-2">
+                    Preferencias de notificacion
+                  </h4>
+                  <div className="space-y-1">
+                    {NOTIF_TYPES.map((type) => (
+                      <div
+                        key={type.key}
+                        className="flex items-center justify-between rounded px-3 py-2"
+                      >
+                        <div>
+                          <p className="text-sm text-gray-900 dark:text-white">
+                            {type.label}
+                          </p>
+                          <p className="text-xs text-gray-500 dark:text-gray-400">
+                            {type.description}
+                          </p>
+                        </div>
+                        <button
+                          onClick={() =>
+                            setEditingPrefs((prev) => ({
+                              ...prev,
+                              [type.key]: !prev[type.key],
+                            }))
+                          }
+                          className={`relative inline-flex h-5 w-9 flex-shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors ${
+                            editingPrefs[type.key]
+                              ? "bg-brand-600"
+                              : "bg-gray-200 dark:bg-gray-600"
+                          }`}
+                        >
+                          <span
+                            className={`inline-block h-4 w-4 transform rounded-full bg-white shadow transition ${
+                              editingPrefs[type.key]
+                                ? "translate-x-4"
+                                : "translate-x-0"
+                            }`}
+                          />
+                        </button>
+                      </div>
+                    ))}
+                  </div>
+                  <div className="mt-3 flex justify-end">
+                    <button
+                      onClick={() => saveRecipientPrefs(r.id)}
+                      disabled={updatePrefs.isPending}
+                      className="flex items-center gap-1 rounded-lg bg-brand-600 px-3 py-1.5 text-sm text-white hover:bg-brand-700 disabled:opacity-50"
+                    >
+                      <Save className="h-3 w-3" />
+                      {updatePrefs.isPending ? "Guardando..." : "Guardar"}
+                    </button>
+                  </div>
+                </div>
+              )}
+            </div>
+          ))}
+        </div>
+      )}
     </div>
   );
 }

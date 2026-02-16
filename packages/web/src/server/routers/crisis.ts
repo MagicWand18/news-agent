@@ -127,6 +127,11 @@ export const crisisRouter = router({
 
       const oldStatus = crisis.status;
 
+      const crisisWithClient = await prisma.crisisAlert.findUnique({
+        where: { id: input.id },
+        include: { client: { select: { id: true, name: true } } },
+      });
+
       const [updatedCrisis] = await prisma.$transaction([
         prisma.crisisAlert.update({
           where: { id: input.id },
@@ -148,6 +153,32 @@ export const crisisRouter = router({
           },
         }),
       ]);
+
+      // Disparar notificación Telegram de cambio de estado de crisis
+      if (crisisWithClient?.client) {
+        try {
+          const { getQueue, QUEUE_NAMES } = await import("@mediabot/shared");
+          const notifyQueue = getQueue(QUEUE_NAMES.NOTIFY_TELEGRAM);
+          const statusLabels: Record<string, string> = {
+            ACTIVE: "Activa",
+            MONITORING: "En monitoreo",
+            RESOLVED: "Resuelta",
+            DISMISSED: "Descartada",
+          };
+          await notifyQueue.add("crisis-status-change", {
+            clientId: crisisWithClient.client.id,
+            type: "CRISIS_STATUS",
+            message:
+              `🔄 CAMBIO DE ESTADO DE CRISIS | ${crisisWithClient.client.name}\n` +
+              `━━━━━━━━━━━━━━━━━━━━\n\n` +
+              `📊 ${statusLabels[oldStatus] || oldStatus} → ${statusLabels[input.status] || input.status}\n` +
+              `👤 Cambiado por: ${ctx.user.name || "Usuario"}\n\n` +
+              `Revisa el dashboard para mas detalles.`,
+          });
+        } catch (err) {
+          console.error(`Failed to queue CRISIS_STATUS notification:`, err);
+        }
+      }
 
       return updatedCrisis;
     }),

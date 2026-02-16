@@ -23,6 +23,8 @@ export const QUEUE_NAMES = {
   NOTIFY_ALERT: "notify-alert",
   DIGEST: "notify-digest",
   ONBOARDING: "onboarding",
+  // Cola genérica de notificaciones Telegram
+  NOTIFY_TELEGRAM: "notify-telegram",
   // Grounding queues
   GROUNDING_CHECK: "grounding-check",
   GROUNDING_WEEKLY: "grounding-weekly",

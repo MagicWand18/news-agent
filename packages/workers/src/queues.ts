@@ -49,6 +49,8 @@ export const QUEUE_NAMES = {
   ARCHIVE_OLD_MENTIONS: "archive-old-mentions",
   // Evaluación de reglas de alerta
   CHECK_ALERT_RULES: "check-alert-rules",
+  // Cola genérica de notificaciones Telegram
+  NOTIFY_TELEGRAM: "notify-telegram",
 } as const;
 
 export function setupQueues() {
@@ -87,6 +89,7 @@ export function setupQueues() {
     archiveOldMentions: new Queue(QUEUE_NAMES.ARCHIVE_OLD_MENTIONS, { connection }),
     // Evaluación de reglas de alerta
     checkAlertRules: new Queue(QUEUE_NAMES.CHECK_ALERT_RULES, { connection }),
+    notifyTelegram: new Queue(QUEUE_NAMES.NOTIFY_TELEGRAM, { connection }),
   };
 
   // Schedule repeating jobs using cron patterns from config
