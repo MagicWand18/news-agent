@@ -28,22 +28,25 @@ export async function collectNewsdata(): Promise<NormalizedArticle[]> {
   for (const batch of batches) {
     const query = batch.join(" OR ");
 
+    // Nota: el parámetro 'timeframe' requiere plan de pago en NewsData.
+    // Sin timeframe, la API retorna noticias de las últimas 48 horas por defecto.
     const params = new URLSearchParams({
       apikey: config.newsdata.apiKey,
       q: query,
       language: "es",
       size: "10",
-      timeframe: `${config.articles.maxAgeDays}`,
     });
 
     try {
       const response = await fetch(`${NEWSDATA_API}?${params}`);
       if (!response.ok) {
-        console.error(`NewsData API error: ${response.status}`);
+        const errorBody = await response.text().catch(() => "");
+        console.error(`NewsData API error: ${response.status} - ${errorBody}`);
         continue;
       }
 
       const data = await response.json() as {
+        status?: string;
         results?: Array<{
           link: string;
           title: string;
@@ -51,10 +54,17 @@ export async function collectNewsdata(): Promise<NormalizedArticle[]> {
           description?: string;
           pubDate?: string;
           content?: string;
-        }>;
+        }> | { message?: string; code?: string };
       };
 
-      if (!data.results) continue;
+      // La API puede retornar 200 con status "error" en el body
+      if (data.status === "error") {
+        const err = data.results as { message?: string; code?: string };
+        console.error(`NewsData API logical error: ${err?.message || "unknown"} (${err?.code || "no code"})`);
+        continue;
+      }
+
+      if (!data.results || !Array.isArray(data.results)) continue;
 
       for (const item of data.results) {
         articles.push({

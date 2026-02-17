@@ -14,6 +14,15 @@ export const connection = new IORedis(config.redis.url, {
   },
 });
 
+/**
+ * Intervalo en ms para re-registrar los schedulers de cron.
+ * Los scheduler keys de BullMQ pueden desaparecer de Redis por
+ * diversos motivos (restart sin persistencia, eviction, etc.).
+ * Re-registrarlos periódicamente garantiza auto-recuperación.
+ * Default: 30 minutos.
+ */
+const SCHEDULER_REFRESH_INTERVAL_MS = 30 * 60 * 1000;
+
 export const QUEUE_NAMES = {
   COLLECT_GDELT: "collect-gdelt",
   COLLECT_NEWSDATA: "collect-newsdata",
@@ -92,149 +101,209 @@ export function setupQueues() {
     notifyTelegram: new Queue(QUEUE_NAMES.NOTIFY_TELEGRAM, { connection }),
   };
 
-  // Schedule repeating jobs using cron patterns from config
-  // Patterns can be customized via environment variables
+  // Registrar todos los schedulers de cron (idempotente via upsertJobScheduler)
+  registerAllSchedulers(queues);
 
-  // GDELT collector (default: every 15 minutes)
-  queues.collectGdelt.upsertJobScheduler(
-    "gdelt-cron",
-    { pattern: config.crons.gdelt },
-    { name: "collect-gdelt" }
-  );
-  console.log(`📅 GDELT cron: ${config.crons.gdelt}`);
+  // Re-registrar schedulers periódicamente para auto-recuperación.
+  // Si los scheduler keys desaparecen de Redis (por restart, flush, etc.),
+  // este intervalo los recrea automáticamente sin necesidad de reiniciar workers.
+  const refreshInterval = setInterval(async () => {
+    try {
+      await registerAllSchedulers(queues, true);
+    } catch (err) {
+      console.error("[Scheduler] Error re-registrando schedulers:", err);
+    }
+  }, SCHEDULER_REFRESH_INTERVAL_MS);
 
-  // NewsData collector (default: every 30 minutes)
-  queues.collectNewsdata.upsertJobScheduler(
-    "newsdata-cron",
-    { pattern: config.crons.newsdata },
-    { name: "collect-newsdata" }
-  );
-  console.log(`📅 NewsData cron: ${config.crons.newsdata}`);
-
-  // RSS collector (default: every 10 minutes)
-  queues.collectRss.upsertJobScheduler(
-    "rss-cron",
-    { pattern: config.crons.rss },
-    { name: "collect-rss" }
-  );
-  console.log(`📅 RSS cron: ${config.crons.rss}`);
-
-  // Google CSE collector (default: every 2 hours)
-  queues.collectGoogle.upsertJobScheduler(
-    "google-cron",
-    { pattern: config.crons.google },
-    { name: "collect-google" }
-  );
-  console.log(`📅 Google CSE cron: ${config.crons.google}`);
-
-  // Social Media: cron deshabilitado, recolección solo manual desde dashboard
-
-  // Daily digest (default: 8:00 AM)
-  queues.digest.upsertJobScheduler(
-    "daily-digest",
-    { pattern: config.crons.digest },
-    { name: "daily-digest" }
-  );
-  console.log(`📅 Digest cron: ${config.crons.digest}`);
-
-  // Weekly report (default: Sunday 8:00 PM)
-  const weeklyReportCron = process.env.WEEKLY_REPORT_CRON || "0 20 * * 0";
-  queues.weeklyReport.upsertJobScheduler(
-    "weekly-report-cron",
-    { pattern: weeklyReportCron },
-    { name: "weekly-report" }
-  );
-  console.log(`📅 Weekly Report cron: ${weeklyReportCron}`);
-
-  // Weekly insights (default: Monday 6:00 AM - antes de la jornada laboral)
-  const weeklyInsightsCron = process.env.WEEKLY_INSIGHTS_CRON || "0 6 * * 1";
-  queues.weeklyInsights.upsertJobScheduler(
-    "weekly-insights-cron",
-    { pattern: weeklyInsightsCron },
-    { name: "weekly-insights" }
-  );
-  console.log(`📅 Weekly Insights cron: ${weeklyInsightsCron}`);
-
-  // Emerging topics check (default: every 4 hours)
-  const emergingTopicsCron = process.env.EMERGING_TOPICS_CRON || "0 */4 * * *";
-  queues.emergingTopics.upsertJobScheduler(
-    "emerging-topics-cron",
-    { pattern: emergingTopicsCron },
-    { name: "check-emerging-topics" }
-  );
-  console.log(`📅 Emerging Topics cron: ${emergingTopicsCron}`);
-
-  // Grounding: Low mentions check (default: 7:00 AM daily, before digest)
-  const groundingCheckCron = process.env.GROUNDING_CHECK_CRON || "0 7 * * *";
-  queues.groundingCheck.upsertJobScheduler(
-    "grounding-check-cron",
-    { pattern: groundingCheckCron },
-    { name: "check-low-mentions" }
-  );
-  console.log(`📅 Grounding Check cron: ${groundingCheckCron}`);
-
-  // Grounding: Weekly grounding (default: 6:00 AM every day, checks if today matches client's config)
-  const groundingWeeklyCron = process.env.GROUNDING_WEEKLY_CRON || "0 6 * * *";
-  queues.groundingWeekly.upsertJobScheduler(
-    "grounding-weekly-cron",
-    { pattern: groundingWeeklyCron },
-    { name: "weekly-grounding" }
-  );
-  console.log(`📅 Grounding Weekly cron: ${groundingWeeklyCron}`);
-
-  // Google News RSS collector (default: 6:00 AM daily, before digest)
-  const gnewsCron = process.env.COLLECTOR_GNEWS_CRON || "0 6 * * *";
-  queues.collectGnews.upsertJobScheduler(
-    "gnews-cron",
-    { pattern: gnewsCron },
-    { name: "collect-gnews" }
-  );
-  console.log(`📅 GNews cron: ${gnewsCron}`);
-
-  // Google News RSS client search (default: every 3 hours)
-  const gnewsClientCron = process.env.COLLECTOR_GNEWS_CLIENT_CRON || "0 */3 * * *";
-  queues.collectGnewsClient.upsertJobScheduler(
-    "gnews-client-cron",
-    { pattern: gnewsClientCron },
-    { name: "collect-gnews-client" }
-  );
-  console.log(`📅 GNews Client Search cron: ${gnewsClientCron}`);
-
-  // Watchdog de menciones (default: cada hora, solo si está habilitado)
-  if (config.watchdog.enabled) {
-    queues.watchdogMentions.upsertJobScheduler(
-      "watchdog-mentions-cron",
-      { pattern: config.watchdog.checkIntervalCron },
-      { name: "watchdog-mentions" }
-    );
-    console.log(`📅 Watchdog cron: ${config.watchdog.checkIntervalCron}`);
-  }
-
-  // Auto-archivado de menciones viejas (diario a las 3:00 AM)
-  const archiveCron = process.env.ARCHIVE_OLD_MENTIONS_CRON || "0 3 * * *";
-  queues.archiveOldMentions.upsertJobScheduler(
-    "archive-old-mentions-cron",
-    { pattern: archiveCron },
-    { name: "archive-old-mentions" }
-  );
-  console.log(`📅 Archive Old Mentions cron: ${archiveCron}`);
-
-  // Evaluación de reglas de alerta (default: cada 30 minutos)
-  const alertRulesCron = process.env.CHECK_ALERT_RULES_CRON || "*/30 * * * *";
-  queues.checkAlertRules.upsertJobScheduler(
-    "check-alert-rules-cron",
-    { pattern: alertRulesCron },
-    { name: "check-alert-rules" }
-  );
-  console.log(`📅 Alert Rules cron: ${alertRulesCron}`);
+  // No bloquear el shutdown del proceso
+  refreshInterval.unref();
 
   return {
     ...queues,
     close: async () => {
+      clearInterval(refreshInterval);
       await Promise.all(Object.values(queues).map((q) => q.close()));
       await connection.quit();
     },
   };
+}
+
+/** Tipo con todas las queues para tipado de registerAllSchedulers */
+interface QueueMap {
+  collectGdelt: Queue;
+  collectNewsdata: Queue;
+  collectRss: Queue;
+  collectGoogle: Queue;
+  collectSocial: Queue;
+  digest: Queue;
+  weeklyReport: Queue;
+  weeklyInsights: Queue;
+  emergingTopics: Queue;
+  groundingCheck: Queue;
+  groundingWeekly: Queue;
+  collectGnews: Queue;
+  collectGnewsClient: Queue;
+  watchdogMentions: Queue;
+  archiveOldMentions: Queue;
+  checkAlertRules: Queue;
+  [key: string]: Queue;
+}
+
+/**
+ * Registra todos los cron schedulers en BullMQ.
+ * Usa upsertJobScheduler que es idempotente: si el scheduler ya existe
+ * con el mismo patrón, no crea duplicados.
+ * @param queues - Objeto con todas las colas
+ * @param isRefresh - Si es true, es un re-registro periódico (log más compacto)
+ */
+async function registerAllSchedulers(
+  queues: QueueMap,
+  isRefresh = false
+) {
+  const label = isRefresh ? "[Scheduler refresh]" : "📅";
+
+  // GDELT collector (default: every 15 minutes)
+  await queues.collectGdelt.upsertJobScheduler(
+    "gdelt-cron",
+    { pattern: config.crons.gdelt },
+    { name: "collect-gdelt" }
+  );
+
+  // NewsData collector (default: every 30 minutes)
+  await queues.collectNewsdata.upsertJobScheduler(
+    "newsdata-cron",
+    { pattern: config.crons.newsdata },
+    { name: "collect-newsdata" }
+  );
+
+  // RSS collector (default: every 10 minutes)
+  await queues.collectRss.upsertJobScheduler(
+    "rss-cron",
+    { pattern: config.crons.rss },
+    { name: "collect-rss" }
+  );
+
+  // Google CSE collector (default: every 2 hours)
+  await queues.collectGoogle.upsertJobScheduler(
+    "google-cron",
+    { pattern: config.crons.google },
+    { name: "collect-google" }
+  );
+
+  // Social Media: cron deshabilitado, recolección solo manual desde dashboard
+
+  // Daily digest (default: 8:00 AM)
+  await queues.digest.upsertJobScheduler(
+    "daily-digest",
+    { pattern: config.crons.digest },
+    { name: "daily-digest" }
+  );
+
+  // Weekly report (default: Sunday 8:00 PM)
+  const weeklyReportCron = process.env.WEEKLY_REPORT_CRON || "0 20 * * 0";
+  await queues.weeklyReport.upsertJobScheduler(
+    "weekly-report-cron",
+    { pattern: weeklyReportCron },
+    { name: "weekly-report" }
+  );
+
+  // Weekly insights (default: Monday 6:00 AM - antes de la jornada laboral)
+  const weeklyInsightsCron = process.env.WEEKLY_INSIGHTS_CRON || "0 6 * * 1";
+  await queues.weeklyInsights.upsertJobScheduler(
+    "weekly-insights-cron",
+    { pattern: weeklyInsightsCron },
+    { name: "weekly-insights" }
+  );
+
+  // Emerging topics check (default: every 4 hours)
+  const emergingTopicsCron = process.env.EMERGING_TOPICS_CRON || "0 */4 * * *";
+  await queues.emergingTopics.upsertJobScheduler(
+    "emerging-topics-cron",
+    { pattern: emergingTopicsCron },
+    { name: "check-emerging-topics" }
+  );
+
+  // Grounding: Low mentions check (default: 7:00 AM daily, before digest)
+  const groundingCheckCron = process.env.GROUNDING_CHECK_CRON || "0 7 * * *";
+  await queues.groundingCheck.upsertJobScheduler(
+    "grounding-check-cron",
+    { pattern: groundingCheckCron },
+    { name: "check-low-mentions" }
+  );
+
+  // Grounding: Weekly grounding (default: 6:00 AM every day, checks if today matches client's config)
+  const groundingWeeklyCron = process.env.GROUNDING_WEEKLY_CRON || "0 6 * * *";
+  await queues.groundingWeekly.upsertJobScheduler(
+    "grounding-weekly-cron",
+    { pattern: groundingWeeklyCron },
+    { name: "weekly-grounding" }
+  );
+
+  // Google News RSS collector (default: 6:00 AM daily, before digest)
+  const gnewsCron = process.env.COLLECTOR_GNEWS_CRON || "0 6 * * *";
+  await queues.collectGnews.upsertJobScheduler(
+    "gnews-cron",
+    { pattern: gnewsCron },
+    { name: "collect-gnews" }
+  );
+
+  // Google News RSS client search (default: every 3 hours)
+  const gnewsClientCron = process.env.COLLECTOR_GNEWS_CLIENT_CRON || "0 */3 * * *";
+  await queues.collectGnewsClient.upsertJobScheduler(
+    "gnews-client-cron",
+    { pattern: gnewsClientCron },
+    { name: "collect-gnews-client" }
+  );
+
+  // Watchdog de menciones (default: cada hora, solo si está habilitado)
+  if (config.watchdog.enabled) {
+    await queues.watchdogMentions.upsertJobScheduler(
+      "watchdog-mentions-cron",
+      { pattern: config.watchdog.checkIntervalCron },
+      { name: "watchdog-mentions" }
+    );
+  }
+
+  // Auto-archivado de menciones viejas (diario a las 3:00 AM)
+  const archiveCron = process.env.ARCHIVE_OLD_MENTIONS_CRON || "0 3 * * *";
+  await queues.archiveOldMentions.upsertJobScheduler(
+    "archive-old-mentions-cron",
+    { pattern: archiveCron },
+    { name: "archive-old-mentions" }
+  );
+
+  // Evaluación de reglas de alerta (default: cada 30 minutos)
+  const alertRulesCron = process.env.CHECK_ALERT_RULES_CRON || "*/30 * * * *";
+  await queues.checkAlertRules.upsertJobScheduler(
+    "check-alert-rules-cron",
+    { pattern: alertRulesCron },
+    { name: "check-alert-rules" }
+  );
+
+  if (isRefresh) {
+    console.log(`${label} Todos los schedulers re-registrados OK`);
+  } else {
+    console.log(`${label} GDELT: ${config.crons.gdelt}`);
+    console.log(`${label} NewsData: ${config.crons.newsdata}`);
+    console.log(`${label} RSS: ${config.crons.rss}`);
+    console.log(`${label} Google CSE: ${config.crons.google}`);
+    console.log(`${label} Digest: ${config.crons.digest}`);
+    console.log(`${label} Weekly Report: ${weeklyReportCron}`);
+    console.log(`${label} Weekly Insights: ${weeklyInsightsCron}`);
+    console.log(`${label} Emerging Topics: ${emergingTopicsCron}`);
+    console.log(`${label} Grounding Check: ${groundingCheckCron}`);
+    console.log(`${label} Grounding Weekly: ${groundingWeeklyCron}`);
+    console.log(`${label} GNews: ${gnewsCron}`);
+    console.log(`${label} GNews Client Search: ${gnewsClientCron}`);
+    if (config.watchdog.enabled) {
+      console.log(`${label} Watchdog: ${config.watchdog.checkIntervalCron}`);
+    }
+    console.log(`${label} Archive Old Mentions: ${archiveCron}`);
+    console.log(`${label} Alert Rules: ${alertRulesCron}`);
+    console.log(
+      `[Scheduler] Auto-refresh habilitado cada ${SCHEDULER_REFRESH_INTERVAL_MS / 60000} minutos`
+    );
+  }
 }
 
 // Helper to enqueue jobs from other packages
