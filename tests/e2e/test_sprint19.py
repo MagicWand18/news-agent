@@ -40,8 +40,8 @@ def login(page, email, password):
     page.fill('#password', password)
     page.click('button[type="submit"]')
     page.wait_for_url("**/dashboard**", timeout=15000)
-    page.wait_for_load_state("networkidle")
-    time.sleep(1)
+    page.wait_for_load_state("domcontentloaded")
+    time.sleep(3)
 
 
 with sync_playwright() as p:
@@ -71,16 +71,27 @@ with sync_playwright() as p:
 
     # --- 2. Dashboard KPI ---
     print("\n=== 2. Dashboard - KPI Temas activos ===")
-    dash_content = page.content()
-    has_topics_kpi = "Temas activos" in dash_content
+    # Wait for stats to load (skeleton disappears)
+    try:
+        page.wait_for_selector("text=Temas activos", timeout=15000)
+        has_topics_kpi = True
+    except Exception:
+        time.sleep(8)
+        dash_content = page.content()
+        has_topics_kpi = "Temas activos" in dash_content
     log("Dashboard KPI 'Temas activos' presente", has_topics_kpi)
     page.screenshot(path=f"{SCREENSHOT_DIR}/02_dashboard_kpi.png")
 
     # --- 3. Topics Page ---
     print("\n=== 3. Pagina /dashboard/topics ===")
     page.goto(f"{BASE_URL}/dashboard/topics")
-    page.wait_for_load_state("networkidle")
-    time.sleep(3)
+    page.wait_for_load_state("domcontentloaded")
+    # Wait for stat cards to load (skeleton disappears, stat text appears)
+    try:
+        page.wait_for_selector("text=Temas activos", timeout=15000)
+    except Exception:
+        pass
+    time.sleep(2)
 
     topics_url = page.url
     log("Navegacion a /dashboard/topics", "/dashboard/topics" in topics_url, topics_url)
@@ -158,7 +169,7 @@ with sync_playwright() as p:
     topic_links = page.locator('a[href*="/dashboard/topics/"]').all()
     if len(topic_links) > 0:
         topic_links[0].click()
-        page.wait_for_load_state("networkidle")
+        page.wait_for_load_state("domcontentloaded")
         time.sleep(3)
 
         detail_url = page.url
@@ -201,7 +212,7 @@ with sync_playwright() as p:
     # --- 6. Topics Empty State ---
     print("\n=== 6. Estado vacio ===")
     page.goto(f"{BASE_URL}/dashboard/topics")
-    page.wait_for_load_state("networkidle")
+    page.wait_for_load_state("domcontentloaded")
     time.sleep(2)
 
     # Check if empty state or thread cards are shown (either is valid)
@@ -217,7 +228,7 @@ with sync_playwright() as p:
     try:
         # Use page.evaluate to call tRPC directly
         page.goto(f"{BASE_URL}/dashboard/topics")
-        page.wait_for_load_state("networkidle")
+        page.wait_for_load_state("domcontentloaded")
         time.sleep(2)
         # If page loaded without errors, API is working
         topics_page_content = page.content()
@@ -229,8 +240,8 @@ with sync_playwright() as p:
     # --- 8. Telegram Settings - TOPIC_ALERT ---
     print("\n=== 8. Settings - TOPIC_ALERT ===")
     page.goto(f"{BASE_URL}/dashboard/settings")
-    page.wait_for_load_state("networkidle")
-    time.sleep(2)
+    page.wait_for_load_state("domcontentloaded")
+    time.sleep(4)
 
     settings_content = page.content()
     has_topic_alert = "Alertas por tema" in settings_content or "TOPIC_ALERT" in settings_content or "tema" in settings_content.lower()
@@ -262,7 +273,7 @@ with sync_playwright() as p:
     # --- 10. Admin puede acceder a topics ---
     print("\n=== 10. Admin accede a /dashboard/topics ===")
     page.goto(f"{BASE_URL}/dashboard/topics")
-    page.wait_for_load_state("networkidle")
+    page.wait_for_load_state("domcontentloaded")
     time.sleep(2)
 
     admin_topics_url = page.url
@@ -279,8 +290,11 @@ with sync_playwright() as p:
     # --- 11. Dashboard KPI for admin ---
     print("\n=== 11. Dashboard Admin - KPI Temas ===")
     page.goto(f"{BASE_URL}/dashboard")
-    page.wait_for_load_state("networkidle")
-    time.sleep(2)
+    page.wait_for_load_state("domcontentloaded")
+    try:
+        page.wait_for_selector("text=Temas activos", timeout=15000)
+    except Exception:
+        time.sleep(8)
 
     admin_dash = page.content()
     admin_has_topics_kpi = "Temas activos" in admin_dash
