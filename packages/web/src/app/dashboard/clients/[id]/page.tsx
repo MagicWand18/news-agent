@@ -68,6 +68,10 @@ export default function ClientDetailPage() {
     onSuccess: () => {
       router.push("/dashboard/clients");
     },
+    onError: (err) => {
+      alert(`Error al eliminar cliente: ${err.message}`);
+      setShowDeleteConfirm(false);
+    },
   });
 
   const [newKeyword, setNewKeyword] = useState<{

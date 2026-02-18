@@ -281,13 +281,52 @@ export const clientsRouter = router({
         throw new TRPCError({ code: "NOT_FOUND", message: "Cliente no encontrado" });
       }
 
-      // Eliminar en cascada: menciones, keywords, tareas relacionadas
+      // Eliminar en cascada manual: borrar hijos antes que padres
+      // Orden: más anidados primero, Client al final
+      const cid = input.id;
+
+      // 1. Sub-hijos de Campaign (tienen onDelete: Cascade en campaignId,
+      //    pero como borramos Campaign manualmente necesitamos limpiar primero)
       await prisma.$transaction([
-        prisma.mention.deleteMany({ where: { clientId: input.id } }),
-        prisma.keyword.deleteMany({ where: { clientId: input.id } }),
-        prisma.task.deleteMany({ where: { clientId: input.id } }),
-        prisma.client.delete({ where: { id: input.id } }),
+        prisma.campaignNote.deleteMany({ where: { campaign: { clientId: cid } } }),
+        prisma.campaignSocialMention.deleteMany({ where: { campaign: { clientId: cid } } }),
+        prisma.campaignMention.deleteMany({ where: { campaign: { clientId: cid } } }),
       ]);
+
+      // 2. ResponseDraft (referencia mentionId/socialMentionId sin cascade)
+      await prisma.$transaction([
+        prisma.responseDraft.deleteMany({ where: { mention: { clientId: cid } } }),
+        prisma.responseDraft.deleteMany({ where: { socialMention: { clientId: cid } } }),
+      ]);
+
+      // 3. CrisisNote (referencia crisisAlertId sin cascade)
+      await prisma.crisisNote.deleteMany({ where: { crisisAlert: { clientId: cid } } });
+
+      // 4. Task (referencia mentionId/socialMentionId/clientId sin cascade)
+      await prisma.task.deleteMany({ where: { OR: [
+        { clientId: cid },
+        { mention: { clientId: cid } },
+        { socialMention: { clientId: cid } },
+      ] } });
+
+      // 5. Tablas directas del cliente (sin onDelete: Cascade)
+      await prisma.$transaction([
+        prisma.campaign.deleteMany({ where: { clientId: cid } }),
+        prisma.crisisAlert.deleteMany({ where: { clientId: cid } }),
+        prisma.actionItem.deleteMany({ where: { clientId: cid } }),
+        prisma.alertRule.deleteMany({ where: { clientId: cid } }),
+        prisma.dailyBrief.deleteMany({ where: { clientId: cid } }),
+        prisma.weeklyInsight.deleteMany({ where: { clientId: cid } }),
+        prisma.reportLog.deleteMany({ where: { clientId: cid } }),
+        prisma.mention.deleteMany({ where: { clientId: cid } }),
+        prisma.keyword.deleteMany({ where: { clientId: cid } }),
+        prisma.digestLog.deleteMany({ where: { clientId: cid } }),
+        prisma.emergingTopicNotification.deleteMany({ where: { clientId: cid } }),
+      ]);
+
+      // 6. Client (las tablas con onDelete: Cascade se borran automáticamente:
+      //    TelegramRecipient, ClientCompetitor, SocialAccount, SocialMention, SharedReport)
+      await prisma.client.delete({ where: { id: cid } });
 
       return { success: true };
     }),
