@@ -23,8 +23,6 @@ const HIGH_REACH_SOURCES = new Set([
 ]);
 
 export function startAnalysisWorker() {
-  const notifyQueue = getQueue(QUEUE_NAMES.NOTIFY_ALERT);
-
   const worker = new Worker(
     QUEUE_NAMES.ANALYZE_MENTION,
     async (job) => {
@@ -116,25 +114,7 @@ export function startAnalysisWorker() {
       if (mention.isLegacy || isOldArticle) {
         console.log(`[Analysis] Mention ${mentionId} is ${mention.isLegacy ? "legacy" : "old article"}, skipping notification and crisis check`);
       } else {
-        // Verificar si la mención será asignada a un TopicThread
-        // Si tiene topic, la notificación se maneja a nivel de topic thread (NOTIFY_TOPIC)
-        // Si NO tiene topic, mantener NOTIFY_ALERT individual como fallback
-        // Nota: el topic se extrae en el TopicWorker posterior, pero revisamos el existente
-        const mentionWithTopic = await prisma.mention.findUnique({
-          where: { id: mentionId },
-          select: { topicThreadId: true },
-        });
-
-        if (!mentionWithTopic?.topicThreadId) {
-          // Sin topic thread → notificación individual (fallback)
-          if (urgency === "CRITICAL" || urgency === "HIGH") {
-            await notifyQueue.add("alert", { mentionId }, {
-              priority: urgency === "CRITICAL" ? 1 : 2,
-            });
-          }
-        }
-
-        // Check for crisis if mention is negative (siempre, independiente del topic)
+        // Notificaciones se manejan a nivel de tema (NOTIFY_TOPIC) via topic extraction pipeline
         if (analysis.sentiment === "NEGATIVE") {
           try {
             await processMentionForCrisis(mentionId);

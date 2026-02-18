@@ -480,6 +480,15 @@ Los insights deben ser especificos, con datos, y orientados a la accion.`;
 
 // ==================== DAILY BRIEF ====================
 
+export interface ActiveTopicForBrief {
+  name: string;
+  mentionCount: number;
+  socialMentionCount: number;
+  dominantSentiment: string | null;
+  topSources: string[];
+  recentMentions: Array<{ title: string; source: string; sentiment: string }>;
+}
+
 export interface DailyBriefResult {
   highlights: string[];
   comparison: {
@@ -494,6 +503,7 @@ export interface DailyBriefResult {
 
 /**
  * Genera un brief diario ejecutivo con IA para un cliente.
+ * Usa TopicThreads agrupados en lugar de menciones individuales.
  */
 export async function generateDailyBrief(params: {
   clientName: string;
@@ -510,26 +520,37 @@ export async function generateDailyBrief(params: {
   };
   sovPercentage: number;
   yesterdaySov: number;
-  topMentions: { title: string; source: string; sentiment: string }[];
+  activeTopics: ActiveTopicForBrief[];
   activeCrises: number;
   pendingActionItems: string[];
-  emergingTopicNames: string[];
 }): Promise<DailyBriefResult> {
   const mentionsDelta = params.todayStats.mentions - params.yesterdayStats.mentions;
   const deltaSign = mentionsDelta > 0 ? "+" : "";
-
-  const mentionsText = params.topMentions
-    .slice(0, 5)
-    .map((m) => `- ${m.title} (${m.source}, ${m.sentiment})`)
-    .join("\n");
 
   const actionsText = params.pendingActionItems.length > 0
     ? params.pendingActionItems.slice(0, 5).map((a) => `- ${a}`).join("\n")
     : "Sin acciones pendientes";
 
-  const emergingText = params.emergingTopicNames.length > 0
-    ? params.emergingTopicNames.join(", ")
-    : "Sin temas emergentes";
+  // Construir sección de temas activos
+  let topicsText = "";
+  if (params.activeTopics.length > 0) {
+    for (const topic of params.activeTopics) {
+      const totalMentions = topic.mentionCount + topic.socialMentionCount;
+      topicsText += `\n  Tema: ${topic.name}\n`;
+      topicsText += `  Menciones: ${topic.mentionCount} noticias + ${topic.socialMentionCount} posts sociales | Sentimiento: ${topic.dominantSentiment || "NEUTRAL"}\n`;
+      if (topic.topSources.length > 0) {
+        topicsText += `  Fuentes: ${topic.topSources.slice(0, 5).join(", ")}\n`;
+      }
+      if (topic.recentMentions.length > 0) {
+        topicsText += `  Articulos representativos:\n`;
+        for (const m of topic.recentMentions) {
+          topicsText += `    - "${m.title}" (${m.source}, ${m.sentiment})\n`;
+        }
+      }
+    }
+  } else {
+    topicsText = "  Sin temas activos hoy.";
+  }
 
   const model = getGeminiModel();
 
@@ -543,13 +564,15 @@ DATOS DE HOY:
 - Posts sociales: ${params.todayStats.socialPosts}, engagement total: ${params.todayStats.totalEngagement}
 - Crisis activas: ${params.activeCrises}
 
-MENCIONES DESTACADAS:
-${mentionsText || "Ninguna relevante"}
-
-TEMAS EMERGENTES: ${emergingText}
+TEMAS ACTIVOS HOY (agrupados por tema):
+${topicsText}
 
 ACCIONES PENDIENTES:
 ${actionsText}
+
+Los highlights deben describir los TEMAS clave del dia, no articulos individuales.
+Para cada tema, menciona cuantas fuentes lo cubrieron, el sentimiento dominante y cita fuentes especificas.
+Si no hay temas activos, analiza las estadisticas generales disponibles.
 
 Responde UNICAMENTE con JSON valido, sin markdown ni texto adicional:
 {
@@ -569,7 +592,7 @@ Los highlights deben ser especificos, con datos, y orientados a la accion. Maxim
   try {
     const result = await model.generateContent({
       contents: [{ role: "user", parts: [{ text: prompt }] }],
-      generationConfig: { maxOutputTokens: 1024, temperature: 0.4 },
+      generationConfig: { maxOutputTokens: 1500, temperature: 0.4 },
     });
 
     const rawText = result.response.text();

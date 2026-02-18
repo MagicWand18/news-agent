@@ -17,8 +17,6 @@ const HIGH_REACH_THRESHOLD = 10000;
 const VERIFIED_THRESHOLD = 50000;
 
 export function startSocialAnalysisWorker() {
-  const notifyQueue = getQueue(QUEUE_NAMES.NOTIFY_ALERT);
-
   const worker = new Worker(
     QUEUE_NAMES.ANALYZE_SOCIAL,
     async (job) => {
@@ -35,7 +33,7 @@ export function startSocialAnalysisWorker() {
 
       // Si es análisis de comentarios, procesar diferente
       if (hasComments && mention.commentsData && !mention.commentsAnalyzed) {
-        return await analyzeCommentsJob(mention, notifyQueue);
+        return await analyzeCommentsJob(mention);
       }
 
       // Análisis normal del post (si ya está analizado, omitir)
@@ -82,22 +80,7 @@ export function startSocialAnalysisWorker() {
 
       console.log(`[SocialAnalysis] Mention ${mentionId}: ${analysis.sentiment}, relevance ${analysis.relevance}, urgency ${urgency}`);
 
-      // No notificar posts con más de 30 días de antigüedad
-      const postedAt = mention.postedAt;
-      const thirtyDaysAgo = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000);
-      const isOldPost = postedAt && new Date(postedAt) < thirtyDaysAgo;
-
-      // Encolar notificación si es urgente y no es un post viejo
-      if (!isOldPost && (urgency === "CRITICAL" || (urgency === "HIGH" && analysis.relevance >= 7))) {
-        await notifyQueue.add("social-alert", {
-          type: "social",
-          socialMentionId: mentionId,
-          platform: mention.platform,
-          urgency,
-        }, {
-          priority: urgency === "CRITICAL" ? 1 : 2,
-        });
-      }
+      // Notificaciones se manejan a nivel de tema (NOTIFY_TOPIC) via topic extraction pipeline
     },
     {
       connection,
@@ -215,8 +198,7 @@ async function analyzeCommentsJob(
     comments: number;
     shares: number;
     views: number | null;
-  },
-  notifyQueue: ReturnType<typeof getQueue>
+  }
 ) {
   console.log(`[SocialAnalysis] Analyzing comments for mention ${mention.id}`);
 
@@ -293,23 +275,9 @@ async function analyzeCommentsJob(
     `[SocialAnalysis] Comments analyzed for ${mention.id}: ${analysis.overallSentiment}, risk: ${analysis.riskLevel}`
   );
 
-  // Si el riesgo es HIGH, enviar notificación de alerta
+  // Alertas de riesgo alto se manejan via NOTIFY_TOPIC (topic thread pipeline)
   if (analysis.riskLevel === "HIGH") {
-    await notifyQueue.add(
-      "social-comments-alert",
-      {
-        type: "social-comments",
-        socialMentionId: mention.id,
-        platform: mention.platform,
-        riskLevel: analysis.riskLevel,
-        publicPerception: analysis.publicPerception,
-        topConcerns: analysis.topConcerns,
-      },
-      {
-        priority: 1, // Alta prioridad para alertas de riesgo
-      }
-    );
-    console.log(`[SocialAnalysis] HIGH risk alert enqueued for mention ${mention.id}`);
+    console.log(`[SocialAnalysis] HIGH risk detected for mention ${mention.id}`);
   }
 
   return {

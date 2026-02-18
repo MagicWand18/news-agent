@@ -2,7 +2,7 @@ import { Worker } from "bullmq";
 import { connection, QUEUE_NAMES, getQueue } from "../queues.js";
 import { prisma } from "@mediabot/shared";
 import { generateDigestSummary, generateDailyBrief } from "../analysis/ai.js";
-import type { DailyBriefResult } from "../analysis/ai.js";
+import type { DailyBriefResult, ActiveTopicForBrief } from "../analysis/ai.js";
 import { createWeeklyReportNotification } from "./inapp-creator.js";
 import {
   getAllRecipientsForClient,
@@ -16,15 +16,9 @@ export function startDigestWorker() {
     async () => {
       console.log("📊 Running daily digest...");
 
-      // Obtener clientes activos que tienen destinatarios (legacy o nuevo sistema)
+      // Todos los clientes activos (brief se persiste en DB; envío Telegram usa recipients)
       const clients = await prisma.client.findMany({
-        where: {
-          active: true,
-          OR: [
-            { telegramGroupId: { not: null } },
-            { telegramRecipients: { some: { active: true } } },
-          ],
-        },
+        where: { active: true },
       });
 
       const since = new Date(Date.now() - 24 * 60 * 60 * 1000);
@@ -101,6 +95,9 @@ export function startDigestWorker() {
 
         // ==================== AI MEDIA BRIEF ====================
         let briefResult: DailyBriefResult | null = null;
+        // TopicThreads activos (se reutiliza en brief + sección Telegram)
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        let activeTopicThreads: any[] = [];
         try {
           // Datos del día anterior para comparativa
           const yesterdayStart = new Date(since.getTime() - 24 * 60 * 60 * 1000);
@@ -152,16 +149,37 @@ export function startDigestWorker() {
             take: 5,
           });
 
-          // Temas emergentes recientes (últimas 48h)
-          const emergingTopics = await prisma.emergingTopicNotification.findMany({
+          // TopicThreads activos con menciones recientes
+          activeTopicThreads = await prisma.topicThread.findMany({
             where: {
               clientId: client.id,
-              createdAt: { gte: new Date(Date.now() - 48 * 60 * 60 * 1000) },
+              status: "ACTIVE",
+              lastMentionAt: { gte: since },
             },
-            select: { topic: true },
-            distinct: ["topic"],
-            take: 5,
+            include: {
+              mentions: {
+                take: 3,
+                orderBy: { publishedAt: "desc" },
+                include: { article: { select: { title: true, source: true } } },
+              },
+            },
+            orderBy: [{ mentionCount: "desc" }],
+            take: 7,
           });
+
+          // Construir activeTopics para el brief
+          const activeTopics: ActiveTopicForBrief[] = activeTopicThreads.map((t) => ({
+            name: t.name,
+            mentionCount: t.mentionCount,
+            socialMentionCount: t.socialMentionCount,
+            dominantSentiment: t.dominantSentiment,
+            topSources: (t.topSources as string[]) || [],
+            recentMentions: t.mentions.map((m: { article: { title: string; source: string }; sentiment: string }) => ({
+              title: m.article.title,
+              source: m.article.source,
+              sentiment: m.sentiment,
+            })),
+          }));
 
           // Engagement total social
           const totalEngagement = socialMentions.reduce(
@@ -184,14 +202,9 @@ export function startDigestWorker() {
             },
             sovPercentage,
             yesterdaySov,
-            topMentions: mentions.slice(0, 5).map((m) => ({
-              title: m.article.title,
-              source: m.article.source,
-              sentiment: m.sentiment,
-            })),
+            activeTopics,
             activeCrises,
             pendingActionItems: pendingItems.map((i) => i.description),
-            emergingTopicNames: emergingTopics.map((e) => e.topic),
           });
 
           // Persistir brief en DB
@@ -276,31 +289,17 @@ export function startDigestWorker() {
           }
         }
 
-        // Sección de Temas del día (Sprint 19 - Topic Threads)
-        try {
-          const activeTopicThreads = await prisma.topicThread.findMany({
-            where: {
-              clientId: client.id,
-              status: "ACTIVE",
-              lastMentionAt: { gte: since },
-            },
-            orderBy: [{ mentionCount: "desc" }],
-            take: 7,
-          });
-
-          if (activeTopicThreads.length > 0) {
-            const sentimentIcons: Record<string, string> = {
-              POSITIVE: "🟢", NEGATIVE: "🔴", NEUTRAL: "⚪", MIXED: "🟡",
-            };
-            message += `\n🏷️ TEMAS DEL DÍA\n`;
-            for (const thread of activeTopicThreads) {
-              const total = thread.mentionCount + thread.socialMentionCount;
-              const icon = sentimentIcons[thread.dominantSentiment || "NEUTRAL"] || "⚪";
-              message += `${icon} ${thread.name} (${total} menciones, ${thread.dominantSentiment || "Neutral"})\n`;
-            }
+        // Sección de Temas del día (reutiliza activeTopicThreads del brief)
+        if (activeTopicThreads.length > 0) {
+          const sentimentIcons: Record<string, string> = {
+            POSITIVE: "🟢", NEGATIVE: "🔴", NEUTRAL: "⚪", MIXED: "🟡",
+          };
+          message += `\n🏷️ TEMAS DEL DÍA\n`;
+          for (const thread of activeTopicThreads) {
+            const total = thread.mentionCount + thread.socialMentionCount;
+            const icon = sentimentIcons[thread.dominantSentiment || "NEUTRAL"] || "⚪";
+            message += `${icon} ${thread.name} (${total} menciones, ${thread.dominantSentiment || "Neutral"})\n`;
           }
-        } catch (topicErr) {
-          console.error(`[Digest] Error fetching topic threads for ${client.name}:`, topicErr);
         }
 
         // Sección de redes sociales

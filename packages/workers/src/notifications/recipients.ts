@@ -10,7 +10,7 @@ import { bot } from "./bot-instance.js";
 export interface ResolvedRecipient {
   chatId: string;
   label: string | null;
-  source: "client" | "org" | "superadmin";
+  source: "client" | "org" | "orgadmin" | "superadmin";
 }
 
 /**
@@ -118,6 +118,31 @@ export async function getAllRecipientsForClient(
     }
   }
 
+  // 2.5 Nivel Admin de organización (User ADMIN con telegramUserId)
+  if (client?.orgId) {
+    const orgAdmins = await prisma.user.findMany({
+      where: {
+        orgId: client.orgId,
+        role: "ADMIN",
+        isSuperAdmin: false,
+        telegramUserId: { not: null },
+      },
+      select: { telegramUserId: true, name: true, telegramNotifPrefs: true },
+    });
+
+    for (const admin of orgAdmins) {
+      if (!admin.telegramUserId || seen.has(admin.telegramUserId)) continue;
+      const prefs = admin.telegramNotifPrefs as Record<string, boolean> | null;
+      if (!isNotifTypeEnabled(prefs, notifType)) continue;
+      seen.add(admin.telegramUserId);
+      result.push({
+        chatId: admin.telegramUserId,
+        label: `${admin.name} (Admin)`,
+        source: "orgadmin",
+      });
+    }
+  }
+
   // 3. Nivel SuperAdmin
   const superAdmins = await prisma.user.findMany({
     where: {
@@ -152,7 +177,7 @@ export async function getAllRecipientsForClient(
  */
 async function disableRecipient(
   chatId: string,
-  source: "client" | "org" | "superadmin"
+  source: "client" | "org" | "orgadmin" | "superadmin"
 ): Promise<void> {
   try {
     switch (source) {
@@ -166,6 +191,13 @@ async function disableRecipient(
         await prisma.orgTelegramRecipient.updateMany({
           where: { chatId, active: true },
           data: { active: false },
+        });
+        break;
+      case "orgadmin":
+        // Para Admin de org, limpiar telegramUserId
+        await prisma.user.updateMany({
+          where: { telegramUserId: chatId, isSuperAdmin: false, role: "ADMIN" },
+          data: { telegramUserId: null },
         });
         break;
       case "superadmin":
@@ -187,7 +219,7 @@ async function disableRecipient(
  * Retorna el número de envíos exitosos, fallidos y desactivados.
  */
 export async function sendToMultipleRecipients(
-  recipients: Array<{ chatId: string; label?: string | null; source?: "client" | "org" | "superadmin" }>,
+  recipients: Array<{ chatId: string; label?: string | null; source?: "client" | "org" | "orgadmin" | "superadmin" }>,
   message: string,
   options?: { reply_markup?: InlineKeyboard; parse_mode?: "Markdown" | "HTML" }
 ): Promise<{ sent: number; failed: number; disabled: number }> {
