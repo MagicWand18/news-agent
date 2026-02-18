@@ -1,14 +1,14 @@
 # MediaBot
 
-Sistema de monitoreo de medios con inteligencia artificial para agencias de PR. 35 modelos Prisma, 22 enums, 21 routers tRPC, 20 páginas de dashboard, 28 colas BullMQ, dashboard en tiempo real.
+Sistema de monitoreo de medios con inteligencia artificial para agencias de PR. 37 modelos Prisma, 24 enums, 22 routers tRPC, 20 páginas de dashboard, 31 colas BullMQ, dashboard en tiempo real, agrupación de menciones por tema.
 
 ## Stack Tecnologico
 
-- **Frontend**: Next.js 15, React, TailwindCSS, tRPC (20 páginas de dashboard, 21 routers)
-- **Backend Workers**: BullMQ, Node.js (25+ workers, 28 colas)
+- **Frontend**: Next.js 15, React, TailwindCSS, tRPC (20 páginas de dashboard, 22 routers)
+- **Backend Workers**: BullMQ, Node.js (25+ workers, 31 colas)
 - **Real-time**: Redis Pub/Sub → SSE (4 canales en vivo)
 - **Bot**: Grammy (Telegram)
-- **Database**: PostgreSQL + Prisma ORM (35 modelos, 22 enums)
+- **Database**: PostgreSQL + Prisma ORM (37 modelos, 24 enums)
 - **Cache/Queue**: Redis
 - **AI**: Anthropic Claude (claude-3-5-haiku)
 
@@ -175,8 +175,10 @@ pnpm dev:bot                # Solo bot
 8. **Notificacion**: Alertas se envian via Telegram segun urgencia
 9. **Digest**: Resumen diario se envia a las 8:00 AM con menciones agrupadas
 10. **Topic Extraction**: AI extrae tema principal de cada mencion
-11. **Weekly Insights**: Lunes 6:00 AM se generan insights accionables
-12. **Emerging Topics**: Cada 4h se detectan y notifican temas nuevos con traccion
+11. **Topic Threading**: Menciones del mismo tema se agrupan en TopicThreads por cliente
+12. **Topic Notifications**: Alertas por tema (nuevo, escalada, cambio sentimiento) en vez de por mención individual
+13. **Weekly Insights**: Lunes 6:00 AM se generan insights accionables
+14. **Emerging Topics**: Cada 4h se detectan y notifican temas nuevos con traccion
 
 ## Colectores
 
@@ -524,6 +526,27 @@ Dashboard con actualizaciones en tiempo real via Server-Sent Events.
 - **Skeletons**: 13 páginas con loading skeletons en vez de spinners
 - **Keyboard shortcuts**: `Cmd+K` (búsqueda global), `?` (ayuda), `g+d/m/s/c/k/i` (navegación)
 - **Command palette**: Búsqueda global de páginas, clientes, menciones y menciones sociales
+
+## Topic Threads (Sprint 19)
+
+Sistema de agrupación de menciones por tema que reduce ruido y da visión estratégica.
+
+### Funcionalidades
+- **TopicThread por cliente**: Agrupa menciones (media + social) del mismo tema. Normalización por nombre para dedup
+- **Notificaciones por tema**: Reemplaza alertas individuales. 3 tipos: tema nuevo (≥2 menciones), escalada ([5,10,20,50]), cambio de sentimiento
+- **Topic extraction social**: IA extrae tema de posts sociales (nueva cola ANALYZE_SOCIAL_TOPIC)
+- **Auto-cierre**: Threads sin menciones en 72h se cierran automáticamente (cron cada 6h)
+- **Dashboard**: `/dashboard/topics` con tabs (Activos/Cerrados/Archivados), filtros, stat cards
+- **Detalle**: `/dashboard/topics/[id]` con pie chart sentimiento, fuentes, menciones agrupadas, timeline de eventos
+- **Sidebar**: Item "Temas" con badge naranja de temas negativos activos
+- **Dashboard KPI**: Card "Temas activos" en dashboard principal
+- **RSS 48h filter**: Artículos con publishedAt > 48h descartados en ingesta
+- **Fallback**: Menciones sin topic mantienen NOTIFY_ALERT individual
+
+### Notificación Telegram por tema
+- **TOPIC_NEW**: Tema confirmado con ≥2 menciones (max 10/día/cliente)
+- **TOPIC_THRESHOLD**: Tema alcanza [5, 10, 20, 50] menciones
+- **TOPIC_SENTIMENT_SHIFT**: Sentimiento dominante cambia (cooldown 4h)
 
 ## Documentacion Adicional
 

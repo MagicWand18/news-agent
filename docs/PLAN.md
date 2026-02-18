@@ -67,6 +67,9 @@ MediaBot es un sistema de monitoreo de medios que permite a agencias de comunica
 | **Reportes PDF** | OK | Generación de PDF para campañas, briefs y clientes con PDFKit (Sprint 17) |
 | **Links compartidos** | OK | SharedReport con URL pública, expiración 7 días, página /shared/[id] (Sprint 17) |
 | **Migración publishedAt** | OK | Campo denormalizado en Mention para lógica temporal correcta, filtro 30 días en notificaciones |
+| **Topic Threads** | OK | TopicThread + TopicThreadEvent: agrupación de menciones por tema, notificaciones por tema (Sprint 19) |
+| **RSS 48h Filter** | OK | Descarte de artículos con publishedAt > 48h en ingesta (Sprint 19) |
+| **Topic Extraction Social** | OK | Extracción de tema con IA para SocialMentions, cola ANALYZE_SOCIAL_TOPIC (Sprint 19) |
 
 ### Funciones de IA
 
@@ -90,6 +93,9 @@ MediaBot es un sistema de monitoreo de medios que permite a agencias de comunica
 | `generateCampaignPDF` | On-demand | PDF de campaña con PDFKit | `web/src/lib/pdf/campaign-pdf.ts` |
 | `generateBriefPDF` | On-demand | PDF de brief diario con PDFKit | `web/src/lib/pdf/brief-pdf.ts` |
 | `generateClientPDF` | On-demand | PDF resumen de cliente con PDFKit | `web/src/lib/pdf/client-pdf.ts` |
+| `processSocialMentionTopic` | Automatico | Extrae tema de post social con IA | `analysis/topic-extractor.ts` |
+| `assignMentionToThread` | Automatico | Asigna mención a TopicThread (o crea nuevo) | `analysis/topic-thread-manager.ts` |
+| `closeInactiveThreads` | Cron cada 6h | Cierra threads sin menciones en 72h | `analysis/topic-thread-manager.ts` |
 
 ### Pendiente / En Progreso
 
@@ -1041,6 +1047,56 @@ Llevar el dashboard a tiempo real con SSE y mejorar la UX con skeletons, atajos 
 
 ---
 
+## Sprint 19: Topic Threads (COMPLETADO - 2026-02-18)
+
+### Objetivo
+Agregar una capa de TopicThread (hilo temático) que agrupe menciones del mismo tema por cliente, con notificaciones por eventos del tema (no por mención individual) y una vista principal de temas en el dashboard. Reduce saturación de alertas (571 menciones/día → N temas) y da visión estratégica a las agencias.
+
+### Implementado
+
+| Feature | Estado | Archivos |
+|---------|--------|----------|
+| Modelos TopicThread + TopicThreadEvent (+ 2 enums) | ✅ OK | `prisma/schema.prisma` (37 modelos, 24 enums) |
+| FK en Mention (topicThreadId) y SocialMention (topicThreadId, topic) | ✅ OK | `prisma/schema.prisma` |
+| Topic Thread Engine (assign, recalculate, close) | ✅ OK | `packages/workers/src/analysis/topic-thread-manager.ts` |
+| Topic extraction para SocialMentions | ✅ OK | `packages/workers/src/analysis/topic-extractor.ts` (nueva función processSocialMentionTopic) |
+| Cola ANALYZE_SOCIAL_TOPIC | ✅ OK | `packages/workers/src/queues.ts`, `packages/workers/src/collectors/social.ts` |
+| Cola CLOSE_INACTIVE_THREADS (cron */6h) | ✅ OK | `packages/workers/src/queues.ts`, `packages/workers/src/workers/topic-thread-worker.ts` |
+| Cola NOTIFY_TOPIC (new, threshold, sentiment_shift) | ✅ OK | `packages/workers/src/notifications/worker.ts` |
+| Tipo TOPIC_ALERT en notificaciones Telegram | ✅ OK | `packages/shared/src/telegram-notification-types.ts` (11 tipos total) |
+| NOTIFY_ALERT condicional (fallback sin topic) | ✅ OK | `packages/workers/src/analysis/worker.ts` |
+| Sección "Temas del día" en digest | ✅ OK | `packages/workers/src/notifications/digest.ts` |
+| RSS 48h filter | ✅ OK | `packages/workers/src/collectors/ingest.ts` |
+| Router topics.ts (7 endpoints) | ✅ OK | `packages/web/src/server/routers/topics.ts` (22 routers total) |
+| Dashboard KPI "Temas activos" | ✅ OK | `packages/web/src/server/routers/dashboard.ts`, `packages/web/src/app/dashboard/page.tsx` |
+| Página /dashboard/topics (lista, tabs, filtros, stats) | ✅ OK | `packages/web/src/app/dashboard/topics/page.tsx` |
+| Página /dashboard/topics/[id] (detalle, charts, menciones, eventos) | ✅ OK | `packages/web/src/app/dashboard/topics/[id]/page.tsx` |
+| Sidebar "Temas" con badge negativos | ✅ OK | `packages/web/src/components/sidebar.tsx` |
+| Client delete cascade actualizado | ✅ OK | `packages/web/src/server/routers/clients.ts` |
+
+### Detalles técnicos
+
+**Topic Thread Engine** (`topic-thread-manager.ts`):
+- `assignMentionToThread(mentionId, type)`: Busca thread ACTIVE por clientId + normalizedName. Si existe, actualiza stats y vincula. Si no, busca CLOSED reciente (72h) para reabrir o crea nuevo.
+- `recalculateThreadStats(threadId)`: Recalcula mentionCount, socialMentionCount, sentimentBreakdown, dominantSentiment, topSources
+- `closeInactiveThreads()`: Cierra threads ACTIVE sin menciones en 72h, crea evento CLOSED
+
+**Eventos notificables** (dentro de `assignMentionToThread`):
+- TOPIC_NEW: Thread con ≥2 menciones (confirmación). Límite: 10/día por cliente
+- THRESHOLD_REACHED: Thread cruza [5, 10, 20, 50] menciones. No re-notifica umbrales ya alcanzados
+- SENTIMENT_SHIFT: Sentimiento dominante cambia (ej: NEUTRAL→NEGATIVE). Cooldown: 4h por thread
+
+**Topic Extraction Social**: Nueva función `processSocialMentionTopic()` en topic-extractor.ts. Llama a IA con contenido del post, guarda `topic` en SocialMention, luego `assignMentionToThread()`.
+
+**NOTIFY_ALERT condicional**: Si mención tiene `topicThreadId` → no encolar NOTIFY_ALERT individual (la notificación es por tema). Si `topic === null` → mantener NOTIFY_ALERT individual como fallback.
+
+**RSS 48h filter**: En `ingest.ts`, artículos con `publishedAt` > 48h son descartados con log.
+
+### E2E Tests
+- `tests/e2e/test_sprint19.py` — 33/33 pass (sidebar, KPIs, topics page, tabs, detail, settings, admin access)
+
+---
+
 ## Backlog (Sin priorizar)
 
 | Feature | Descripción | Complejidad |
@@ -1061,10 +1117,10 @@ Llevar el dashboard a tiempo real con SSE y mejorar la UX con skeletons, atajos 
 ## Orden de Prioridad Sugerido
 
 ```
-Sprint 13 ✅ → Sprint 14 ✅ → Sprint 15 ✅ → Sprint 16 ✅ → Sprint 17 ✅ → Sprint 18 ✅
-     ↓              ↓              ↓              ↓              ↓            ↓
-  Action         Pipeline       AI Media       Campaign      Executive    Real-time +
-  Pipeline       Completo       Brief         Tracking      Dashboard    UX
+Sprint 13 ✅ → Sprint 14 ✅ → Sprint 15 ✅ → Sprint 16 ✅ → Sprint 17 ✅ → Sprint 18 ✅ → Sprint 19 ✅
+     ↓              ↓              ↓              ↓              ↓            ↓              ↓
+  Action         Pipeline       AI Media       Campaign      Executive    Real-time +    Topic
+  Pipeline       Completo       Brief         Tracking      Dashboard    UX             Threads
 ```
 
 **Impacto estimado por sprint:**
@@ -1077,6 +1133,7 @@ Sprint 13 ✅ → Sprint 14 ✅ → Sprint 15 ✅ → Sprint 16 ✅ → Sprint 1
 | 16 | Muy alto — tracking de campañas es core de PR | Alto | ✅ Completado |
 | 17 | Medio — útil para escala multi-agencia | Medio | ✅ Completado |
 | 18 | Alto — real-time y UX modernizan el producto | Alto | ✅ Completado |
+| 19 | Muy alto — reduce ruido, visión estratégica por temas | Alto | ✅ Completado |
 
 ## Contacto
 

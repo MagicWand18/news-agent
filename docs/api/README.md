@@ -87,6 +87,7 @@ throw new TRPCError({
 | `executive` | Dashboard ejecutivo multi-org (Super Admin, 5 endpoints) | [executive.md](./executive.md) |
 | `reports` | Generación PDF + links compartidos (5 endpoints) | [reports.md](./reports.md) |
 | `search` | Búsqueda global para command palette (1 endpoint) | [search.md](./search.md) |
+| `topics` | Topic threads: agrupación de menciones por tema (7 endpoints) | [topics.md](./topics.md) |
 
 ## Uso con React Query
 
@@ -173,10 +174,16 @@ type CampaignStatus = "DRAFT" | "ACTIVE" | "PAUSED" | "COMPLETED" | "CANCELLED";
 type CampaignNoteType = "UPDATE" | "MILESTONE" | "ISSUE" | "RESULT";
 
 // Tipo de notificación Telegram
-type TelegramNotifType = "MENTION_ALERT" | "CRISIS_ALERT" | "EMERGING_TOPIC" | "DAILY_DIGEST" | "ALERT_RULE" | "CRISIS_STATUS" | "RESPONSE_DRAFT" | "BRIEF_READY" | "CAMPAIGN_REPORT" | "WEEKLY_REPORT";
+type TelegramNotifType = "MENTION_ALERT" | "CRISIS_ALERT" | "EMERGING_TOPIC" | "DAILY_DIGEST" | "ALERT_RULE" | "CRISIS_STATUS" | "RESPONSE_DRAFT" | "BRIEF_READY" | "CAMPAIGN_REPORT" | "WEEKLY_REPORT" | "TOPIC_ALERT";
 
 // Tipo de reporte compartido (Sprint 17)
 type ReportType = "CAMPAIGN" | "BRIEF" | "CLIENT_SUMMARY";
+
+// Estado de hilo temático (Sprint 19)
+type TopicThreadStatus = "ACTIVE" | "CLOSED" | "ARCHIVED";
+
+// Tipo de evento de hilo temático (Sprint 19)
+type TopicEventType = "CREATED" | "MENTION_ADDED" | "THRESHOLD_REACHED" | "SENTIMENT_SHIFT" | "CLOSED" | "REOPENED";
 ```
 
 ### Paginación por Cursor

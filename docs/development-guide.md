@@ -84,7 +84,7 @@ NEXTAUTH_URL=http://localhost:3000
 │   │   │   ├── grounding/      # Búsqueda con Gemini
 │   │   │   ├── notifications/  # Telegram notifications + recipients
 │   │   │   ├── workers/        # Alert rules, comments, etc.
-│   │   │   └── queues.ts       # Definición de colas (28 colas)
+│   │   │   └── queues.ts       # Definición de colas (31 colas)
 │   │   └── package.json
 │   │
 │   ├── bot/              # Bot de Telegram
@@ -462,6 +462,7 @@ python3 tests/e2e/test_sprint14_social.py      # Social mention detail
 python3 tests/e2e/test_sprint15.py              # AI Media Brief
 python3 tests/e2e/test_sprint16.py             # Campaign Tracking
 python3 tests/e2e/test_sprint17.py             # Executive Dashboard
+python3 tests/e2e/test_sprint19.py             # Topic Threads
 python3 tests/e2e/test_telegram_notifs.py      # Telegram notifications
 ```
 
@@ -610,6 +611,53 @@ function MiPagina() {
 ```
 
 **Componentes disponibles:** `SkeletonLine`, `SkeletonBlock`, `TableSkeleton`, `ChartSkeleton`, `CardGridSkeleton`, `FilterBarSkeleton`.
+
+---
+
+## Topic Threading Pattern
+
+Las menciones se agrupan automáticamente en TopicThreads por tema y cliente. El topic-thread-manager asigna cada mención (Mention o SocialMention) a un thread existente o crea uno nuevo.
+
+### Asignar mención a thread (desde workers)
+
+```typescript
+// packages/workers/src/analysis/topic-thread-manager.ts
+import { assignMentionToThread } from "./topic-thread-manager.js";
+
+// Después de que el topic-extractor asigna un topic
+await assignMentionToThread(mentionId, "mention");
+
+// Para social mentions
+await assignMentionToThread(socialMentionId, "social");
+```
+
+### Lógica de asignación
+
+1. Si la mención no tiene `topic` → return null (se mantiene NOTIFY_ALERT individual como fallback)
+2. Normalizar: `topic.toLowerCase().trim()`
+3. Buscar TopicThread ACTIVE con `clientId + normalizedName`
+4. Si existe → vincular, actualizar stats, crear evento MENTION_ADDED
+5. Si no existe → buscar CLOSED reciente (<72h) para reabrir, o crear nuevo
+
+### Notificaciones condicionales (NOTIFY_ALERT vs NOTIFY_TOPIC)
+
+```typescript
+// packages/workers/src/analysis/worker.ts (Step 6)
+// Si la mención tiene topicThreadId → la notificación se maneja por NOTIFY_TOPIC
+// Si NO tiene topic → fallback a NOTIFY_ALERT individual
+if (!mention.topicThreadId) {
+  await notifyQueue.add("alert", { mentionId });
+}
+// Crisis siempre se evalúa (independiente de topics)
+```
+
+### Eventos notificables por tema
+
+| Evento | Condición | Límite |
+|--------|-----------|--------|
+| TOPIC_NEW | Thread alcanza 2 menciones | Máx 10/cliente/día |
+| THRESHOLD_REACHED | mentionCount cruza [5, 10, 20, 50] | Una vez por umbral |
+| SENTIMENT_SHIFT | dominantSentiment cambia | Máx 1/thread/4h |
 
 ---
 

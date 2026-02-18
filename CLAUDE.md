@@ -19,11 +19,11 @@ MediaBot is a media monitoring platform for PR agencies. It monitors news source
 ```
 /
 ├── packages/
-│   ├── web/          # Next.js frontend + tRPC API (20 dashboard pages, 21 routers)
-│   ├── workers/      # Background jobs (5 collectors, 20+ workers, 28 colas)
+│   ├── web/          # Next.js frontend + tRPC API (20 dashboard pages, 22 routers)
+│   ├── workers/      # Background jobs (5 collectors, 20+ workers, 31 colas)
 │   ├── bot/          # Telegram bot (Grammy)
 │   └── shared/       # Shared code (prisma, config, types, ai-client, realtime)
-├── prisma/           # Database schema (35 models, 22 enums)
+├── prisma/           # Database schema (37 models, 24 enums)
 ├── deploy/           # Deployment scripts
 ├── docs/             # Documentation (architecture, plan, guides)
 └── tests/            # Test files
@@ -39,9 +39,9 @@ MediaBot is a media monitoring platform for PR agencies. It monitors news source
 | `packages/web/src/app/dashboard/` | Dashboard pages |
 | `packages/web/src/components/platform-icons.tsx` | Iconos SVG compartidos de plataformas sociales |
 | `packages/web/src/components/social-mention-row.tsx` | Componente de fila de mencion social (con checkbox para bulk select) |
-| `packages/shared/src/telegram-notification-types.ts` | Constantes y tipos de 10 notificaciones Telegram |
+| `packages/shared/src/telegram-notification-types.ts` | Constantes y tipos de 11 notificaciones Telegram |
 | `packages/workers/src/notifications/recipients.ts` | Resolución centralizada de destinatarios Telegram (3 niveles, filtro 30 días) |
-| `packages/workers/src/queues.ts` | Job queues and cron schedules (28 colas, auto-refresh cada 30 min) |
+| `packages/workers/src/queues.ts` | Job queues and cron schedules (31 colas, auto-refresh cada 30 min) |
 | `packages/workers/src/collectors/social.ts` | Social media collector (EnsembleData) |
 | `packages/web/src/server/routers/social.ts` | Social media monitoring API (18 endpoints, incl. generateResponse) |
 | `packages/web/src/server/routers/crisis.ts` | Crisis management API (6 endpoints) |
@@ -72,6 +72,9 @@ MediaBot is a media monitoring platform for PR agencies. It monitors news source
 | `packages/web/src/components/keyboard-shortcuts-dialog.tsx` | Shortcuts help dialog (?) |
 | `packages/web/src/components/command-palette.tsx` | Command palette Cmd+K (cmdk) |
 | `packages/web/src/server/routers/search.ts` | Global search API (clients, mentions, social) |
+| `packages/web/src/server/routers/topics.ts` | Topic threads API (7 endpoints: list, getById, getMentions, getEvents, getStats, archive, getNegativeCount) |
+| `packages/workers/src/analysis/topic-thread-manager.ts` | Topic thread engine (assign mentions, recalculate stats, close inactive) |
+| `packages/workers/src/workers/topic-thread-worker.ts` | Topic thread cron (close inactive every 6h) + social topic analysis worker |
 | `deploy/remote-deploy.sh` | Production deployment script |
 
 ## Social Media Features
@@ -116,12 +119,12 @@ MediaBot is a media monitoring platform for PR agencies. It monitors news source
 ## Telegram Notification System
 
 - **3 niveles de destinatarios**: Cliente (TelegramRecipient), Organización (OrgTelegramRecipient), SuperAdmin (User.telegramUserId)
-- **10 tipos de notificación**: MENTION_ALERT, CRISIS_ALERT, EMERGING_TOPIC, DAILY_DIGEST, ALERT_RULE, CRISIS_STATUS, RESPONSE_DRAFT, BRIEF_READY, CAMPAIGN_REPORT, WEEKLY_REPORT
+- **11 tipos de notificación**: MENTION_ALERT, CRISIS_ALERT, EMERGING_TOPIC, DAILY_DIGEST, ALERT_RULE, CRISIS_STATUS, RESPONSE_DRAFT, BRIEF_READY, CAMPAIGN_REPORT, WEEKLY_REPORT, TOPIC_ALERT
 - **Resolución centralizada**: `packages/workers/src/notifications/recipients.ts` — `getAllRecipientsForClient()` consolida 3 niveles, deduplica, filtra por preferencias
 - **Cola genérica**: `NOTIFY_TELEGRAM` para disparar notificaciones desde cualquier parte del sistema
 - **Preferencias**: Campo `preferences` JSON en OrgTelegramRecipient y `telegramNotifPrefs` JSON en User — null = todo ON
 - **Constantes compartidas**: `packages/shared/src/telegram-notification-types.ts`
-- **UI Settings**: Sección Telegram para SuperAdmin con campo Telegram ID + 10 toggles
+- **UI Settings**: Sección Telegram para SuperAdmin con campo Telegram ID + 11 toggles
 - **UI Agencia**: Sección "Destinatarios Telegram por defecto" con CRUD + toggles por recipient
 - **Bot**: Comando `/vincular_org <nombre_org>` para vincular grupo/chat a toda una organización
 - **Router endpoints**: 4 en organizations.ts (listOrgTelegramRecipients, addOrgTelegramRecipient, updateOrgRecipientPreferences, removeOrgTelegramRecipient), 3 en settings.ts (getTelegramPrefs, updateTelegramPrefs, updateTelegramId)
@@ -129,7 +132,7 @@ MediaBot is a media monitoring platform for PR agencies. It monitors news source
 
 ## Executive Dashboard + Exportable Reports (Sprint 17)
 
-- **Modelos nuevos**: SharedReport (publicId, type, data JSON, expiresAt), ReportType enum (CAMPAIGN, BRIEF, CLIENT_SUMMARY) — 35 modelos, 22 enums total
+- **Modelos nuevos**: SharedReport (publicId, type, data JSON, expiresAt), ReportType enum (CAMPAIGN, BRIEF, CLIENT_SUMMARY)
 - **Router executive.ts** (5 endpoints, superAdminProcedure): globalKPIs (con deltas %), orgCards (resumen por org), clientHealthScores (0-100 con 6 componentes ponderados), inactivityAlerts (clientes sin actividad), activityHeatmap (7x24 grid)
 - **Router reports.ts** (5 endpoints): generateCampaignPDF, generateBriefPDF, generateClientPDF (retornan base64 data URL), createSharedLink (crea URL publica con expiracion 7d), getSharedReport (publicProcedure sin auth)
 - **Pagina** `/dashboard/executive`: KPI cards con deltas, selector periodo (7d/14d/30d), org cards grid, health score ranking table, activity heatmap (CSS grid), inactivity alerts
@@ -137,7 +140,7 @@ MediaBot is a media monitoring platform for PR agencies. It monitors news source
 - **Pagina publica** `/shared/[id]`: Renderiza reporte compartido sin auth, handles expired/not_found
 - **PDF generators**: `packages/web/src/lib/pdf/` (campaign-pdf, brief-pdf, client-pdf, pdf-utils) con PDFKit
 - **ExportButton integrado en**: campaigns/[id], briefs, clients/[id]
-- **Sidebar**: Item "Ejecutivo" con icono Crown (superAdminOnly), 20 routers total
+- **Sidebar**: Item "Ejecutivo" con icono Crown (superAdminOnly)
 - **Health Score formula**: Volume 20%, Sentiment 25%, SOV 15%, CrisisFree 20%, ResponseRate 10%, Engagement 10%
 
 ## Collector Fixes & Infrastructure Hardening (Post-Sprint 17)
@@ -204,6 +207,7 @@ ssh root@159.65.97.78 "cd /opt/mediabot && docker compose -f docker-compose.prod
 | `tests/e2e/test_sprint16.py` | Sprint 16 features: campaigns page, create campaign, campaign detail, auto-link |
 | `tests/e2e/test_sprint17.py` | Sprint 17 features: executive dashboard, KPIs, health scores, export buttons, shared page (19/20 pass) |
 | `tests/e2e/test_telegram_notifs.py` | Telegram notifications: settings prefs, agency recipients, toggles (28 tests) |
+| `tests/e2e/test_sprint19.py` | Sprint 19 features: topic threads page, sidebar, KPIs, tabs, detail, admin access (33 tests) |
 
 **Usage**:
 ```bash
@@ -262,7 +266,7 @@ ssh -i ~/.ssh/newsaibot-telegram-ssh root@159.65.97.78 \
 - **Skeletons** (`skeletons.tsx`): 6 componentes (SkeletonLine, SkeletonBlock, TableSkeleton, ChartSkeleton, CardGridSkeleton, FilterBarSkeleton)
 - **13 páginas actualizadas**: Spinners reemplazados con skeletons en mentions, social-mentions, clients, analytics, crisis, responses, intelligence, campaigns, briefs, executive, alert-rules, sources, tasks
 - **Keyboard shortcuts** (`use-keyboard-shortcuts.ts`): `Cmd+K` (palette), `?` (help), `g+d/m/s/c/k/i` (navegación), ignora inputs
-- **Command palette** (`command-palette.tsx`): cmdk library, búsqueda global (páginas, clientes, menciones, social), 21 routers con search router
+- **Command palette** (`command-palette.tsx`): cmdk library, búsqueda global (páginas, clientes, menciones, social), 22 routers con search router
 - **Search router** (`search.ts`): Busca en Client.name, Mention.aiSummary, SocialMention.content (case-insensitive, filtrado por org)
 
 ### Workers modificados (4 archivos)
@@ -271,6 +275,49 @@ ssh -i ~/.ssh/newsaibot-telegram-ssh root@159.65.97.78 \
 - `social.ts`: Publica `social:new` después de crear social mention (orgId propagado via savePosts)
 - `crisis-detector.ts`: Publica `crisis:new` después de crear CrisisAlert (lookup orgId)
 
+## Topic Threads (Sprint 19)
+
+### Arquitectura: Menciones → TopicThread → Notificaciones por tema
+- **Modelos nuevos**: TopicThread (per-client topic grouping), TopicThreadEvent (timeline de eventos) — 37 modelos, 24 enums total
+- **Enums nuevos**: TopicThreadStatus (ACTIVE/CLOSED/ARCHIVED), TopicEventType (CREATED/MENTION_ADDED/THRESHOLD_REACHED/SENTIMENT_SHIFT/CLOSED/REOPENED)
+- **FK nuevos**: `Mention.topicThreadId`, `SocialMention.topicThreadId`, `SocialMention.topic`
+- **Router**: `topics.ts` (7 endpoints: list, getById, getMentions, getEvents, getStats, archive, getNegativeCount) — 22 routers total
+- **Páginas**: `/dashboard/topics` (lista con tabs status, filtros, stat cards), `/dashboard/topics/[id]` (detalle con charts, menciones, timeline eventos)
+- **Sidebar**: Item "Temas" con icono Tag + badge temas negativos (orange)
+- **Dashboard KPI**: Card "Temas activos" en dashboard principal
+
+### Topic Thread Engine (`packages/workers/src/analysis/topic-thread-manager.ts`)
+- `assignMentionToThread()`: Asigna mención/social a thread existente o crea uno nuevo (por clientId + normalizedName)
+- `recalculateThreadStats()`: Recalcula sentimentBreakdown, dominantSentiment, topSources
+- `closeInactiveThreads()`: Cron cada 6h cierra threads sin menciones en 72h
+- Eventos notificables: TOPIC_NEW (≥2 menciones), THRESHOLD_REACHED ([5,10,20,50]), SENTIMENT_SHIFT (cambio dominante)
+
+### Topic Extraction para SocialMentions
+- Nueva función `processSocialMentionTopic()` en `topic-extractor.ts`
+- Cola `ANALYZE_SOCIAL_TOPIC`: Extrae tema de posts sociales con IA
+- `social.ts` encola análisis después de guardar posts nuevos
+
+### Notificaciones por Tema
+- Nuevo tipo: `TOPIC_ALERT` (11 tipos total)
+- Cola `NOTIFY_TOPIC`: Formatos Telegram para new/threshold/sentiment_shift
+- NOTIFY_ALERT individual solo como fallback para menciones sin topic
+- Límite: 10 TOPIC_NEW por cliente por día
+- Cooldown: 1 sentiment_shift por thread cada 4h
+- Sección "Temas del día" en digest diario
+
+### RSS 48h Filter
+- `ingest.ts`: Descarta artículos con publishedAt > 48h al momento de ingestar
+
+### Colas nuevas (3)
+- `NOTIFY_TOPIC`: Notificaciones por tema
+- `CLOSE_INACTIVE_THREADS`: Cron cada 6h
+- `ANALYZE_SOCIAL_TOPIC`: Extracción de tema para social mentions
+- Total: 31 colas
+
+### E2E Tests
+- `tests/e2e/test_sprint19.py` — 33/33 pass
+
 ## Sprints pendientes (backlog en docs/PLAN.md)
 - Post-Sprint 17 fixes: Collector hardening, publishedAt migration, client delete -- COMPLETADO
 - Sprint 18: Real-time Dashboard + UX Improvements -- COMPLETADO
+- Sprint 19: Topic Threads -- COMPLETADO

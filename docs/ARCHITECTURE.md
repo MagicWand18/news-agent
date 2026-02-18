@@ -445,7 +445,8 @@ La verificación en `analysis/worker.ts` es la barrera principal; la verificaci�
 └────────────────┘       └───────┬────────┘       └────────────────┘
         │                        │
         │                        ├──1:N─▶ SocialAccount
-        │                        ├──1:N─▶ SocialMention
+        │                        ├──1:N─▶ SocialMention ──N:1─▶ TopicThread?
+        │                        ├──1:N─▶ TopicThread ──1:N─▶ TopicThreadEvent
         │                        ├──1:N─▶ CrisisAlert ──1:N─▶ CrisisNote
         │                        ├──1:N─▶ ActionItem
         │                        ├──1:N─▶ AlertRule
@@ -454,6 +455,7 @@ La verificación en `analysis/worker.ts` es la barrera principal; la verificaci�
 │      User      │       │    Mention     │◀──N:1─│    Article     │
 └────────┬───────┘       └───────┬────────┘       └────────────────┘
          │                       │
+         │                       ├──N:1─▶ TopicThread? (topicThreadId)
          │                       ├──1:N─▶ ResponseDraft
          │                       │
          │                       │ 1:N
@@ -492,6 +494,8 @@ La verificación en `analysis/worker.ts` es la barrera principal; la verificaci�
 | `CampaignNote` | Notas en timeline de campaña (Sprint 16) |
 | `OrgTelegramRecipient` | Destinatario Telegram a nivel organización |
 | `SharedReport` | Reporte compartido con URL pública y expiración (Sprint 17) |
+| `TopicThread` | Hilo temático que agrupa menciones por tema y cliente (Sprint 19) |
+| `TopicThreadEvent` | Timeline de eventos del hilo temático (Sprint 19) |
 
 ### Campo `Mention.publishedAt` (denormalizado)
 
@@ -516,7 +520,7 @@ Campo `DateTime?` que almacena la fecha de publicación del artículo directamen
 
 ```
 ┌─────────────────────────────────────────────────────────────────┐
-│                    REDIS / BULLMQ (28 colas)                      │
+│                    REDIS / BULLMQ (31 colas)                      │
 ├─────────────────────────────────────────────────────────────────┤
 │                                                                 │
 │   COLLECTOR QUEUES (Cron patterns)                              │
@@ -564,6 +568,13 @@ Campo `DateTime?` que almacena la fecha de publicación del artículo directamen
 │   notify-crisis        : Alerta de crisis detectada             │
 │   notify-emerging-topic: Notificar tema emergente via Telegram  │
 │   notify-telegram      : Notificación genérica multi-nivel      │
+│   notify-topic         : Notificación por tema (new/threshold/  │
+│                          sentiment_shift)                        │
+│                                                                 │
+│   TOPIC THREAD QUEUES (Sprint 19)                               │
+│   ───────────────────────────────                               │
+│   close-inactive-threads : 0 */6 * * * (cada 6 horas)          │
+│   analyze-social-topic   : Extracción de tema para social posts │
 │                                                                 │
 └─────────────────────────────────────────────────────────────────┘
 ```
@@ -1008,6 +1019,90 @@ El filtro de 30 días en `analysis/worker.ts` previene falsas alertas de crisis:
 - **Monitorear**: Cambiar estado a MONITORING
 - **Descartar**: Cambiar estado a DISMISSED
 
+## Topic Threads (Sprint 19)
+
+### Arquitectura: Menciones → TopicThread → Notificaciones por tema
+
+```
+┌────────────────────────────────────────────────────────────────┐
+│                    TOPIC THREAD FLOW                             │
+├────────────────────────────────────────────────────────────────┤
+│                                                                │
+│   ┌────────────────┐     ┌────────────────┐                    │
+│   │ Mention        │     │ SocialMention  │                    │
+│   │ (con topic)    │     │ (con topic)    │                    │
+│   └───────┬────────┘     └───────┬────────┘                    │
+│           │                      │                             │
+│           └──────────┬───────────┘                             │
+│                      │                                         │
+│                      ▼                                         │
+│   ┌────────────────────────────────────────┐                   │
+│   │ assignMentionToThread()               │                   │
+│   │                                        │                   │
+│   │ 1. Normalizar nombre (lowercase)       │                   │
+│   │ 2. Buscar thread ACTIVE                │                   │
+│   │    (clientId + normalizedName)         │                   │
+│   │ 3. Si existe → update stats, vincular  │                   │
+│   │ 4. Si no → buscar CLOSED reciente 72h  │                   │
+│   │    → reabrir o crear nuevo             │                   │
+│   │ 5. Verificar eventos notificables      │                   │
+│   └───────┬────────────────────────────────┘                   │
+│           │                                                    │
+│           ▼                                                    │
+│   ┌─────────────────────────────────────────┐                  │
+│   │ Eventos notificables:                   │                  │
+│   │                                         │                  │
+│   │ TOPIC_NEW:     mentionCount == 2        │                  │
+│   │   → NOTIFY_TOPIC (max 10/día/cliente)   │                  │
+│   │                                         │                  │
+│   │ THRESHOLD:     [5, 10, 20, 50]          │                  │
+│   │   → NOTIFY_TOPIC + update reached       │                  │
+│   │                                         │                  │
+│   │ SENTIMENT_SHIFT: dominante cambió       │                  │
+│   │   → NOTIFY_TOPIC (cooldown 4h)          │                  │
+│   └─────────────────────────────────────────┘                  │
+│                                                                │
+│   ┌────────────────┐                                           │
+│   │ Cron job       │                                           │
+│   │ cada 6 horas   │                                           │
+│   └───────┬────────┘                                           │
+│           │                                                    │
+│           ▼                                                    │
+│   ┌────────────────────────────────────────┐                   │
+│   │ closeInactiveThreads()                │                   │
+│   │                                        │                   │
+│   │ Cierra threads ACTIVE sin menciones    │                   │
+│   │ en las últimas 72 horas                │                   │
+│   └────────────────────────────────────────┘                   │
+│                                                                │
+└────────────────────────────────────────────────────────────────┘
+```
+
+### NOTIFY_ALERT condicional
+
+```
+┌────────────────────────────────────────────────────────────────┐
+│           NOTIFICATION ROUTING (Post Sprint 19)                 │
+├────────────────────────────────────────────────────────────────┤
+│                                                                │
+│   Mención analizada                                            │
+│        │                                                       │
+│        ▼                                                       │
+│   ¿Tiene topicThreadId?                                        │
+│        │                                                       │
+│   ┌────┴────┐                                                  │
+│   │ Sí      │ No                                               │
+│   ▼         ▼                                                  │
+│ Topic     NOTIFY_ALERT                                         │
+│ thread    individual                                           │
+│ maneja    (fallback)                                           │
+│ notif                                                          │
+│                                                                │
+│   Crisis check: SIEMPRE (independiente de topics)              │
+│                                                                │
+└────────────────────────────────────────────────────────────────┘
+```
+
 ## Real-time Dashboard (Sprint 18)
 
 ### Arquitectura: Workers → Redis Pub/Sub → SSE → Browser
@@ -1076,7 +1171,7 @@ El filtro de 30 días en `analysis/worker.ts` previene falsas alertas de crisis:
 
 ## API tRPC
 
-### Routers Disponibles (21 total)
+### Routers Disponibles (22 total)
 
 | Router | Descripcion | Endpoints |
 |--------|-------------|-----------|
@@ -1100,6 +1195,7 @@ El filtro de 30 días en `analysis/worker.ts` previene falsas alertas de crisis:
 | `executive` | Dashboard ejecutivo (Super Admin) | `globalKPIs`, `orgCards`, `clientHealthScores`, `inactivityAlerts`, `activityHeatmap` |
 | `reports` | Reportes PDF + links compartidos | `generateCampaignPDF`, `generateBriefPDF`, `generateClientPDF`, `createSharedLink`, `getSharedReport` |
 | `search` | Búsqueda global (Cmd+K) | `globalSearch` |
+| `topics` | Topic threads (agrupación por tema) | `list`, `getById`, `getMentions`, `getEvents`, `getStats`, `archive`, `getNegativeCount` |
 
 ## Patrón de Colores Dark Mode
 
