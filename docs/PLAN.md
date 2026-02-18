@@ -104,7 +104,7 @@ MediaBot es un sistema de monitoreo de medios que permite a agencias de comunica
 
 ### Resueltos
 
-- [x] **Cron jobs no repiten**: BullMQ v5.1.0 tenia bugs con `upsertJobScheduler`. Solucion: actualizar a v5.56+ y usar cron patterns.
+- [x] **Cron jobs no repiten**: BullMQ v5.1.0 tenia bugs con `upsertJobScheduler`. Solucion: actualizar a v5.56+ y usar cron patterns. Reforzado con auto-refresh cada 30 min + Redis AOF/RDB persistence (2026-02-17)
 - [x] **Falsos positivos en menciones**: Palabras comunes como "presidencia" generaban menciones irrelevantes. Solucion: Pre-filtrado con AI.
 - [x] **Onboarding no se dispara**: Conectado trigger al crear cliente.
 - [x] **Crisis falsas por artículos viejos**: Migración publishedAt + filtro 30 días en notificaciones (2026-02-16)
@@ -919,6 +919,60 @@ Dashboard ejecutivo para Super Admins con métricas agregadas multi-organizació
 
 ### E2E Tests
 - `tests/e2e/test_sprint17.py` — 19/20 pass (1 fallo esperado: ExportButton en briefs requiere datos de brief)
+
+---
+
+### Post-Sprint 17: Fixes de Infraestructura y Collectors (2026-02-17)
+
+**Objetivo**: Corregir collectors rotos y hardening de infraestructura.
+
+**Cambios implementados:**
+
+1. **GDELT Collector Fix**
+   - Problema: Query con 71 keywords excedía límite no documentado de GDELT (~10-15 terms)
+   - Solución: Batches de 8 keywords con rate limit de 6s entre requests
+   - Deduplicación de artículos por URL entre batches
+   - Archivo: `packages/workers/src/collectors/gdelt.ts`
+
+2. **NewsData Collector Fix**
+   - Problema: Parámetro `timeframe` requiere plan de pago (API key con prefijo `pub_`), causaba 422
+   - Solución: Removido `timeframe`, API retorna últimas 48h por defecto
+   - Mejor logging de errores (body de respuesta + errores lógicos)
+   - Archivo: `packages/workers/src/collectors/newsdata.ts`
+
+3. **Redis Persistence**
+   - Problema: `--save ""` deshabilitaba persistencia. Al reiniciar contenedores, Redis perdía todas las keys incluyendo BullMQ schedulers
+   - Solución: AOF (`appendonly yes`, `appendfsync everysec`) + RDB (`save 60 100`, `save 300 1`)
+   - Archivo: `docker-compose.prod.yml`
+
+4. **BullMQ Scheduler Auto-Recovery**
+   - Problema: Si schedulers desaparecían de Redis, cron jobs morían permanentemente
+   - Solución: Re-registro cada 30 minutos via `upsertJobScheduler` (idempotente)
+   - Archivo: `packages/workers/src/queues.ts`
+
+5. **publishedAt Migration**
+   - Problema: Crisis falsas al recolectar artículos viejos (createdAt = "ahora" pero artículo de hace meses)
+   - Solución: Campo `publishedAt` en Mention, usar en lugar de `createdAt` en ~60 queries
+   - SocialMention usa `postedAt` existente
+   - Raw SQL: `COALESCE(m."publishedAt", m."createdAt")`
+   - 19 archivos modificados
+
+6. **30-Day Notification Filter**
+   - Notificaciones Telegram solo para artículos/posts de los últimos 30 días
+   - Previene spam de alertas por artículos históricos recolectados
+
+7. **Client Delete Cascade**
+   - Problema: Solo borraba 3 tablas (Mention, Keyword, Task), fallaba con FK constraints
+   - Solución: Borrado ordenado de 20+ modelos respetando dependencias
+   - Archivo: `packages/web/src/server/routers/clients.ts`
+
+8. **Executive Dashboard Improvements**
+   - Heatmap: Fechas reales (ej: "Lun 10/02") en vez de solo día de semana
+   - Inactivity: "Sin actividad registrada" para clientes sin menciones
+   - Archivos: `executive.ts`, `activity-heatmap.tsx`, `executive/page.tsx`
+
+9. **RSS Feeds NL**
+   - 4 feeds verificados agregados para Nuevo León (Hora Cero, El Norte Seguridad/Negocios, Publimetro)
 
 ---
 

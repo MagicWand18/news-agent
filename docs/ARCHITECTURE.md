@@ -56,8 +56,8 @@ Cada colector normaliza articulos al tipo `NormalizedArticle`:
 | Archivo | Fuente | Intervalo | Descripcion |
 |---------|--------|-----------|-------------|
 | `rss.ts` | RSS Feeds (DB) | 10 min | 300+ medios mexicanos desde tabla RssSource |
-| `newsdata.ts` | NewsData.io | 30 min | API de noticias con filtro pais |
-| `gdelt.ts` | GDELT | 15 min | Base de datos global de eventos |
+| `newsdata.ts` | NewsData.io | 30 min | API de noticias con filtro pais. Param `timeframe` removido (plan gratuito no lo soporta) |
+| `gdelt.ts` | GDELT | 15 min | Base de datos global de eventos. Keywords en lotes de 8, rate limit 6s entre requests |
 | `google.ts` | Google CSE | 2 horas | Busqueda personalizada |
 | `social.ts` | EnsembleData | 30 min | Instagram, TikTok, YouTube |
 
@@ -380,9 +380,9 @@ Evaluación periódica de reglas de alerta configurables por cliente:
 │   │ NEGATIVE_SPIKE: >= N negativas en 1h  │                   │
 │   │ VOLUME_SURGE:  >= N menciones en 1h   │                   │
 │   │ NO_MENTIONS:   0 menciones en 24h     │                   │
-│   │ SOV_DROP:      (stub)                 │                   │
-│   │ COMPETITOR_SPIKE: (stub)              │                   │
-│   │ SENTIMENT_SHIFT: (stub)              │                   │
+│   │ SOV_DROP:      SOV actual < anterior  │                   │
+│   │ COMPETITOR_SPIKE: competidor sube N%  │                   │
+│   │ SENTIMENT_SHIFT: ratio negativo sube  │                   │
 │   └───────┬────────────────────────────────┘                   │
 │           │                                                    │
 │           ▼                                                    │
@@ -567,6 +567,26 @@ Campo `DateTime?` que almacena la fecha de publicación del artículo directamen
 │                                                                 │
 └─────────────────────────────────────────────────────────────────┘
 ```
+
+### Auto-recuperación de Schedulers
+
+Los schedulers de cron se re-registran cada 30 minutos via `upsertJobScheduler` (idempotente).
+Esto previene la pérdida de cron jobs cuando Redis pierde keys por restart o eviction.
+
+Configurado en `packages/workers/src/queues.ts`:
+- `SCHEDULER_REFRESH_INTERVAL_MS = 30 * 60 * 1000` (30 minutos)
+- Al iniciar: registra todos los schedulers
+- Cada 30 min: re-registra (log compacto)
+- `refreshInterval.unref()` para no bloquear shutdown
+
+### Redis Persistence
+
+Redis está configurado con persistencia dual en `docker-compose.prod.yml`:
+- **RDB**: Snapshots cada 60s si hay 100+ cambios, o cada 300s si hay 1+ cambio
+- **AOF**: Append-only file con `appendfsync everysec`
+- **maxmemory-policy**: `noeviction` (nunca descarta keys, retorna error si lleno)
+
+Esto previene la pérdida de BullMQ scheduler keys en reinicios de contenedores.
 
 ## Flujo de Onboarding de Cliente
 

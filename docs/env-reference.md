@@ -39,7 +39,7 @@ Referencia completa de todas las variables de entorno de MediaBot.
 | `GOOGLE_API_KEY` | API key de Google AI (Gemini) | `AIzaSy...` | Si | - |
 | `GEMINI_MODEL` | Modelo de Gemini a usar | `gemini-2.0-flash` | No | `gemini-2.0-flash` |
 
-**Nota:** Gemini se usa para analisis de menciones (`analyzeMention`), pre-filtro de articulos (`preFilterArticle`), sugerencia de hashtags (`suggestHashtags`), generacion de insights semanales, y deteccion de temas emergentes. No esta documentado en `.env.example` pero es requerido para que funcione el analisis con IA.
+**Nota:** Gemini se usa para analisis de menciones (`analyzeMention`), pre-filtro de articulos (`preFilterArticle`), sugerencia de hashtags (`suggestHashtags`), generacion de insights semanales, y deteccion de temas emergentes.
 
 ## News APIs
 
@@ -50,6 +50,10 @@ Referencia completa de todas las variables de entorno de MediaBot.
 | `NEWSDATA_API_KEY` | API key de NewsData.io | `pub_xxxxx` | No | `""` |
 
 **Nota:** Si no estan configurados, los collectors de Google CSE y NewsData simplemente no se ejecutan.
+
+**GDELT keyword batching:** El collector GDELT agrupa keywords en batches de 8 (constante hardcodeada `GDELT_BATCH_SIZE`) con rate limit de 6 segundos entre requests. La deduplicacion se hace por URL para evitar menciones duplicadas.
+
+**NewsData timeframe:** El parametro `timeframe` fue removido del collector NewsData porque requiere plan de pago. En plan gratuito retorna automaticamente las ultimas ~48 horas de noticias.
 
 ## Social Media
 
@@ -86,6 +90,18 @@ Sistema de alerta cuando los workers dejan de generar menciones.
 |----------|-------------|---------|-----------|---------|
 | `NODE_ENV` | Entorno de ejecucion | `development`, `production`, `test` | No | - |
 | `LOG_LEVEL` | Nivel de logging | `info`, `debug`, `warn`, `error` | No | `info` |
+
+## Redis Persistence
+
+En produccion (`docker-compose.prod.yml`), Redis esta configurado con persistencia dual para prevenir perdida de scheduler keys y datos de colas:
+
+- **AOF (Append Only File)**: `appendonly yes` — registra cada operacion de escritura, maxima durabilidad
+- **RDB (Snapshot)**: `save 60 1000` — snapshot cada 60 segundos si hay al menos 1000 cambios
+- **Volumen**: Los datos se persisten en un volumen Docker (`redis_data`) que sobrevive reinicios de contenedor
+
+**Nota:** Sin persistencia, un reinicio de Redis causa perdida de los repeatable jobs de BullMQ (cron schedulers), dejando los collectors y workers sin ejecutar hasta que se re-registren. Como medida adicional, los schedulers se re-registran automaticamente cada 30 minutos (idempotente via `upsert`).
+
+**Total de colas BullMQ:** 28 colas registradas en `packages/workers/src/queues.ts`.
 
 ## Collectors (Cron Schedules)
 

@@ -20,7 +20,7 @@ MediaBot is a media monitoring platform for PR agencies. It monitors news source
 /
 ├── packages/
 │   ├── web/          # Next.js frontend + tRPC API (20 dashboard pages, 20 routers)
-│   ├── workers/      # Background jobs (5 collectors, 20+ workers, 25 colas)
+│   ├── workers/      # Background jobs (5 collectors, 20+ workers, 28 colas)
 │   ├── bot/          # Telegram bot (Grammy)
 │   └── shared/       # Shared code (prisma, config, types, ai-client)
 ├── prisma/           # Database schema (35 models, 22 enums)
@@ -41,7 +41,7 @@ MediaBot is a media monitoring platform for PR agencies. It monitors news source
 | `packages/web/src/components/social-mention-row.tsx` | Componente de fila de mencion social (con checkbox para bulk select) |
 | `packages/shared/src/telegram-notification-types.ts` | Constantes y tipos de 10 notificaciones Telegram |
 | `packages/workers/src/notifications/recipients.ts` | Resolución centralizada de destinatarios Telegram (3 niveles, filtro 30 días) |
-| `packages/workers/src/queues.ts` | Job queues and cron schedules (25 colas) |
+| `packages/workers/src/queues.ts` | Job queues and cron schedules (28 colas, auto-refresh cada 30 min) |
 | `packages/workers/src/collectors/social.ts` | Social media collector (EnsembleData) |
 | `packages/web/src/server/routers/social.ts` | Social media monitoring API (18 endpoints, incl. generateResponse) |
 | `packages/web/src/server/routers/crisis.ts` | Crisis management API (6 endpoints) |
@@ -126,6 +126,18 @@ MediaBot is a media monitoring platform for PR agencies. It monitors news source
 - **Sidebar**: Item "Ejecutivo" con icono Crown (superAdminOnly), 20 routers total
 - **Health Score formula**: Volume 20%, Sentiment 25%, SOV 15%, CrisisFree 20%, ResponseRate 10%, Engagement 10%
 
+## Collector Fixes & Infrastructure Hardening (Post-Sprint 17)
+
+- **GDELT batching**: Keywords se dividen en batches de 8 (límite no documentado de GDELT ~10-15 terms). Rate limit 6s entre batches. Deduplicación por URL.
+- **NewsData free plan fix**: Eliminado parámetro `timeframe` (requiere plan de pago, causaba 422). Sin timeframe retorna últimas 48h por defecto.
+- **Redis persistence**: Habilitada persistencia AOF (`appendonly yes`) + RDB snapshots (`save 60 100`, `save 300 1`) en `docker-compose.prod.yml`. Previene pérdida de scheduler keys en restart.
+- **BullMQ scheduler auto-refresh**: Schedulers se re-registran cada 30 minutos via `upsertJobScheduler` (idempotente). Si Redis pierde keys, se recrean sin reiniciar workers.
+- **publishedAt migration**: Campo `publishedAt` en Mention para lógica temporal (evita crisis falsas por artículos viejos). `SocialMention` usa `postedAt`. Queries raw SQL usan `COALESCE(m."publishedAt", m."createdAt")`.
+- **30-day notification filter**: Notificaciones Telegram solo se envían para artículos/posts de los últimos 30 días.
+- **Client delete cascade**: Endpoint `clients.delete` ahora maneja 20+ modelos con FK dependencies en orden correcto.
+- **Executive heatmap**: Muestra fechas reales (ej: "Lun 10/02") en lugar de solo día de la semana.
+- **RSS feeds NL**: 4 feeds verificados agregados para cobertura de Nuevo León.
+
 ## publishedAt Migration (Post-Sprint 17)
 
 - **Campo nuevo**: `publishedAt DateTime?` en modelo Mention (denormalizado desde Article.publishedAt)
@@ -156,6 +168,10 @@ FORCE_DEPLOY=1 bash deploy/remote-deploy.sh  # Force rebuild
 # Check production logs
 ssh -i ~/.ssh/newsaibot-telegram-ssh root@159.65.97.78 \
   "cd /opt/mediabot && docker compose -f docker-compose.prod.yml logs -f"
+
+# Verify collectors are running
+ssh -i ~/.ssh/newsaibot-telegram-ssh root@159.65.97.78 \
+  "docker logs mediabot-workers --tail=30 2>&1 | grep -E 'GDELT|RSS|NewsData|Google|Scheduler'"
 
 # Backfill publishedAt (after schema migration)
 ssh root@159.65.97.78 "cd /opt/mediabot && docker compose -f docker-compose.prod.yml exec -T postgres psql -U mediabot -c 'UPDATE \"Mention\" m SET \"publishedAt\" = a.\"publishedAt\" FROM \"Article\" a WHERE m.\"articleId\" = a.id AND m.\"publishedAt\" IS NULL'"
@@ -211,3 +227,7 @@ ssh -i ~/.ssh/newsaibot-telegram-ssh root@159.65.97.78 \
 ssh -i ~/.ssh/newsaibot-telegram-ssh root@159.65.97.78 \
   "cd /opt/mediabot && docker compose -f docker-compose.prod.yml exec -T postgres psql -U mediabot -c 'SELECT COUNT(*) FROM \"Mention\"'"
 ```
+
+## Sprints pendientes (backlog en docs/PLAN.md)
+- Sprint 18: Real-time + Webhooks + Integrations <- SIGUIENTE
+- Post-Sprint 17 fixes: Collector hardening, publishedAt migration, client delete -- COMPLETADO
