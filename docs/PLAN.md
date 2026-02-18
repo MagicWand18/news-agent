@@ -976,38 +976,68 @@ Dashboard ejecutivo para Super Admins con métricas agregadas multi-organizació
 
 ---
 
-## Sprint 18: Real-time + Integraciones Externas
+## Sprint 18: Real-time Dashboard + UX Improvements (COMPLETADO - 2026-02-17)
 
 ### Objetivo
-Llevar el sistema a tiempo real y abrir integraciones con herramientas externas que las agencias ya usan.
+Llevar el dashboard a tiempo real con SSE y mejorar la UX con skeletons, atajos de teclado y command palette.
 
 ### Parte 1: Real-time Dashboard
 
-| Feature | Prioridad | Descripción |
-|---------|-----------|-------------|
-| Server-Sent Events (SSE) | Alta | Stream de menciones nuevas en tiempo real al dashboard |
-| Live mention feed | Alta | Feed tipo Twitter con menciones apareciendo en vivo |
-| Contador en vivo | Media | KPIs que se actualizan sin reload (menciones hoy, sentiment) |
-| Sonido de notificación | Baja | Audio alert configurable para menciones CRITICAL |
+| Feature | Estado | Descripción |
+|---------|--------|-------------|
+| Server-Sent Events (SSE) | ✅ | Stream via Redis Pub/Sub → SSE `/api/events` con auth y filtro por orgId |
+| Live mention feed | ✅ | `LiveFeed` component: últimas 20 menciones, animación slide-down, badges sentiment/urgency |
+| Live KPI counters | ✅ | `use-live-kpi` hook: deltas incrementales sumados a dashboard stats |
+| Sonido de notificación | ✅ | `use-notification-sound` hook: audio alert CRITICAL, toggle en sidebar, localStorage |
 
-### Parte 2: Integraciones
+**Arquitectura Real-time**: Workers → Redis Pub/Sub → SSE → Browser
+- **Publisher**: `packages/shared/src/realtime-publisher.ts` — `publishRealtimeEvent(channel, data)` fire-and-forget
+- **4 canales**: `mediabot:mention:new`, `mediabot:mention:analyzed`, `mediabot:social:new`, `mediabot:crisis:new`
+- **SSE endpoint**: `/api/events` con auth via `getServerSession`, filtra por orgId, keepalive 30s
+- **Client hook**: `use-realtime.ts` con EventSource, reconnect exponential backoff (1s→30s max)
+- **Provider**: `realtime-provider.tsx` — React context con buffer de 50 eventos, pub/sub subscribe()
+- **IMPORTANTE**: `realtime-types.ts` tiene copia local en `packages/web/src/lib/` (evitar barrel import de shared → BullMQ)
+- **IMPORTANTE**: `realtime-publisher.ts` NO se exporta desde `packages/shared/src/index.ts` (evitar BullMQ en client)
 
-| Feature | Prioridad | Descripción |
-|---------|-----------|-------------|
-| Webhook outbound | Alta | Enviar eventos (nueva mención, crisis, insight) a URLs configurables |
-| Slack integration | Media | Bot de Slack como alternativa a Telegram |
-| Google Sheets export | Media | Sync automático de menciones a Google Sheets |
-| Zapier/Make trigger | Baja | Webhook compatible con Zapier para integraciones sin código |
-| API REST pública | Baja | Endpoints documentados con API key para integraciones custom |
+**Workers modificados** (4 archivos):
+- `ingest.ts`: Publica `mention:new` después de crear mención (incluye orgId)
+- `worker.ts`: Publica `mention:analyzed` después del análisis AI (con sentiment/urgency)
+- `social.ts`: Publica `social:new` después de crear social mention (orgId propagado via savePosts)
+- `crisis-detector.ts`: Publica `crisis:new` después de crear CrisisAlert (lookup orgId)
 
-### Parte 3: Mejoras UX
+### Parte 2: Mejoras UX
 
-| Feature | Prioridad | Descripción |
-|---------|-----------|-------------|
-| View Transitions API | Media | Animaciones fluidas entre páginas del dashboard |
-| Loading skeletons | Media | Skeletons en todas las tablas y listas principales |
-| Keyboard shortcuts | Baja | Atajos de teclado para navegación y acciones rápidas (j/k navegar, r responder) |
-| Command palette (⌘K) | Baja | Búsqueda global rápida de clientes, menciones, tareas |
+| Feature | Estado | Descripción |
+|---------|--------|-------------|
+| Loading skeletons | ✅ | 6 componentes reutilizables, 13 páginas actualizadas |
+| Keyboard shortcuts | ✅ | `Cmd+K` (palette), `?` (help), `g+d/m/s/c/k/i` (navegación), ignora inputs |
+| Command palette (Cmd+K) | ✅ | cmdk library, búsqueda global (páginas, clientes, menciones, social) |
+
+**Detalles:**
+- **Skeletons**: `SkeletonLine`, `SkeletonBlock`, `TableSkeleton`, `ChartSkeleton`, `CardGridSkeleton`, `FilterBarSkeleton`
+- **Páginas con skeleton**: mentions, social-mentions, clients, analytics, crisis, responses, intelligence, campaigns, briefs, executive, alert-rules, sources, tasks
+- **Search router**: `search.ts` registrado en `_app.ts` (21 routers total) — busca en Client.name, Mention.aiSummary, SocialMention.content
+- **Dependencias nuevas**: `cmdk` (web), `ioredis` ya existía
+
+### Archivos nuevos (15)
+
+| Archivo | Propósito |
+|---------|-----------|
+| `packages/shared/src/realtime-types.ts` | Tipos y canales de eventos realtime |
+| `packages/shared/src/realtime-publisher.ts` | Publisher Redis Pub/Sub (workers-only) |
+| `packages/web/src/lib/realtime-types.ts` | Copia local para client components |
+| `packages/web/src/app/api/events/route.ts` | SSE endpoint |
+| `packages/web/src/hooks/use-realtime.ts` | Hook SSE con reconnection |
+| `packages/web/src/components/realtime-provider.tsx` | React context provider |
+| `packages/web/src/components/live-feed.tsx` | Feed de menciones en vivo |
+| `packages/web/src/hooks/use-live-kpi.ts` | Deltas incrementales de KPIs |
+| `packages/web/src/hooks/use-notification-sound.ts` | Sonido para alertas CRITICAL |
+| `packages/web/src/components/skeletons.tsx` | Componentes skeleton reutilizables |
+| `packages/web/src/hooks/use-keyboard-shortcuts.ts` | Hook de atajos de teclado |
+| `packages/web/src/components/keyboard-shortcuts-dialog.tsx` | Diálogo de ayuda (?) |
+| `packages/web/src/components/command-palette.tsx` | Command palette (Cmd+K) |
+| `packages/web/src/server/routers/search.ts` | Router de búsqueda global |
+| `packages/web/public/sounds/alert.mp3` | Audio de alerta CRITICAL |
 
 ---
 
@@ -1031,10 +1061,10 @@ Llevar el sistema a tiempo real y abrir integraciones con herramientas externas 
 ## Orden de Prioridad Sugerido
 
 ```
-Sprint 13 ✅ → Sprint 14 ✅ → Sprint 15 ✅ → Sprint 16 ✅ → Sprint 17 ✅ → Sprint 18
+Sprint 13 ✅ → Sprint 14 ✅ → Sprint 15 ✅ → Sprint 16 ✅ → Sprint 17 ✅ → Sprint 18 ✅
      ↓              ↓              ↓              ↓              ↓            ↓
   Action         Pipeline       AI Media       Campaign      Executive    Real-time +
-  Pipeline       Completo       Brief         Tracking      Dashboard    Webhooks
+  Pipeline       Completo       Brief         Tracking      Dashboard    UX
 ```
 
 **Impacto estimado por sprint:**
@@ -1046,7 +1076,7 @@ Sprint 13 ✅ → Sprint 14 ✅ → Sprint 15 ✅ → Sprint 16 ✅ → Sprint 1
 | 15 | Alto — briefings IA ejecutivos para PR | Medio | ✅ Completado |
 | 16 | Muy alto — tracking de campañas es core de PR | Alto | ✅ Completado |
 | 17 | Medio — útil para escala multi-agencia | Medio | ✅ Completado |
-| 18 | Alto — real-time y webhooks modernizan el producto | Alto | Pendiente |
+| 18 | Alto — real-time y UX modernizan el producto | Alto | ✅ Completado |
 
 ## Contacto
 

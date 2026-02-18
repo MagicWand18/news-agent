@@ -1,11 +1,12 @@
 # MediaBot
 
-Sistema de monitoreo de medios con inteligencia artificial para agencias de PR. 35 modelos Prisma, 22 enums, 20 routers tRPC, 20 páginas de dashboard, 25+ workers.
+Sistema de monitoreo de medios con inteligencia artificial para agencias de PR. 35 modelos Prisma, 22 enums, 21 routers tRPC, 20 páginas de dashboard, 28 colas BullMQ, dashboard en tiempo real.
 
 ## Stack Tecnologico
 
-- **Frontend**: Next.js 15, React, TailwindCSS, tRPC (20 páginas de dashboard, 20 routers)
-- **Backend Workers**: BullMQ, Node.js (25+ workers, 29 colas)
+- **Frontend**: Next.js 15, React, TailwindCSS, tRPC (20 páginas de dashboard, 21 routers)
+- **Backend Workers**: BullMQ, Node.js (25+ workers, 28 colas)
+- **Real-time**: Redis Pub/Sub → SSE (4 canales en vivo)
 - **Bot**: Grammy (Telegram)
 - **Database**: PostgreSQL + Prisma ORM (35 modelos, 22 enums)
 - **Cache/Queue**: Redis
@@ -507,11 +508,28 @@ Alertas de menciones, Alertas de crisis, Temas emergentes, Digest diario, Reglas
 - Bot command `/vincular_org <nombre_org>` para vincular grupo a organizacion
 - Deduplicacion por chatId (cliente > org > superadmin)
 
+## Real-time Dashboard (Sprint 18)
+
+Dashboard con actualizaciones en tiempo real via Server-Sent Events.
+
+### Arquitectura
+- **Workers** publican eventos a Redis Pub/Sub (4 canales: mention:new, mention:analyzed, social:new, crisis:new)
+- **SSE endpoint** (`/api/events`) suscribe a Redis, filtra por organización, envía al browser
+- **Browser** consume via EventSource con reconnection automática
+
+### Funcionalidades
+- **Live Feed**: Últimas 20 menciones analizadas aparecen en vivo con animación
+- **Live KPIs**: Contadores incrementales que se actualizan sin reload
+- **Sonido de alerta**: Audio para menciones CRITICAL (toggle en sidebar)
+- **Skeletons**: 13 páginas con loading skeletons en vez de spinners
+- **Keyboard shortcuts**: `Cmd+K` (búsqueda global), `?` (ayuda), `g+d/m/s/c/k/i` (navegación)
+- **Command palette**: Búsqueda global de páginas, clientes, menciones y menciones sociales
+
 ## Documentacion Adicional
 
 - [ARCHITECTURE.md](docs/ARCHITECTURE.md) - Arquitectura detallada
 - [PLAN.md](docs/PLAN.md) - Roadmap y decisiones tecnicas
-- [API Reference](docs/api/README.md) - Documentacion de 20 routers tRPC
+- [API Reference](docs/api/README.md) - Documentacion de 21 routers tRPC
 - [Action Pipeline](docs/action-pipeline.md) - Pipeline de datos accionables
 - [Environment Reference](docs/env-reference.md) - Variables de entorno
 - [Troubleshooting](docs/troubleshooting.md) - Guia de resolucion de problemas

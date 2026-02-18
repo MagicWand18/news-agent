@@ -84,7 +84,7 @@ NEXTAUTH_URL=http://localhost:3000
 │   │   │   ├── grounding/      # Búsqueda con Gemini
 │   │   │   ├── notifications/  # Telegram notifications + recipients
 │   │   │   ├── workers/        # Alert rules, comments, etc.
-│   │   │   └── queues.ts       # Definición de colas (24 colas)
+│   │   │   └── queues.ts       # Definición de colas (28 colas)
 │   │   └── package.json
 │   │
 │   ├── bot/              # Bot de Telegram
@@ -99,7 +99,9 @@ NEXTAUTH_URL=http://localhost:3000
 │       │   ├── config.ts
 │       │   ├── queue-client.ts
 │       │   ├── ai-client.ts
-│       │   └── telegram-notification-types.ts
+│       │   ├── telegram-notification-types.ts
+│       │   ├── realtime-types.ts          # Tipos de eventos realtime
+│       │   └── realtime-publisher.ts      # Publisher Redis Pub/Sub (NO en barrel)
 │       └── package.json
 │
 ├── prisma/
@@ -457,7 +459,9 @@ python3 tests/e2e/test_mediabot_full.py
 # Tests por sprint
 python3 tests/e2e/test_sprint14.py            # Action Pipeline
 python3 tests/e2e/test_sprint14_social.py      # Social mention detail
+python3 tests/e2e/test_sprint15.py              # AI Media Brief
 python3 tests/e2e/test_sprint16.py             # Campaign Tracking
+python3 tests/e2e/test_sprint17.py             # Executive Dashboard
 python3 tests/e2e/test_telegram_notifs.py      # Telegram notifications
 ```
 
@@ -524,6 +528,88 @@ await prisma.mention.create({
 ```
 
 Si `publishedAt` es `null`, las queries con `COALESCE` caerán automáticamente a `createdAt` como fallback.
+
+---
+
+## Real-time Events Pattern
+
+### Publicar eventos desde workers
+
+```typescript
+// packages/workers/src/collectors/ingest.ts (ejemplo)
+import { publishRealtimeEvent } from "../../shared/src/realtime-publisher.js";
+
+// Después de crear una mención
+await publishRealtimeEvent("mention:new", {
+  id: mention.id,
+  clientId: mention.clientId,
+  orgId: client.orgId,  // IMPORTANTE: necesario para filtrar por org
+  title: article.title,
+  source: article.sourceName,
+  createdAt: mention.createdAt.toISOString(),
+});
+```
+
+**IMPORTANTE:** Siempre incluir `orgId` en el payload — el SSE endpoint filtra por organización.
+
+### Suscribirse a eventos en el frontend
+
+```typescript
+// En un componente "use client"
+import { useRealtime } from "@/hooks/use-realtime";
+import type { RealtimeChannel } from "@/lib/realtime-types";
+
+function MiComponente() {
+  const { subscribe } = useRealtime();
+
+  useEffect(() => {
+    const unsubscribe = subscribe("mention:analyzed" as RealtimeChannel, (event) => {
+      // event.data contiene el payload publicado
+      console.log("Nueva mención analizada:", event.data);
+    });
+    return unsubscribe;
+  }, [subscribe]);
+}
+```
+
+### Restricciones de importación realtime
+
+| Archivo | Puede importar desde `@mediabot/shared`? | Razón |
+|---------|------------------------------------------|-------|
+| Workers (Node.js) | Sí | Entorno server-side |
+| tRPC routers (server) | Sí | Ejecutan en Node.js |
+| Client components (`"use client"`) | **NO** | Barrel export incluye BullMQ → Node.js modules |
+
+**Solución para client components:** Usar copias locales en `packages/web/src/lib/`:
+- `realtime-types.ts` (copia de `shared/src/realtime-types.ts`)
+- `telegram-notification-types.ts` (copia de `shared/src/telegram-notification-types.ts`)
+
+---
+
+## Skeleton Loading Pattern
+
+Usar componentes skeleton de `@/components/skeletons` en lugar de spinners:
+
+```typescript
+import { TableSkeleton, CardGridSkeleton, FilterBarSkeleton } from "@/components/skeletons";
+
+function MiPagina() {
+  const { data, isLoading } = trpc.miRouter.list.useQuery();
+
+  if (isLoading) {
+    return (
+      <div className="space-y-6">
+        <FilterBarSkeleton />
+        <TableSkeleton rows={10} cols={5} />
+      </div>
+    );
+  }
+
+  return <MiTabla data={data} />;
+}
+```
+
+**Componentes disponibles:** `SkeletonLine`, `SkeletonBlock`, `TableSkeleton`, `ChartSkeleton`, `CardGridSkeleton`, `FilterBarSkeleton`.
 
 ---
 

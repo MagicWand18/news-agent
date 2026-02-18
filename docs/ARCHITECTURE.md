@@ -1008,9 +1008,75 @@ El filtro de 30 días en `analysis/worker.ts` previene falsas alertas de crisis:
 - **Monitorear**: Cambiar estado a MONITORING
 - **Descartar**: Cambiar estado a DISMISSED
 
+## Real-time Dashboard (Sprint 18)
+
+### Arquitectura: Workers → Redis Pub/Sub → SSE → Browser
+
+```
+┌────────────────────────────────────────────────────────────────┐
+│                    REAL-TIME EVENT FLOW                         │
+├────────────────────────────────────────────────────────────────┤
+│                                                                │
+│   ┌────────────────┐                                           │
+│   │ Worker         │                                           │
+│   │ (ingest/       │                                           │
+│   │ analysis/      │                                           │
+│   │ social/crisis) │                                           │
+│   └───────┬────────┘                                           │
+│           │                                                    │
+│           ▼                                                    │
+│   ┌────────────────────────────────────────┐                   │
+│   │ publishRealtimeEvent(channel, data)    │                   │
+│   │ (packages/shared/src/                  │                   │
+│   │  realtime-publisher.ts)                │                   │
+│   └───────┬────────────────────────────────┘                   │
+│           │  Redis PUBLISH                                     │
+│           ▼                                                    │
+│   ┌────────────────────────────────────────┐                   │
+│   │ Redis Pub/Sub                          │                   │
+│   │                                        │                   │
+│   │ Canales:                               │                   │
+│   │ - mediabot:mention:new                 │                   │
+│   │ - mediabot:mention:analyzed            │                   │
+│   │ - mediabot:social:new                  │                   │
+│   │ - mediabot:crisis:new                  │                   │
+│   └───────┬────────────────────────────────┘                   │
+│           │  Redis SUBSCRIBE                                   │
+│           ▼                                                    │
+│   ┌────────────────────────────────────────┐                   │
+│   │ SSE Endpoint (/api/events)             │                   │
+│   │                                        │                   │
+│   │ - Auth via getServerSession            │                   │
+│   │ - Filtra por orgId                     │                   │
+│   │ - SuperAdmin ve todo                   │                   │
+│   │ - Keepalive cada 30s                   │                   │
+│   └───────┬────────────────────────────────┘                   │
+│           │  Server-Sent Events                                │
+│           ▼                                                    │
+│   ┌────────────────────────────────────────┐                   │
+│   │ Browser (EventSource)                  │                   │
+│   │                                        │                   │
+│   │ - use-realtime.ts hook                 │                   │
+│   │ - Reconnect backoff (1s→30s)           │                   │
+│   │ - RealtimeProvider (50 event buffer)   │                   │
+│   │                                        │                   │
+│   │ Consumers:                             │                   │
+│   │ - LiveFeed (últimas 20 menciones)      │                   │
+│   │ - Live KPI (deltas incrementales)      │                   │
+│   │ - Alert sound (CRITICAL mentions)      │                   │
+│   └────────────────────────────────────────┘                   │
+│                                                                │
+└────────────────────────────────────────────────────────────────┘
+```
+
+### Restricciones de importación
+
+- `realtime-publisher.ts` **NO se exporta** desde `packages/shared/src/index.ts` — importa ioredis que trae Node.js modules incompatibles con Next.js client
+- `realtime-types.ts` tiene **copia local** en `packages/web/src/lib/` para que client components (`"use client"`) puedan usarlo sin importar desde `@mediabot/shared`
+
 ## API tRPC
 
-### Routers Disponibles
+### Routers Disponibles (21 total)
 
 | Router | Descripcion | Endpoints |
 |--------|-------------|-----------|
@@ -1033,6 +1099,7 @@ El filtro de 30 días en `analysis/worker.ts` previene falsas alertas de crisis:
 | `campaigns` | Tracking de campañas | `list`, `getById`, `create`, `update`, `delete`, `addNote`, `addMentions`, `removeMention`, `addSocialMentions`, `removeSocialMention`, `autoLinkMentions`, `getStats`, `getMentions` |
 | `executive` | Dashboard ejecutivo (Super Admin) | `globalKPIs`, `orgCards`, `clientHealthScores`, `inactivityAlerts`, `activityHeatmap` |
 | `reports` | Reportes PDF + links compartidos | `generateCampaignPDF`, `generateBriefPDF`, `generateClientPDF`, `createSharedLink`, `getSharedReport` |
+| `search` | Búsqueda global (Cmd+K) | `globalSearch` |
 
 ## Patrón de Colores Dark Mode
 

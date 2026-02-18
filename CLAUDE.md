@@ -19,10 +19,10 @@ MediaBot is a media monitoring platform for PR agencies. It monitors news source
 ```
 /
 ├── packages/
-│   ├── web/          # Next.js frontend + tRPC API (20 dashboard pages, 20 routers)
+│   ├── web/          # Next.js frontend + tRPC API (20 dashboard pages, 21 routers)
 │   ├── workers/      # Background jobs (5 collectors, 20+ workers, 28 colas)
 │   ├── bot/          # Telegram bot (Grammy)
-│   └── shared/       # Shared code (prisma, config, types, ai-client)
+│   └── shared/       # Shared code (prisma, config, types, ai-client, realtime)
 ├── prisma/           # Database schema (35 models, 22 enums)
 ├── deploy/           # Deployment scripts
 ├── docs/             # Documentation (architecture, plan, guides)
@@ -58,6 +58,20 @@ MediaBot is a media monitoring platform for PR agencies. It monitors news source
 | `packages/workers/src/analysis/crisis-detector.ts` | Auto crisis detection on negative spikes (uses publishedAt/postedAt) |
 | `packages/workers/src/analysis/ai.ts` | AI functions (analyze, brief, insights, response, etc.) |
 | `packages/workers/src/notifications/digest.ts` | Daily digest worker with AI Media Brief (uses publishedAt/postedAt) |
+| `packages/shared/src/realtime-types.ts` | Realtime event types and channels (Redis Pub/Sub) |
+| `packages/shared/src/realtime-publisher.ts` | Realtime event publisher (workers-only, not in barrel export) |
+| `packages/web/src/lib/realtime-types.ts` | Local copy of realtime types (safe for client-side) |
+| `packages/web/src/app/api/events/route.ts` | SSE endpoint (Redis Sub → EventSource) |
+| `packages/web/src/hooks/use-realtime.ts` | SSE client hook with reconnection |
+| `packages/web/src/components/realtime-provider.tsx` | Realtime React context provider |
+| `packages/web/src/components/live-feed.tsx` | Live mention feed (subscribes to mention:analyzed) |
+| `packages/web/src/hooks/use-live-kpi.ts` | Live KPI delta counters |
+| `packages/web/src/hooks/use-notification-sound.ts` | CRITICAL mention alert sound |
+| `packages/web/src/components/skeletons.tsx` | Reusable skeleton loading components |
+| `packages/web/src/hooks/use-keyboard-shortcuts.ts` | Keyboard shortcuts (single key + sequences) |
+| `packages/web/src/components/keyboard-shortcuts-dialog.tsx` | Shortcuts help dialog (?) |
+| `packages/web/src/components/command-palette.tsx` | Command palette Cmd+K (cmdk) |
+| `packages/web/src/server/routers/search.ts` | Global search API (clients, mentions, social) |
 | `deploy/remote-deploy.sh` | Production deployment script |
 
 ## Social Media Features
@@ -228,6 +242,35 @@ ssh -i ~/.ssh/newsaibot-telegram-ssh root@159.65.97.78 \
   "cd /opt/mediabot && docker compose -f docker-compose.prod.yml exec -T postgres psql -U mediabot -c 'SELECT COUNT(*) FROM \"Mention\"'"
 ```
 
+## Real-time Dashboard + UX Improvements (Sprint 18)
+
+### Arquitectura Real-time: Workers → Redis Pub/Sub → SSE → Browser
+- **Publisher** (`packages/shared/src/realtime-publisher.ts`): `publishRealtimeEvent(channel, data)` — fire-and-forget via Redis Pub/Sub
+- **4 canales**: `mediabot:mention:new`, `mediabot:mention:analyzed`, `mediabot:social:new`, `mediabot:crisis:new`
+- **SSE endpoint** (`/api/events`): Suscribe a Redis, filtra por orgId (SuperAdmin ve todo), envía SSE con keepalive 30s
+- **Client hook** (`use-realtime.ts`): EventSource con reconnect exponential backoff (1s→30s max)
+- **Provider** (`realtime-provider.tsx`): Context con buffer de 50 eventos, pub/sub subscribe()
+- **IMPORTANTE**: realtime-types.ts tiene copia local en `packages/web/src/lib/` (evitar barrel import de shared → BullMQ)
+- **IMPORTANTE**: realtime-publisher.ts NO se exporta desde `packages/shared/src/index.ts` (evitar BullMQ en client)
+
+### Live Features
+- **LiveFeed** (`live-feed.tsx`): Feed en vivo con últimas 20 menciones analizadas, animación slide-down, badges sentiment/urgency
+- **Live KPI** (`use-live-kpi.ts`): Deltas incrementales sumados a stats del dashboard (menciones +N, social +N)
+- **Sonido** (`use-notification-sound.ts`): Alerta audio para menciones CRITICAL, toggle en sidebar, persiste en localStorage
+
+### UX Improvements
+- **Skeletons** (`skeletons.tsx`): 6 componentes (SkeletonLine, SkeletonBlock, TableSkeleton, ChartSkeleton, CardGridSkeleton, FilterBarSkeleton)
+- **13 páginas actualizadas**: Spinners reemplazados con skeletons en mentions, social-mentions, clients, analytics, crisis, responses, intelligence, campaigns, briefs, executive, alert-rules, sources, tasks
+- **Keyboard shortcuts** (`use-keyboard-shortcuts.ts`): `Cmd+K` (palette), `?` (help), `g+d/m/s/c/k/i` (navegación), ignora inputs
+- **Command palette** (`command-palette.tsx`): cmdk library, búsqueda global (páginas, clientes, menciones, social), 21 routers con search router
+- **Search router** (`search.ts`): Busca en Client.name, Mention.aiSummary, SocialMention.content (case-insensitive, filtrado por org)
+
+### Workers modificados (4 archivos)
+- `ingest.ts`: Publica `mention:new` después de crear mención (incluye orgId del client)
+- `worker.ts`: Publica `mention:analyzed` después del análisis AI (con sentiment/urgency)
+- `social.ts`: Publica `social:new` después de crear social mention (orgId propagado via savePosts)
+- `crisis-detector.ts`: Publica `crisis:new` después de crear CrisisAlert (lookup orgId)
+
 ## Sprints pendientes (backlog en docs/PLAN.md)
-- Sprint 18: Real-time + Webhooks + Integrations <- SIGUIENTE
 - Post-Sprint 17 fixes: Collector hardening, publishedAt migration, client delete -- COMPLETADO
+- Sprint 18: Real-time Dashboard + UX Improvements -- COMPLETADO

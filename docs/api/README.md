@@ -86,6 +86,7 @@ throw new TRPCError({
 | `campaigns` | Tracking de campañas de PR (13 endpoints) | [campaigns.md](./campaigns.md) |
 | `executive` | Dashboard ejecutivo multi-org (Super Admin, 5 endpoints) | [executive.md](./executive.md) |
 | `reports` | Generación PDF + links compartidos (5 endpoints) | [reports.md](./reports.md) |
+| `search` | Búsqueda global para command palette (1 endpoint) | [search.md](./search.md) |
 
 ## Uso con React Query
 
