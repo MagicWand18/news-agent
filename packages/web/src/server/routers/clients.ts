@@ -309,7 +309,11 @@ export const clientsRouter = router({
         { socialMention: { clientId: cid } },
       ] } });
 
-      // 5. Tablas directas del cliente (sin onDelete: Cascade)
+      // 5. TopicThread (eventos primero, luego threads)
+      await prisma.topicThreadEvent.deleteMany({ where: { topicThread: { clientId: cid } } });
+      await prisma.topicThread.deleteMany({ where: { clientId: cid } });
+
+      // 6. Tablas directas del cliente (sin onDelete: Cascade)
       await prisma.$transaction([
         prisma.campaign.deleteMany({ where: { clientId: cid } }),
         prisma.crisisAlert.deleteMany({ where: { clientId: cid } }),
@@ -324,7 +328,7 @@ export const clientsRouter = router({
         prisma.emergingTopicNotification.deleteMany({ where: { clientId: cid } }),
       ]);
 
-      // 6. Client (las tablas con onDelete: Cascade se borran automáticamente:
+      // 7. Client (las tablas con onDelete: Cascade se borran automáticamente:
       //    TelegramRecipient, ClientCompetitor, SocialAccount, SocialMention, SharedReport)
       await prisma.client.delete({ where: { id: cid } });
 

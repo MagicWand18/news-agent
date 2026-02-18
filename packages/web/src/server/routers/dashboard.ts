@@ -69,6 +69,7 @@ export const dashboardRouter = router({
       tasksPending,
       mentionsByDay,
       sentimentBreakdown,
+      activeTopics,
     ] = await Promise.all([
       prisma.client.count({ where: { ...orgFilter, active: true } }),
       prisma.mention.count({
@@ -110,6 +111,14 @@ export const dashboardRouter = router({
         where: { ...clientIdOrgFilter, ...dateFilter },
         _count: true,
       }),
+      // Topic Threads activos (Sprint 19)
+      prisma.topicThread.count({
+        where: {
+          ...(orgFilter.orgId ? { client: { orgId: orgFilter.orgId } } : {}),
+          ...(input?.clientId ? { clientId: input.clientId } : {}),
+          status: "ACTIVE",
+        },
+      }),
     ]);
 
     return {
@@ -125,6 +134,7 @@ export const dashboardRouter = router({
         sentiment: s.sentiment,
         count: s._count,
       })),
+      activeTopics,
     };
   }),
 

@@ -54,4 +54,9 @@ export const TELEGRAM_NOTIFICATION_TYPES = {
     label: "Reporte semanal",
     description: "Reporte semanal completo con metricas agregadas",
   },
+  TOPIC_ALERT: {
+    key: "TOPIC_ALERT",
+    label: "Alertas por tema",
+    description: "Notificaciones cuando un tema nuevo emerge, escala o cambia de sentimiento",
+  },
 } as const;

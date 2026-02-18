@@ -29,6 +29,9 @@ import {
   FileText,
   Target,
   Crown,
+  Volume2,
+  VolumeX,
+  Tag,
 } from "lucide-react";
 import { signOut, useSession } from "next-auth/react";
 import { useState } from "react";
@@ -37,6 +40,7 @@ import { useTheme } from "./theme-provider";
 import { NotificationBell } from "./notifications";
 import { TourButton } from "./onboarding";
 import { useSidebar } from "@/hooks/use-sidebar";
+import { useNotificationSound } from "@/hooks/use-notification-sound";
 
 // Mapeo de href a tour-id para el tour de onboarding
 const tourIdMap: Record<string, string> = {
@@ -53,6 +57,7 @@ const tourIdMap: Record<string, string> = {
   "/dashboard/responses": "nav-responses",
   "/dashboard/sources": "nav-sources",
   "/dashboard/alert-rules": "nav-alert-rules",
+  "/dashboard/topics": "nav-topics",
   "/dashboard/campaigns": "nav-campaigns",
   "/dashboard/tasks": "nav-tasks",
   "/dashboard/team": "nav-team",
@@ -67,6 +72,7 @@ const navigation = [
   { name: "Redes Sociales", href: "/dashboard/social-mentions", icon: Share2 },
   { name: "Analiticas", href: "/dashboard/analytics", icon: BarChart3, separator: true },
   { name: "Intelligence", href: "/dashboard/intelligence", icon: Brain },
+  { name: "Temas", href: "/dashboard/topics", icon: Tag },
   { name: "Media Brief", href: "/dashboard/briefs", icon: FileText },
   { name: "Crisis", href: "/dashboard/crisis", icon: AlertTriangle },
   { name: "Respuestas", href: "/dashboard/responses", icon: MessageSquareReply },
@@ -85,9 +91,15 @@ export function Sidebar() {
   const [mobileOpen, setMobileOpen] = useState(false);
   const { resolvedTheme, setTheme } = useTheme();
   const { collapsed, toggle } = useSidebar();
+  const { soundEnabled, toggleSound } = useNotificationSound();
 
   // Badge de crisis activas
   const activeCrisis = trpc.crisis.getActiveCrisisCount.useQuery(undefined, {
+    refetchInterval: 60000,
+  });
+
+  // Badge de temas negativos activos
+  const negativeTopics = trpc.topics.getNegativeCount.useQuery(undefined, {
     refetchInterval: 60000,
   });
 
@@ -140,6 +152,14 @@ export function Sidebar() {
           <div className="flex items-center gap-1">
             <NotificationBell />
             <button
+              onClick={toggleSound}
+              className="rounded-lg p-1.5 text-gray-300 hover:bg-white/10 transition-colors"
+              aria-label={soundEnabled ? "Silenciar alertas" : "Activar sonido de alertas"}
+              title={soundEnabled ? "Sonido activado" : "Sonido silenciado"}
+            >
+              {soundEnabled ? <Volume2 className="h-4 w-4" /> : <VolumeX className="h-4 w-4" />}
+            </button>
+            <button
               onClick={toggleTheme}
               data-tour-id="theme-toggle"
               className="rounded-lg p-1.5 text-gray-300 hover:bg-white/10 transition-colors"
@@ -179,6 +199,14 @@ export function Sidebar() {
             <ChevronRight className="h-4 w-4" />
           </button>
           <NotificationBell />
+          <button
+            onClick={toggleSound}
+            className="rounded-lg p-1.5 text-gray-300 hover:bg-white/10 transition-colors"
+            aria-label={soundEnabled ? "Silenciar alertas" : "Activar sonido de alertas"}
+            title={soundEnabled ? "Sonido activado" : "Sonido silenciado"}
+          >
+            {soundEnabled ? <Volume2 className="h-4 w-4" /> : <VolumeX className="h-4 w-4" />}
+          </button>
           <button
             onClick={toggleTheme}
             data-tour-id="theme-toggle"
@@ -227,12 +255,22 @@ export function Sidebar() {
                     {activeCrisis.data!.count}
                   </span>
                 )}
-                {!isCollapsed && isActive && item.href !== "/dashboard/crisis" && (
+                {/* Badge de temas negativos */}
+                {!isCollapsed && item.href === "/dashboard/topics" && (negativeTopics.data?.count ?? 0) > 0 && (
+                  <span className="ml-auto flex h-5 min-w-[20px] items-center justify-center rounded-full bg-orange-500 px-1.5 text-[10px] font-bold text-white">
+                    {negativeTopics.data!.count}
+                  </span>
+                )}
+                {!isCollapsed && isActive && item.href !== "/dashboard/crisis" && !(item.href === "/dashboard/topics" && (negativeTopics.data?.count ?? 0) > 0) && (
                   <div className="ml-auto h-1.5 w-1.5 rounded-full bg-blue-400" />
                 )}
                 {/* Red dot para crisis activas en modo colapsado */}
                 {isCollapsed && item.href === "/dashboard/crisis" && (activeCrisis.data?.count ?? 0) > 0 && (
                   <span className="absolute -right-0.5 -top-0.5 h-2.5 w-2.5 rounded-full bg-red-500 ring-2 ring-brand-900" />
+                )}
+                {/* Orange dot para temas negativos en modo colapsado */}
+                {isCollapsed && item.href === "/dashboard/topics" && (negativeTopics.data?.count ?? 0) > 0 && (
+                  <span className="absolute -right-0.5 -top-0.5 h-2.5 w-2.5 rounded-full bg-orange-500 ring-2 ring-brand-900" />
                 )}
                 {isCollapsed && (
                   <span className="absolute left-full ml-2 hidden rounded-md bg-gray-900 px-2 py-1 text-xs text-white shadow-lg group-hover:block whitespace-nowrap z-50">

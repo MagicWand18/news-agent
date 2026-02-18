@@ -276,6 +276,33 @@ export function startDigestWorker() {
           }
         }
 
+        // Sección de Temas del día (Sprint 19 - Topic Threads)
+        try {
+          const activeTopicThreads = await prisma.topicThread.findMany({
+            where: {
+              clientId: client.id,
+              status: "ACTIVE",
+              lastMentionAt: { gte: since },
+            },
+            orderBy: [{ mentionCount: "desc" }],
+            take: 7,
+          });
+
+          if (activeTopicThreads.length > 0) {
+            const sentimentIcons: Record<string, string> = {
+              POSITIVE: "🟢", NEGATIVE: "🔴", NEUTRAL: "⚪", MIXED: "🟡",
+            };
+            message += `\n🏷️ TEMAS DEL DÍA\n`;
+            for (const thread of activeTopicThreads) {
+              const total = thread.mentionCount + thread.socialMentionCount;
+              const icon = sentimentIcons[thread.dominantSentiment || "NEUTRAL"] || "⚪";
+              message += `${icon} ${thread.name} (${total} menciones, ${thread.dominantSentiment || "Neutral"})\n`;
+            }
+          }
+        } catch (topicErr) {
+          console.error(`[Digest] Error fetching topic threads for ${client.name}:`, topicErr);
+        }
+
         // Sección de redes sociales
         if (socialMentions.length > 0) {
           const platformCounts = socialMentions.reduce((acc, sm) => {

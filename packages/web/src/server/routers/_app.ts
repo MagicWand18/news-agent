@@ -18,6 +18,8 @@ import { briefsRouter } from "./briefs";
 import { campaignsRouter } from "./campaigns";
 import { executiveRouter } from "./executive";
 import { reportsRouter } from "./reports";
+import { searchRouter } from "./search";
+import { topicsRouter } from "./topics";
 
 export const appRouter = router({
   dashboard: dashboardRouter,
@@ -39,6 +41,8 @@ export const appRouter = router({
   campaigns: campaignsRouter,
   executive: executiveRouter,
   reports: reportsRouter,
+  search: searchRouter,
+  topics: topicsRouter,
 });
 
 export type AppRouter = typeof appRouter;

@@ -60,6 +60,10 @@ export const QUEUE_NAMES = {
   CHECK_ALERT_RULES: "check-alert-rules",
   // Cola genérica de notificaciones Telegram
   NOTIFY_TELEGRAM: "notify-telegram",
+  // Topic Threads (Sprint 19)
+  NOTIFY_TOPIC: "notify-topic",
+  CLOSE_INACTIVE_THREADS: "close-inactive-threads",
+  ANALYZE_SOCIAL_TOPIC: "analyze-social-topic",
 } as const;
 
 export function setupQueues() {
@@ -99,6 +103,10 @@ export function setupQueues() {
     // Evaluación de reglas de alerta
     checkAlertRules: new Queue(QUEUE_NAMES.CHECK_ALERT_RULES, { connection }),
     notifyTelegram: new Queue(QUEUE_NAMES.NOTIFY_TELEGRAM, { connection }),
+    // Topic Threads (Sprint 19)
+    notifyTopic: new Queue(QUEUE_NAMES.NOTIFY_TOPIC, { connection }),
+    closeInactiveThreads: new Queue(QUEUE_NAMES.CLOSE_INACTIVE_THREADS, { connection }),
+    analyzeSocialTopic: new Queue(QUEUE_NAMES.ANALYZE_SOCIAL_TOPIC, { connection }),
   };
 
   // Registrar todos los schedulers de cron (idempotente via upsertJobScheduler)
@@ -146,6 +154,7 @@ interface QueueMap {
   watchdogMentions: Queue;
   archiveOldMentions: Queue;
   checkAlertRules: Queue;
+  closeInactiveThreads: Queue;
   [key: string]: Queue;
 }
 
@@ -280,6 +289,14 @@ async function registerAllSchedulers(
     { name: "check-alert-rules" }
   );
 
+  // Cierre de topic threads inactivos (cada 6 horas)
+  const closeThreadsCron = process.env.CLOSE_INACTIVE_THREADS_CRON || "0 */6 * * *";
+  await queues.closeInactiveThreads.upsertJobScheduler(
+    "close-inactive-threads-cron",
+    { pattern: closeThreadsCron },
+    { name: "close-inactive-threads" }
+  );
+
   if (isRefresh) {
     console.log(`${label} Todos los schedulers re-registrados OK`);
   } else {
@@ -300,6 +317,7 @@ async function registerAllSchedulers(
     }
     console.log(`${label} Archive Old Mentions: ${archiveCron}`);
     console.log(`${label} Alert Rules: ${alertRulesCron}`);
+    console.log(`${label} Close Inactive Threads: ${closeThreadsCron}`);
     console.log(
       `[Scheduler] Auto-refresh habilitado cada ${SCHEDULER_REFRESH_INTERVAL_MS / 60000} minutos`
     );

@@ -18,6 +18,7 @@ import { startCommentsExtractionWorker } from "./collectors/comments-worker.js";
 import { startWatchdogWorker } from "./workers/watchdog.js";
 import { startArchiveWorker } from "./workers/archive-worker.js";
 import { startAlertRulesWorker } from "./workers/alert-rules-worker.js";
+import { startCloseInactiveThreadsWorker, startSocialTopicWorker } from "./workers/topic-thread-worker.js";
 import { startHealthServer, stopHealthServer } from "./health.js";
 import { config } from "@mediabot/shared";
 
@@ -59,6 +60,10 @@ async function main() {
 
   // Evaluación de reglas de alerta (cada 30 minutos)
   startAlertRulesWorker();
+
+  // Topic Threads (Sprint 19)
+  startCloseInactiveThreadsWorker();
+  startSocialTopicWorker();
 
   console.log("✅ All workers started");
 

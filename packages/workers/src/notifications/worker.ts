@@ -365,7 +365,138 @@ export function startNotificationWorker() {
     console.error(`Generic telegram notification job ${job?.id} failed:`, err);
   });
 
-  console.log(`🔔 Notification workers started (alerts: ${config.workers.notification.concurrency}, crisis: 2, emerging: 2, generic: 3)`);
+  // Topic Thread notification worker (Sprint 19)
+  const topicNotifWorker = new Worker(
+    QUEUE_NAMES.NOTIFY_TOPIC,
+    async (job) => {
+      const { topicThreadId, eventType, clientId } = job.data as {
+        topicThreadId: string;
+        eventType: "new" | "threshold" | "sentiment_shift";
+        clientId: string;
+        threshold?: number;
+        oldSentiment?: string;
+        newSentiment?: string;
+      };
+
+      // Cargar thread con últimas menciones
+      const thread = await prisma.topicThread.findUnique({
+        where: { id: topicThreadId },
+        include: {
+          client: true,
+          mentions: {
+            take: 3,
+            orderBy: { createdAt: "desc" },
+            include: { article: { select: { title: true, source: true } } },
+          },
+        },
+      });
+
+      if (!thread) return;
+
+      const sentimentLabels: Record<string, string> = {
+        POSITIVE: "Positivo",
+        NEGATIVE: "Negativo",
+        NEUTRAL: "Neutral",
+        MIXED: "Mixto",
+      };
+
+      const totalCount = thread.mentionCount + thread.socialMentionCount;
+      const topSourcesList = (thread.topSources as string[]) || [];
+      const sentimentLabel = sentimentLabels[thread.dominantSentiment || "NEUTRAL"] || "Neutral";
+
+      let message = "";
+
+      if (eventType === "new") {
+        const recentLines = thread.mentions
+          .slice(0, 3)
+          .map((m) => `  • ${m.article.title.slice(0, 70)}\n    ${m.article.source}`)
+          .join("\n");
+
+        message =
+          `📊 NUEVO TEMA | ${thread.client.name}\n` +
+          `━━━━━━━━━━━━━━━━━━━━\n\n` +
+          `🏷️ ${thread.name}\n` +
+          `📈 ${totalCount} menciones detectadas\n` +
+          `📊 Sentimiento: ${sentimentLabel}\n` +
+          (topSourcesList.length > 0
+            ? `📰 Fuentes: ${topSourcesList.slice(0, 3).join(", ")}\n`
+            : "") +
+          (recentLines
+            ? `\n📰 Menciones recientes:\n${recentLines}\n`
+            : "") +
+          `\n💡 Considere monitorear este tema.`;
+      } else if (eventType === "threshold") {
+        const breakdown = thread.sentimentBreakdown as Record<string, number> | null;
+        const breakdownStr = breakdown
+          ? `🟢 ${breakdown.positive || 0} pos | 🔴 ${breakdown.negative || 0} neg | ⚪ ${breakdown.neutral || 0} neu`
+          : sentimentLabel;
+
+        const activeFor = getTimeAgo(thread.firstSeenAt);
+
+        message =
+          `🔥 TEMA EN ESCALADA | ${thread.client.name}\n` +
+          `━━━━━━━━━━━━━━━━━━━━\n\n` +
+          `🏷️ ${thread.name}\n` +
+          `📈 Ya son ${totalCount} menciones\n` +
+          `📊 Sentimiento: ${breakdownStr}\n` +
+          `⏱️ Activo desde: ${activeFor}\n` +
+          (topSourcesList.length > 0
+            ? `📰 Últimas fuentes: ${topSourcesList.slice(0, 5).join(", ")}\n`
+            : "");
+      } else if (eventType === "sentiment_shift") {
+        const { oldSentiment, newSentiment } = job.data;
+        const oldLabel = sentimentLabels[oldSentiment || ""] || oldSentiment;
+        const newLabel = sentimentLabels[newSentiment || ""] || newSentiment;
+
+        const latestMention = thread.mentions[0];
+        const latestLine = latestMention
+          ? `📰 Mención que generó el cambio:\n  • ${latestMention.article.title.slice(0, 70)}\n    ${latestMention.article.source}\n`
+          : "";
+
+        message =
+          `⚠️ CAMBIO DE SENTIMIENTO | ${thread.client.name}\n` +
+          `━━━━━━━━━━━━━━━━━━━━━━\n\n` +
+          `🏷️ ${thread.name}\n` +
+          `🔄 ${oldLabel} → ${newLabel}\n` +
+          `📈 ${totalCount} menciones\n` +
+          latestLine +
+          `\n🎯 Acción: Evaluar postura y preparar comunicado si es necesario.`;
+      }
+
+      if (!message) return;
+
+      // Enviar a destinatarios
+      const recipients = await getAllRecipientsForClient(
+        clientId,
+        "TOPIC_ALERT",
+        {
+          recipientTypes: ["AGENCY_INTERNAL"],
+          legacyGroupId: thread.client.telegramGroupId,
+        }
+      );
+
+      if (recipients.length > 0) {
+        const { sent, failed } = await sendToMultipleRecipients(recipients, message);
+        console.log(`🏷️ Topic notification (${eventType}) sent for ${thread.client.name}: ${sent} delivered, ${failed} failed`);
+      }
+
+      // Actualizar thread
+      await prisma.topicThread.update({
+        where: { id: topicThreadId },
+        data: {
+          lastNotifiedAt: new Date(),
+          notifyCount: { increment: 1 },
+        },
+      });
+    },
+    { connection, concurrency: 2 }
+  );
+
+  topicNotifWorker.on("failed", (job, err) => {
+    console.error(`Topic notification job ${job?.id} failed:`, err);
+  });
+
+  console.log(`🔔 Notification workers started (alerts: ${config.workers.notification.concurrency}, crisis: 2, emerging: 2, topic: 2, generic: 3)`);
 }
 
 function getTimeAgo(date: Date): string {

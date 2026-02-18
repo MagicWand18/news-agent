@@ -119,6 +119,9 @@ model Client {
 
   // Shared Reports
   sharedReports SharedReport[]
+
+  // Topic Threads
+  topicThreads  TopicThread[]
 }
 
 model Keyword {
@@ -190,6 +193,10 @@ model Mention {
   topicClusterId String?
   topicCluster   TopicCluster? @relation(fields: [topicClusterId], references: [id])
 
+  // Topic Threads (Sprint 19)
+  topicThreadId  String?
+  topicThread    TopicThread?  @relation(fields: [topicThreadId], references: [id])
+
   @@index([clientId, createdAt])
   @@index([clientId, isLegacy, createdAt])
   @@index([parentMentionId])
@@ -198,6 +205,7 @@ model Mention {
   @@index([clientId, publishedAt])
   @@index([clientId, isLegacy, publishedAt])
   @@index([clientId, parentMentionId, publishedAt])
+  @@index([topicThreadId])
 }
 
 enum Sentiment {
@@ -621,6 +629,11 @@ model SocialMention {
   commentsSentiment   Sentiment?  // Sentimiento agregado de los comentarios
   commentsAnalyzed    Boolean     @default(false) // Si los comentarios fueron analizados
 
+  // Topic Threads (Sprint 19)
+  topic            String?          // Tema extraído por IA
+  topicThreadId    String?
+  topicThread      TopicThread?    @relation(fields: [topicThreadId], references: [id])
+
   // Action Pipeline
   responseDrafts ResponseDraft[]
   tasks          Task[]
@@ -632,6 +645,7 @@ model SocialMention {
   @@index([clientId, platform, createdAt])
   @@index([platform, postedAt])
   @@index([sentiment, createdAt])
+  @@index([topicThreadId])
 }
 
 // ==================== ACTION PIPELINE ====================
@@ -862,4 +876,72 @@ model SharedReport {
   @@index([publicId])
   @@index([clientId])
   @@index([expiresAt])
+}
+
+// ==================== TOPIC THREADS ====================
+
+enum TopicThreadStatus {
+  ACTIVE
+  CLOSED
+  ARCHIVED
+}
+
+enum TopicEventType {
+  CREATED
+  MENTION_ADDED
+  THRESHOLD_REACHED
+  SENTIMENT_SHIFT
+  CLOSED
+  REOPENED
+}
+
+model TopicThread {
+  id                 String            @id @default(cuid())
+  clientId           String
+  client             Client            @relation(fields: [clientId], references: [id])
+  name               String            // Nombre normalizado del tema
+  normalizedName     String            // Lowercase para búsqueda/dedup
+  status             TopicThreadStatus @default(ACTIVE)
+
+  // Métricas agregadas
+  mentionCount       Int               @default(0)
+  socialMentionCount Int               @default(0)
+  sentimentBreakdown Json?             // {positive:N, negative:N, neutral:N, mixed:N}
+  dominantSentiment  String?           // POSITIVE|NEGATIVE|NEUTRAL|MIXED
+  topSources         Json?             // ["La Jornada", "Milenio", ...]
+  aiSummary          String?           // Resumen IA del tema
+
+  // Temporal
+  firstSeenAt        DateTime          @default(now())
+  lastMentionAt      DateTime          @default(now())
+  closedAt           DateTime?
+
+  // Notificaciones
+  lastNotifiedAt     DateTime?
+  notifyCount        Int               @default(0)
+  thresholdsReached  Json?             // [2, 5, 10, 20] ya notificados
+
+  // Relaciones
+  mentions           Mention[]
+  socialMentions     SocialMention[]
+  events             TopicThreadEvent[]
+
+  createdAt          DateTime          @default(now())
+  updatedAt          DateTime          @updatedAt
+
+  @@unique([clientId, normalizedName, status])
+  @@index([clientId, status, lastMentionAt])
+  @@index([clientId, lastMentionAt])
+  @@index([status, lastMentionAt])
+}
+
+model TopicThreadEvent {
+  id              String          @id @default(cuid())
+  topicThreadId   String
+  topicThread     TopicThread     @relation(fields: [topicThreadId], references: [id])
+  type            TopicEventType
+  data            Json?           // Metadata del evento
+  createdAt       DateTime        @default(now())
+
+  @@index([topicThreadId, createdAt])
 }

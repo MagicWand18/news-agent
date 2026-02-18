@@ -1,5 +1,6 @@
 import { prisma } from "@mediabot/shared";
 import { extractTopic } from "./ai";
+import { assignMentionToThread } from "./topic-thread-manager.js";
 
 /**
  * Procesa una mencion para extraer y asignar su tema.
@@ -93,6 +94,17 @@ export async function processMentionTopic(mentionId: string): Promise<string | n
     });
 
     console.log(`[TopicExtractor] Tema asignado: ${normalizedTopic} -> mencion ${mentionId}`);
+
+    // Asignar mención al TopicThread correspondiente (Sprint 19)
+    try {
+      const threadResult = await assignMentionToThread(mentionId, "mention");
+      if (threadResult) {
+        console.log(`[TopicExtractor] Mención ${mentionId} asignada a thread ${threadResult.threadId}`);
+      }
+    } catch (threadError) {
+      console.error(`[TopicExtractor] Error asignando thread para mención ${mentionId}:`, threadError);
+    }
+
     return normalizedTopic;
   } catch (error) {
     console.error(`[TopicExtractor] Error procesando mencion ${mentionId}:`, error);
@@ -110,6 +122,75 @@ function normalizeTopic(topic: string): string {
     .split(" ")
     .map((word) => word.charAt(0).toUpperCase() + word.slice(1).toLowerCase())
     .join(" ");
+}
+
+/**
+ * Procesa una SocialMention para extraer y asignar su tema.
+ * Similar a processMentionTopic pero adaptado para posts sociales.
+ */
+export async function processSocialMentionTopic(socialMentionId: string): Promise<string | null> {
+  const socialMention = await prisma.socialMention.findUnique({
+    where: { id: socialMentionId },
+    include: {
+      client: true,
+    },
+  });
+
+  if (!socialMention) {
+    console.error(`[TopicExtractor] SocialMention no encontrada: ${socialMentionId}`);
+    return null;
+  }
+
+  if (!socialMention.content || socialMention.content.trim().length < 10) {
+    console.log(`[TopicExtractor] SocialMention ${socialMentionId} sin contenido suficiente`);
+    return null;
+  }
+
+  // Obtener temas existentes para consistencia
+  const existingTopics = await prisma.topicCluster.findMany({
+    select: { name: true },
+    orderBy: { count: "desc" },
+    take: 50,
+  }) as { name: string }[];
+
+  try {
+    const result = await extractTopic({
+      articleTitle: (socialMention.content || "").slice(0, 100),
+      articleContent: socialMention.content || "",
+      clientName: socialMention.client.name,
+      existingTopics: existingTopics.map((t) => t.name),
+    });
+
+    if (result.confidence < 0.3) {
+      console.log(`[TopicExtractor] Confianza baja (${result.confidence}) para social ${socialMentionId}`);
+      return null;
+    }
+
+    const normalizedTopic = normalizeTopic(result.topic);
+
+    // Guardar topic en SocialMention
+    await prisma.socialMention.update({
+      where: { id: socialMentionId },
+      data: { topic: normalizedTopic },
+    });
+
+    console.log(`[TopicExtractor] Tema social asignado: ${normalizedTopic} -> social ${socialMentionId}`);
+
+    // Asignar al TopicThread correspondiente
+    try {
+      const threadResult = await assignMentionToThread(socialMentionId, "social");
+      if (threadResult) {
+        console.log(`[TopicExtractor] SocialMention ${socialMentionId} asignada a thread ${threadResult.threadId}`);
+      }
+    } catch (threadError) {
+      console.error(`[TopicExtractor] Error asignando thread para social ${socialMentionId}:`, threadError);
+    }
+
+    return normalizedTopic;
+  } catch (error) {
+    console.error(`[TopicExtractor] Error procesando social ${socialMentionId}:`, error);
+    return null;
+  }
 }
 
 /**

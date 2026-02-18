@@ -6,7 +6,9 @@ import { StatCard, StatCardSkeleton } from "@/components/stat-card";
 import { MentionTimeline, MentionTimelineSkeleton } from "@/components/mention-timeline";
 import { FilterBar, FilterSelect } from "@/components/filters";
 import { TIME_PERIOD_OPTIONS } from "@/lib/filter-constants";
-import { LayoutDashboard, Newspaper, Users, CheckSquare, Share2, Calendar } from "lucide-react";
+import { LayoutDashboard, Newspaper, Users, CheckSquare, Share2, Calendar, Tag } from "lucide-react";
+import { LiveFeed } from "@/components/live-feed";
+import { useLiveKPI } from "@/hooks/use-live-kpi";
 import {
   AreaChart,
   Area,
@@ -69,6 +71,8 @@ export default function DashboardPage() {
     { refetchOnWindowFocus: false }
   );
 
+  const { deltas } = useLiveKPI();
+
   const periodLabel =
     days === "0"
       ? "Todo el periodo"
@@ -128,7 +132,7 @@ export default function DashboardPage() {
             />
             <StatCard
               title="Menciones (24h)"
-              value={stats.data?.mentions24h ?? 0}
+              value={(stats.data?.mentions24h ?? 0) + deltas.mentions}
               icon={<Newspaper className="h-6 w-6" />}
               animate
             />
@@ -140,7 +144,7 @@ export default function DashboardPage() {
             />
             <StatCard
               title={`Social (${days === "0" ? "total" : days + "d"})`}
-              value={socialStats.data?.total7d ?? 0}
+              value={(socialStats.data?.total7d ?? 0) + deltas.social}
               icon={<Share2 className="h-6 w-6" />}
               animate
               subtitle={
@@ -160,14 +164,17 @@ export default function DashboardPage() {
               }
             />
             <StatCard
-              title="Tareas pendientes"
-              value={stats.data?.tasksPending ?? 0}
-              icon={<CheckSquare className="h-6 w-6" />}
+              title="Temas activos"
+              value={stats.data?.activeTopics ?? 0}
+              icon={<Tag className="h-6 w-6" />}
               animate
             />
           </>
         )}
       </div>
+
+      {/* Live Feed */}
+      <LiveFeed />
 
       {/* Charts */}
       <div className="grid grid-cols-1 gap-6 lg:grid-cols-3">
