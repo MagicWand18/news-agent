@@ -80,6 +80,31 @@ Cada colector normaliza articulos al tipo `NormalizedArticle`:
 └───────┬───────┘                    └───────────────┘
         │ No
         ▼
+┌───────────────┐   /tags/, /author/  ┌───────────────┐
+│ URL filter    │───/categoria/, etc──▶│     SKIP      │
+└───────┬───────┘                     └───────────────┘
+        │ OK
+        ▼
+┌───────────────┐  Sin publishedAt?   ┌───────────────┐
+│ Date fallback │──Extraer de URL────▶│ /YYYY/MM/DD/  │
+└───────┬───────┘                     └───────────────┘
+        │
+        ▼
+┌───────────────┐  Sin fecha y no YT? ┌───────────────┐
+│ Require date  │─────────Yes────────▶│     SKIP      │
+└───────┬───────┘                     └───────────────┘
+        │ Tiene fecha
+        ▼
+┌───────────────┐  Futura o >5 años?  ┌───────────────┐
+│ Validate date │─────────Yes────────▶│     SKIP      │
+└───────┬───────┘                     └───────────────┘
+        │ OK
+        ▼
+┌───────────────┐     >48h old?       ┌───────────────┐
+│ Age filter    │─────────Yes────────▶│     SKIP      │
+└───────┬───────┘                     └───────────────┘
+        │ OK
+        ▼
 ┌───────────────┐
 │  Save to DB   │
 └───────┬───────┘
@@ -89,6 +114,13 @@ Cada colector normaliza articulos al tipo `NormalizedArticle`:
 │ Run Matching  │
 └───────────────┘
 ```
+
+**Validaciones de ingesta (Sprint 20)**:
+- **URL filter**: Descarta páginas de tags, categorías, autores, feeds RSS, búsqueda y landing pages
+- **Date fallback**: Si `publishedAt` es null, intenta extraer fecha de la URL (patrón `/YYYY/MM/DD/`)
+- **Require date**: Artículos sin fecha son rechazados (excepto YouTube que no provee fechas confiables)
+- **Date validation**: Fechas futuras (>24h) o demasiado antiguas (>5 años) son rechazadas
+- **Age filter**: Artículos con `publishedAt` > 48h son descartados (previene reingesta de artículos viejos)
 
 ### 3. Matching de Keywords
 

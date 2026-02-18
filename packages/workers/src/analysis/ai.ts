@@ -137,23 +137,46 @@ export async function runOnboarding(params: {
 
   const model = getGeminiModel();
 
-  const prompt = `Eres un experto en monitoreo de medios y PR. Un nuevo cliente se ha registrado:
+  const prompt = `Eres un experto en monitoreo de medios y PR en Mexico. Un nuevo cliente se ha registrado:
 
 Nombre: ${params.clientName}
 Descripcion: ${params.description || "No proporcionada"}
 Industria: ${params.industry || "No especificada"}
 
-Menciones recientes encontradas:
+Noticias reales encontradas sobre este cliente:
 ${articlesContext || "Ninguna encontrada"}
 
 Genera sugerencias para configurar el monitoreo de este cliente.
 
+REGLAS CRITICAS PARA KEYWORDS:
+- Los keywords deben ser ESPECIFICOS al cliente, NO genericos de industria o geografia
+- NO incluir nombres de ciudades/estados solos (ej: "Monterrey", "Mexico", "Nuevo Leon")
+- NO incluir palabras genericas (ej: "gobierno", "politica", "economia", "seguridad", "elecciones", "mercado")
+- SI incluir: variaciones del nombre del cliente (con/sin acentos, abreviaciones, siglas)
+- SI incluir: cargos especificos que ocupa (ej: "alcalde de Apodaca", no solo "alcalde")
+- SI incluir: nombres de proyectos, programas o iniciativas mencionados en las noticias
+- SI incluir: alias o apodos que la prensa usa para referirse al cliente
+- Cada keyword debe ser lo suficientemente especifico para NO generar falsos positivos
+
+EJEMPLOS DE KEYWORDS BUENOS:
+- "Samuel Garcia Sepulveda" (nombre completo)
+- "gobernador de Nuevo Leon" (cargo especifico)
+- "Plan Nuevo Leon" (programa especifico)
+
+EJEMPLOS DE KEYWORDS MALOS (NO incluir):
+- "Monterrey" (muy generico, genera miles de falsos positivos)
+- "gobierno" (demasiado amplio)
+- "seguridad publica" (aplica a cualquier politico)
+- "economia" (generico de industria)
+
+COMPETIDORES: Deben ser personas/organizaciones que compiten DIRECTAMENTE con el cliente (mismo cargo, mismo mercado). No incluir figuras publicas que simplemente aparecen en las noticias.
+
 Responde UNICAMENTE con JSON valido, sin markdown ni texto adicional:
 {
-  "suggestedKeywords": [{"word": "keyword", "type": "NAME"}],
-  "competitors": ["nombre competidor 1", "nombre competidor 2"],
-  "sensitiveTopics": ["tema sensible que monitorear"],
-  "actionLines": ["linea de accion sugerida para monitoreo"],
+  "suggestedKeywords": [{"word": "keyword especifico", "type": "NAME", "confidence": 0.9, "reason": "razon basada en noticias"}],
+  "competitors": ["nombre competidor directo 1"],
+  "sensitiveTopics": ["tema sensible especifico"],
+  "actionLines": ["linea de accion sugerida"],
   "recentMentions": [{"title": "titulo", "url": "url", "source": "fuente"}]
 }
 
@@ -161,15 +184,17 @@ Tipos validos para keywords: NAME, BRAND, TOPIC, ALIAS
 Los competidores van en el array "competitors", NO como keywords.
 
 Incluye al menos:
-- 5-10 keywords variados (nombre, variantes, marcas si aplica, alias)
-- 2-3 competidores identificados (en el array competitors)
-- 2-3 temas sensibles para la industria
-- 3-5 lineas de accion para monitoreo proactivo`;
+- 5-10 keywords ESPECIFICOS (nombre, variantes, cargos con contexto, proyectos reales)
+- 2-3 competidores DIRECTOS (en el array competitors)
+- 2-3 temas sensibles especificos para ESTE cliente
+- 3-5 lineas de accion para monitoreo proactivo
+
+Cada keyword debe incluir "confidence" (0.0-1.0) y "reason" explicando por que es relevante.`;
 
   try {
     const result = await model.generateContent({
       contents: [{ role: "user", parts: [{ text: prompt }] }],
-      generationConfig: { maxOutputTokens: 1024, temperature: 0.4 },
+      generationConfig: { maxOutputTokens: 2048, temperature: 0.4 },
     });
 
     const rawText = result.response.text();

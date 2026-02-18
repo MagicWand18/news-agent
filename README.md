@@ -166,7 +166,7 @@ pnpm dev:bot                # Solo bot
 ## Flujo de Datos
 
 1. **Coleccion**: Workers recolectan articulos de RSS, GDELT, NewsData, Google
-2. **Ingestion**: Articulos se guardan en DB con deduplicacion por URL
+2. **Ingestion**: Articulos se guardan en DB con deduplicacion por URL, filtrado de URLs no-articulo, validacion de fechas (fallback desde URL, rechazo sin fecha, validacion de rango)
 3. **Pre-filtrado**: AI valida si el keyword match es relevante para el cliente
 4. **Matching**: Se buscan keywords de clientes activos en cada articulo
 5. **Mencion**: Si hay match, se crea una mencion vinculada al cliente
@@ -222,12 +222,13 @@ Nuevo wizard de 4 pasos para crear clientes en `/dashboard/clients/new`:
 - Industria
 
 ### Paso 2: Busqueda de Noticias
-- Busca automaticamente noticias del ultimo mes
+- Busca automaticamente noticias en Google News RSS + Bing News RSS
+- Complementa con articulos existentes en la base de datos
 - Muestra progreso con animaciones
-- Encuentra articulos relevantes en la base de datos
 
 ### Paso 3: Revision y Configuracion
-- IA genera keywords sugeridos basados en noticias reales
+- IA genera keywords sugeridos basados en noticias reales (prompt estricto: solo keywords especificos)
+- Filtrado automatico de keywords genericos (stopwords) y baja confianza (<0.7)
 - Usuario puede seleccionar/deseleccionar keywords
 - Muestra competidores identificados
 - Permite agregar keywords manualmente

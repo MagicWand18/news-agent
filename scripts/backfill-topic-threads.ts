@@ -64,6 +64,8 @@ async function runFastMode(prisma: PrismaClient, since: Date) {
       topic: true,
       clientId: true,
       sentiment: true,
+      publishedAt: true,
+      createdAt: true,
       article: { select: { source: true } },
     },
     orderBy: { publishedAt: "desc" },
@@ -81,6 +83,8 @@ async function runFastMode(prisma: PrismaClient, since: Date) {
       clientId: true,
       sentiment: true,
       authorHandle: true,
+      postedAt: true,
+      createdAt: true,
     },
     orderBy: { postedAt: "desc" },
   });
@@ -114,7 +118,7 @@ async function runFastMode(prisma: PrismaClient, since: Date) {
       if (existing) {
         thread = { id: existing.id, mentionCount: existing.mentionCount, socialMentionCount: existing.socialMentionCount };
       } else {
-        // Crear nuevo thread
+        // Crear nuevo thread con fecha de la mención (no now())
         const created = await prisma.topicThread.create({
           data: {
             clientId: mention.clientId,
@@ -125,6 +129,8 @@ async function runFastMode(prisma: PrismaClient, since: Date) {
             dominantSentiment: mention.sentiment,
             sentimentBreakdown: { positive: 0, negative: 0, neutral: 0, mixed: 0 },
             topSources: mention.article.source ? [mention.article.source] : [],
+            firstSeenAt: (mention as any).publishedAt || new Date(),
+            lastMentionAt: (mention as any).publishedAt || new Date(),
           },
         });
         thread = { id: created.id, mentionCount: 0, socialMentionCount: 0 };
@@ -181,6 +187,8 @@ async function runFastMode(prisma: PrismaClient, since: Date) {
             dominantSentiment: sm.sentiment,
             sentimentBreakdown: { positive: 0, negative: 0, neutral: 0, mixed: 0 },
             topSources: [],
+            firstSeenAt: sm.postedAt || sm.createdAt || new Date(),
+            lastMentionAt: sm.postedAt || sm.createdAt || new Date(),
           },
         });
         thread = { id: created.id, mentionCount: 0, socialMentionCount: 0 };
@@ -214,10 +222,10 @@ async function runFastMode(prisma: PrismaClient, since: Date) {
       where: { id: threadId },
       include: {
         mentions: {
-          select: { sentiment: true, article: { select: { source: true } } },
+          select: { sentiment: true, publishedAt: true, createdAt: true, article: { select: { source: true } } },
         },
         socialMentions: {
-          select: { sentiment: true },
+          select: { sentiment: true, postedAt: true, createdAt: true },
         },
       },
     });
@@ -247,6 +255,26 @@ async function runFastMode(prisma: PrismaClient, since: Date) {
       else if (max === breakdown.mixed) dominantSentiment = "MIXED";
     }
 
+    // Calcular firstSeenAt y lastMentionAt reales
+    const allDates: Date[] = [];
+    for (const m of thread.mentions) {
+      const d = (m as any).publishedAt || (m as any).createdAt;
+      if (d) allDates.push(new Date(d));
+    }
+    for (const sm of thread.socialMentions) {
+      const d = (sm as any).postedAt || (sm as any).createdAt;
+      if (d) allDates.push(new Date(d));
+    }
+    allDates.sort((a, b) => a.getTime() - b.getTime());
+
+    const firstSeenAt = allDates.length > 0 ? allDates[0] : undefined;
+    const lastMentionAt = allDates.length > 0 ? allDates[allDates.length - 1] : undefined;
+
+    // Establecer thresholdsReached según mentionCount total
+    const totalCount = thread.mentions.length + thread.socialMentions.length;
+    const thresholds = [5, 10, 20, 50];
+    const thresholdsReached = thresholds.filter((t) => totalCount >= t);
+
     await prisma.topicThread.update({
       where: { id: threadId },
       data: {
@@ -255,6 +283,9 @@ async function runFastMode(prisma: PrismaClient, since: Date) {
         sentimentBreakdown: JSON.parse(JSON.stringify(breakdown)),
         dominantSentiment,
         topSources: JSON.parse(JSON.stringify([...sources].slice(0, 10))),
+        ...(firstSeenAt ? { firstSeenAt } : {}),
+        ...(lastMentionAt ? { lastMentionAt } : {}),
+        thresholdsReached: JSON.parse(JSON.stringify(thresholdsReached)),
       },
     });
   }

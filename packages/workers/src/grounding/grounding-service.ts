@@ -86,7 +86,7 @@ function cleanTitle(title: string): string {
 /**
  * Busca artículos en Google News RSS para un término dado.
  */
-async function searchGoogleNewsRss(
+export async function searchGoogleNewsRss(
   searchTerm: string
 ): Promise<Array<{ title: string; source: string; url: string; snippet?: string; publishedAt?: Date }>> {
   const query = encodeURIComponent(`"${searchTerm}"`);
@@ -148,7 +148,7 @@ function extractSourceFromUrl(articleUrl: string): string {
 /**
  * Busca artículos en Bing News RSS para un término dado.
  */
-async function searchBingNewsRss(
+export async function searchBingNewsRss(
   searchTerm: string
 ): Promise<Array<{ title: string; source: string; url: string; snippet?: string; publishedAt?: Date }>> {
   const query = encodeURIComponent(`"${searchTerm}"`);

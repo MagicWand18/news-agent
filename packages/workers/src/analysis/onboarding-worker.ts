@@ -2,6 +2,56 @@ import { Worker } from "bullmq";
 import { connection, QUEUE_NAMES } from "../queues.js";
 import { prisma } from "@mediabot/shared";
 import { runOnboarding } from "./ai.js";
+import { isGenericKeyword } from "./keyword-stopwords.js";
+
+/**
+ * Busca noticias reales sobre el cliente en Google News + Bing News RSS.
+ * Reutiliza las funciones del grounding-service.
+ */
+async function searchRealNews(
+  clientName: string
+): Promise<Array<{ title: string; url: string; source: string }>> {
+  const results: Array<{ title: string; url: string; source: string }> = [];
+  const seenUrls = new Set<string>();
+
+  try {
+    const { searchGoogleNewsRss, searchBingNewsRss } = await import(
+      "../grounding/grounding-service.js"
+    );
+
+    const [googleResults, bingResults] = await Promise.allSettled([
+      searchGoogleNewsRss(clientName),
+      searchBingNewsRss(clientName),
+    ]);
+
+    const googleArticles = googleResults.status === "fulfilled" ? googleResults.value : [];
+    const bingArticles = bingResults.status === "fulfilled" ? bingResults.value : [];
+
+    if (googleResults.status === "rejected") {
+      console.warn(`[Onboarding] Google News RSS failed:`, googleResults.reason);
+    }
+    if (bingResults.status === "rejected") {
+      console.warn(`[Onboarding] Bing News RSS failed:`, bingResults.reason);
+    }
+
+    for (const article of [...googleArticles, ...bingArticles]) {
+      if (seenUrls.has(article.url)) continue;
+      seenUrls.add(article.url);
+      results.push({
+        title: article.title,
+        url: article.url,
+        source: article.source,
+      });
+      if (results.length >= 15) break;
+    }
+
+    console.log(`[Onboarding] Found ${results.length} real news articles for "${clientName}"`);
+  } catch (error) {
+    console.warn(`[Onboarding] Web search failed, continuing with DB articles:`, error);
+  }
+
+  return results;
+}
 
 export function startOnboardingWorker() {
   const worker = new Worker(
@@ -28,17 +78,32 @@ export function startOnboardingWorker() {
 
       console.log(`[Onboarding] Running onboarding for client: ${client.name}`);
 
-      const recentArticles = client.mentions.map((m) => ({
+      // D1: Buscar noticias reales en la web
+      const webArticles = await searchRealNews(client.name);
+
+      // Combinar con artículos de la BD (deduplicar por URL)
+      const dbArticles = client.mentions.map((m) => ({
         title: m.article.title,
         url: m.article.url,
         source: m.article.source,
       }));
 
+      const seenUrls = new Set(webArticles.map((a) => a.url));
+      const allArticles = [...webArticles];
+      for (const a of dbArticles) {
+        if (!seenUrls.has(a.url)) {
+          allArticles.push(a);
+          seenUrls.add(a.url);
+        }
+      }
+
+      console.log(`[Onboarding] Total articles for AI: ${allArticles.length} (web: ${webArticles.length}, db: ${dbArticles.length})`);
+
       const result = await runOnboarding({
         clientName: client.name,
         description: client.description || "",
         industry: client.industry || "",
-        recentArticles,
+        recentArticles: allArticles.slice(0, 15),
       });
 
       // Save suggested keywords (skip duplicates, convert COMPETITOR to Competitor model)
@@ -46,6 +111,9 @@ export function startOnboardingWorker() {
 
       const VALID_KEYWORD_TYPES = ["NAME", "BRAND", "TOPIC", "ALIAS"] as const;
       type KeywordType = (typeof VALID_KEYWORD_TYPES)[number];
+
+      let acceptedCount = 0;
+      let filteredCount = 0;
 
       for (const kw of result.suggestedKeywords) {
         if (existingWords.has(kw.word.toLowerCase())) continue;
@@ -69,6 +137,21 @@ export function startOnboardingWorker() {
           continue;
         }
 
+        // D4: Filtrar keywords genéricos con stopwords
+        if (isGenericKeyword(kw.word)) {
+          console.log(`[Onboarding] Filtered generic keyword: "${kw.word}"`);
+          filteredCount++;
+          continue;
+        }
+
+        // D4: Filtrar keywords con baja confianza
+        const confidence = (kw as any).confidence;
+        if (typeof confidence === "number" && confidence < 0.7) {
+          console.log(`[Onboarding] Filtered low-confidence keyword: "${kw.word}" (${confidence.toFixed(2)})`);
+          filteredCount++;
+          continue;
+        }
+
         const validType: KeywordType = VALID_KEYWORD_TYPES.includes(kw.type as KeywordType)
           ? (kw.type as KeywordType)
           : "TOPIC";
@@ -81,6 +164,11 @@ export function startOnboardingWorker() {
             active: true,
           },
         });
+        acceptedCount++;
+      }
+
+      if (filteredCount > 0) {
+        console.log(`[Onboarding] Filtered ${filteredCount} generic/low-confidence keywords`);
       }
 
       // Crear competidores identificados por AI como registros Competitor
@@ -118,7 +206,7 @@ export function startOnboardingWorker() {
 
       console.log(
         `[Onboarding] Completed for ${client.name}: ` +
-        `${result.suggestedKeywords.length} keywords suggested, ` +
+        `${acceptedCount} keywords accepted, ${filteredCount} filtered, ` +
         `${result.competitors.length} competitors identified`
       );
     },

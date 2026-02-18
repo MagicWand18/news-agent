@@ -75,6 +75,7 @@ MediaBot is a media monitoring platform for PR agencies. It monitors news source
 | `packages/web/src/server/routers/topics.ts` | Topic threads API (7 endpoints: list, getById, getMentions, getEvents, getStats, archive, getNegativeCount) |
 | `packages/workers/src/analysis/topic-thread-manager.ts` | Topic thread engine (assign mentions, recalculate stats, close inactive) |
 | `packages/workers/src/workers/topic-thread-worker.ts` | Topic thread cron (close inactive every 6h) + social topic analysis worker |
+| `packages/workers/src/analysis/keyword-stopwords.ts` | Stopwords genéricos para filtrar keywords de onboarding (~50 palabras) |
 | `deploy/remote-deploy.sh` | Production deployment script |
 
 ## Social Media Features
@@ -317,7 +318,39 @@ ssh -i ~/.ssh/newsaibot-telegram-ssh root@159.65.97.78 \
 ### E2E Tests
 - `tests/e2e/test_sprint19.py` — 33/33 pass
 
+## Sprint 20: Data Quality — Dates, Onboarding & Robustness (2026-02-18)
+
+### Validación robusta de publishedAt en ingest.ts
+- **URL filter**: Descarta URLs que no son artículos (tags, categorías, autores, feeds, search, landing pages)
+- **Date from URL**: Extrae fecha de patrones `/YYYY/MM/DD/` como fallback cuando `publishedAt` es null
+- **Reject no-date**: Rechaza artículos sin fecha (excepto YouTube) — previene crisis falsas por artículos sin fecha
+- **Date validation**: Rechaza fechas futuras (>24h) y demasiado antiguas (>5 años)
+- **Flujo completo**: Dedup URL → Dedup hash → URL filter → Date from URL → Reject no-date → Validate date → 48h filter → Save + Match
+
+### Onboarding mejorado con búsqueda web real
+- **Web search**: Busca nombre del cliente en Google News RSS + Bing News RSS antes de IA (hasta 15 artículos reales)
+- **Prompt estricto**: Keywords deben ser ESPECÍFICOS al cliente, no genéricos. Ejemplos explícitos de buenos vs malos
+- **Stopwords**: ~50 palabras genéricas filtradas post-IA (geográficos, políticos, industria, conectores)
+- **Confidence filter**: Keywords con confidence < 0.7 descartados
+- **maxOutputTokens**: 1024 → 2048
+
+### Fix backfill script
+- Thread creation usa `publishedAt`/`postedAt` de la mención (no `now()`) para `firstSeenAt`/`lastMentionAt`
+- Recalculación final actualiza `firstSeenAt` al mínimo de todas las menciones vinculadas
+- Establece `thresholdsReached` según `mentionCount` real (evita notificaciones falsas)
+
+### Archivos modificados/creados
+| Archivo | Cambio |
+|---------|--------|
+| `packages/workers/src/collectors/ingest.ts` | URL filter, date fallback, reject no-date, validate dates |
+| `packages/workers/src/analysis/ai.ts` | Prompt mejorado runOnboarding() + maxOutputTokens 2048 |
+| `packages/workers/src/analysis/onboarding-worker.ts` | Web search + stopword filtering |
+| `packages/workers/src/analysis/keyword-stopwords.ts` | **NUEVO** — ~50 stopwords + `isGenericKeyword()` |
+| `packages/workers/src/grounding/grounding-service.ts` | Export `searchGoogleNewsRss` + `searchBingNewsRss` |
+| `scripts/backfill-topic-threads.ts` | Fix firstSeenAt + thresholdsReached |
+
 ## Sprints pendientes (backlog en docs/PLAN.md)
 - Post-Sprint 17 fixes: Collector hardening, publishedAt migration, client delete -- COMPLETADO
 - Sprint 18: Real-time Dashboard + UX Improvements -- COMPLETADO
 - Sprint 19: Topic Threads -- COMPLETADO
+- Sprint 20: Data Quality — Dates, Onboarding & Robustness -- COMPLETADO

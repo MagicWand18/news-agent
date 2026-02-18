@@ -6,6 +6,34 @@ import { REALTIME_CHANNELS } from "@mediabot/shared/src/realtime-types.js";
 import { getQueue, QUEUE_NAMES } from "../queues.js";
 import { preFilterArticle } from "../analysis/ai.js";
 
+/** Patrones de URLs que no son artículos reales */
+const NON_ARTICLE_PATTERNS = [
+  /\/tags?\//i,
+  /\/categoria\//i,
+  /\/author\//i,
+  /\/(feed|rss)\/?$/i,
+  /\/search\?/i,
+  /^https?:\/\/[^/]+\/?$/i,
+];
+
+/**
+ * Extrae fecha de la URL con patrón /YYYY/MM/DD/.
+ * Retorna null si no encuentra, si es futura o si tiene >10 años.
+ */
+function extractDateFromUrl(url: string): Date | null {
+  const match = url.match(/\/(\d{4})\/(\d{2})\/(\d{2})\//);
+  if (!match) return null;
+
+  const [, year, month, day] = match;
+  const date = new Date(`${year}-${month}-${day}T12:00:00Z`);
+
+  if (isNaN(date.getTime())) return null;
+  if (date > new Date(Date.now() + 24 * 60 * 60 * 1000)) return null;
+  if (date < new Date(Date.now() - 10 * 365 * 24 * 60 * 60 * 1000)) return null;
+
+  return date;
+}
+
 export async function ingestArticle(article: NormalizedArticle) {
   // Dedup by URL
   const existing = await prisma.article.findUnique({
@@ -28,6 +56,43 @@ export async function ingestArticle(article: NormalizedArticle) {
     });
     if (hashMatch) {
       console.log(`⏭️ Skip (dup hash): ${article.title.slice(0, 50)}`);
+      return;
+    }
+  }
+
+  // A1: Filtrar URLs que no son artículos reales
+  if (NON_ARTICLE_PATTERNS.some((p) => p.test(article.url))) {
+    console.log(`⏭️ Skip (non-article URL): ${article.url.slice(0, 80)}`);
+    return;
+  }
+
+  // A2: Fallback — extraer fecha de la URL si no tiene publishedAt
+  if (!article.publishedAt) {
+    const urlDate = extractDateFromUrl(article.url);
+    if (urlDate) {
+      article.publishedAt = urlDate;
+      console.log(`📅 Date from URL: ${urlDate.toISOString().split("T")[0]} - ${article.url.slice(0, 80)}`);
+    }
+  }
+
+  // A3: Rechazar artículos sin fecha (excepto YouTube)
+  if (!article.publishedAt) {
+    const isVideoSource = article.url.includes("youtube.com") || article.url.includes("youtu.be");
+    if (!isVideoSource) {
+      console.log(`⏭️ Skip (no date): ${article.title.slice(0, 50)} - ${article.source}`);
+      return;
+    }
+  }
+
+  // A4: Validar fechas razonables
+  if (article.publishedAt) {
+    const pubDate = new Date(article.publishedAt);
+    if (pubDate > new Date(Date.now() + 24 * 60 * 60 * 1000)) {
+      console.log(`⏭️ Skip (future date): ${article.title.slice(0, 50)} (${pubDate.toISOString().split("T")[0]})`);
+      return;
+    }
+    if (pubDate < new Date(Date.now() - 5 * 365 * 24 * 60 * 60 * 1000)) {
+      console.log(`⏭️ Skip (too old >5y): ${article.title.slice(0, 50)} (${pubDate.toISOString().split("T")[0]})`);
       return;
     }
   }

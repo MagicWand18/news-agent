@@ -401,3 +401,58 @@ ssh root@server "cd /opt/mediabot && docker compose -f docker-compose.prod.yml e
 ```
 
 **Nota:** `--accept-data-loss` es necesario si Prisma detecta cambios que podrían perder datos (por ejemplo, cambiar tipos de columna). Siempre hacer backup antes de ejecutar en producción.
+
+---
+
+## 14. Artículos antiguos aparecen como nuevos (crisis falsas)
+
+**Síntomas:**
+- Artículos de meses/años atrás aparecen con fecha "hace pocos días"
+- Crisis falsas por spike de artículos "negativos" que son antiguos
+- Artículos sin `publishedAt` pasan el filtro de 48h
+
+**Causas:**
+- Algunos feeds RSS/NewsData no incluyen `publishedAt` en artículos
+- El artículo se ingesta con `publishedAt = NULL`, pasando el filtro de 48h
+
+**Soluciones (Sprint 20):**
+
+El pipeline de ingesta ahora tiene 4 capas de protección:
+
+1. **URL filter**: Descarta URLs de tags, categorías, autores, feeds, búsqueda y landing pages
+2. **Date from URL**: Extrae fecha de patrones `/YYYY/MM/DD/` cuando `publishedAt` es null
+3. **No-date rejection**: Rechaza artículos sin fecha (excepto YouTube que no provee fechas)
+4. **Date validation**: Rechaza fechas futuras (>24h) y antiguas (>5 años)
+
+**Verificar en logs:**
+```bash
+ssh root@server "docker logs mediabot-workers --tail=100 2>&1 | grep -E 'Skip \(no date\)|Skip \(non-article\)|Date from URL|Skip \(future\)|Skip \(too old\)'"
+```
+
+**Limpiar menciones sin fecha en producción:**
+```sql
+UPDATE "Mention" m SET "publishedAt" = a."publishedAt"
+FROM "Article" a WHERE m."articleId" = a.id AND m."publishedAt" IS NULL AND a."publishedAt" IS NOT NULL;
+```
+
+---
+
+## 15. Keywords de onboarding demasiado genéricos
+
+**Síntomas:**
+- El onboarding genera keywords como "Monterrey", "gobierno", "seguridad"
+- Muchos falsos positivos por keywords amplios
+- El usuario tiene que limpiar keywords constantemente
+
+**Causas:**
+- El prompt de IA no tenía restricciones estrictas sobre keywords genéricos
+- No había búsqueda web real (solo artículos de la BD, a menudo vacíos para clientes nuevos)
+
+**Soluciones (Sprint 20):**
+
+1. **Búsqueda web real**: El onboarding ahora busca en Google News RSS + Bing News RSS antes de llamar a IA
+2. **Prompt estricto**: Instrucciones explícitas de NO incluir ciudades, "gobierno", "economía", etc.
+3. **Stopwords**: ~50 palabras genéricas filtradas automáticamente post-IA
+4. **Confidence filter**: Keywords con confianza < 0.7 son descartados
+
+El archivo `packages/workers/src/analysis/keyword-stopwords.ts` contiene la lista de stopwords.

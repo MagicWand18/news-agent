@@ -70,6 +70,13 @@ MediaBot es un sistema de monitoreo de medios que permite a agencias de comunica
 | **Topic Threads** | OK | TopicThread + TopicThreadEvent: agrupación de menciones por tema, notificaciones por tema (Sprint 19) |
 | **RSS 48h Filter** | OK | Descarte de artículos con publishedAt > 48h en ingesta (Sprint 19) |
 | **Topic Extraction Social** | OK | Extracción de tema con IA para SocialMentions, cola ANALYZE_SOCIAL_TOPIC (Sprint 19) |
+| **Ingest URL Filter** | OK | Filtro de URLs no-artículo (tags, categorías, feeds, search, landing) (Sprint 20) |
+| **Ingest Date from URL** | OK | Fallback extraer fecha de patrón /YYYY/MM/DD/ cuando publishedAt es null (Sprint 20) |
+| **Ingest No-Date Reject** | OK | Rechazar artículos sin fecha (excepto YouTube) para prevenir crisis falsas (Sprint 20) |
+| **Ingest Date Validation** | OK | Rechazar fechas futuras (>24h) y antiguas (>5 años) (Sprint 20) |
+| **Onboarding Web Search** | OK | Busca noticias reales en Google News + Bing antes de IA (Sprint 20) |
+| **Onboarding Stopwords** | OK | ~50 stopwords genéricos filtrados post-IA + confidence filter <0.7 (Sprint 20) |
+| **Backfill Fix** | OK | firstSeenAt usa fecha de mención, thresholdsReached según count real (Sprint 20) |
 
 ### Funciones de IA
 
@@ -1097,6 +1104,62 @@ Agregar una capa de TopicThread (hilo temático) que agrupe menciones del mismo 
 
 ---
 
+## Sprint 20: Data Quality — Dates, Onboarding & Robustness (COMPLETADO - 2026-02-18)
+
+### Objetivo
+Resolver tres problemas de calidad de datos detectados en producción: artículos antiguos ingestados como nuevos (0.3% de artículos pero alto impacto en crisis falsas), firstSeenAt incorrecto en threads backfillados, y keywords de onboarding demasiado genéricos.
+
+### Implementado
+
+| Feature | Estado | Archivos |
+|---------|--------|----------|
+| Filtro de URLs no-artículo (tags, categorías, feeds, etc.) | ✅ OK | `packages/workers/src/collectors/ingest.ts` |
+| Fallback fecha desde URL (/YYYY/MM/DD/) | ✅ OK | `packages/workers/src/collectors/ingest.ts` (función `extractDateFromUrl`) |
+| Rechazo de artículos sin fecha (excepto YouTube) | ✅ OK | `packages/workers/src/collectors/ingest.ts` |
+| Validación de fechas razonables (no futuras >24h, no >5 años) | ✅ OK | `packages/workers/src/collectors/ingest.ts` |
+| Prompt estricto para onboarding (keywords específicos, no genéricos) | ✅ OK | `packages/workers/src/analysis/ai.ts` (función `runOnboarding`) |
+| maxOutputTokens onboarding: 1024 → 2048 | ✅ OK | `packages/workers/src/analysis/ai.ts` |
+| Búsqueda web real antes de IA en onboarding | ✅ OK | `packages/workers/src/analysis/onboarding-worker.ts` |
+| Stopwords genéricos (~50 palabras) | ✅ OK | `packages/workers/src/analysis/keyword-stopwords.ts` (**NUEVO**) |
+| Filtrado post-IA: stopwords + confidence < 0.7 | ✅ OK | `packages/workers/src/analysis/onboarding-worker.ts` |
+| Export de funciones de búsqueda del grounding service | ✅ OK | `packages/workers/src/grounding/grounding-service.ts` |
+| Fix backfill: firstSeenAt usa fecha de mención | ✅ OK | `scripts/backfill-topic-threads.ts` |
+| Fix backfill: thresholdsReached según mentionCount | ✅ OK | `scripts/backfill-topic-threads.ts` |
+| Fix backfill: lastMentionAt y firstSeenAt recalculados al final | ✅ OK | `scripts/backfill-topic-threads.ts` |
+
+### Detalles técnicos
+
+**Flujo de ingesta corregido** (`ingest.ts`):
+```
+1. Dedup URL (existente)
+2. Dedup hash (existente)
+3. Filtrar non-article URLs (NUEVO)
+4. Fallback fecha desde URL (NUEVO)
+5. Rechazar sin fecha excepto YouTube (NUEVO)
+6. Validar fecha razonable (NUEVO)
+7. Filtro 48h (existente)
+8. Guardar artículo + match keywords (existente)
+```
+
+**Patrones de URL descartados**: `/tags?/`, `/categoria/`, `/author/`, `/(feed|rss)$/`, `/search?`, solo dominio sin path.
+
+**Función `extractDateFromUrl()`**: Extrae `/YYYY/MM/DD/` de la URL, valida que no sea futura ni >10 años.
+
+**Onboarding mejorado**:
+- Búsqueda web via `searchGoogleNewsRss()` + `searchBingNewsRss()` importadas desde grounding-service
+- Combina artículos web (hasta 15) + artículos de BD (deduplicados)
+- Prompt con reglas estrictas: NO incluir ciudades/estados solos, NO palabras genéricas, SÍ variaciones de nombre, cargos específicos
+- Post-filtrado con `isGenericKeyword()`: ~50 stopwords (geográficos, políticos, industria, conectores)
+- Filtro de confidence < 0.7
+
+**SQL de limpieza (post-deploy)**:
+```sql
+UPDATE "Mention" m SET "publishedAt" = a."publishedAt"
+FROM "Article" a WHERE m."articleId" = a.id AND m."publishedAt" IS NULL AND a."publishedAt" IS NOT NULL;
+```
+
+---
+
 ## Backlog (Sin priorizar)
 
 | Feature | Descripción | Complejidad |
@@ -1117,10 +1180,10 @@ Agregar una capa de TopicThread (hilo temático) que agrupe menciones del mismo 
 ## Orden de Prioridad Sugerido
 
 ```
-Sprint 13 ✅ → Sprint 14 ✅ → Sprint 15 ✅ → Sprint 16 ✅ → Sprint 17 ✅ → Sprint 18 ✅ → Sprint 19 ✅
-     ↓              ↓              ↓              ↓              ↓            ↓              ↓
-  Action         Pipeline       AI Media       Campaign      Executive    Real-time +    Topic
-  Pipeline       Completo       Brief         Tracking      Dashboard    UX             Threads
+Sprint 13 ✅ → Sprint 14 ✅ → Sprint 15 ✅ → Sprint 16 ✅ → Sprint 17 ✅ → Sprint 18 ✅ → Sprint 19 ✅ → Sprint 20 ✅
+     ↓              ↓              ↓              ↓              ↓            ↓              ↓              ↓
+  Action         Pipeline       AI Media       Campaign      Executive    Real-time +    Topic          Data
+  Pipeline       Completo       Brief         Tracking      Dashboard    UX             Threads        Quality
 ```
 
 **Impacto estimado por sprint:**
@@ -1134,6 +1197,7 @@ Sprint 13 ✅ → Sprint 14 ✅ → Sprint 15 ✅ → Sprint 16 ✅ → Sprint 1
 | 17 | Medio — útil para escala multi-agencia | Medio | ✅ Completado |
 | 18 | Alto — real-time y UX modernizan el producto | Alto | ✅ Completado |
 | 19 | Muy alto — reduce ruido, visión estratégica por temas | Alto | ✅ Completado |
+| 20 | Alto — previene crisis falsas, mejora calidad de datos | Bajo | ✅ Completado |
 
 ## Contacto
 
