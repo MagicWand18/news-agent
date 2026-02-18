@@ -42,6 +42,7 @@ import {
 } from "lucide-react";
 import Link from "next/link";
 import { FilterBar, FilterSelect } from "@/components/filters";
+import { ChartSkeleton, CardGridSkeleton } from "@/components/skeletons";
 import { TIME_PERIOD_OPTIONS } from "@/lib/filter-constants";
 
 const SOV_COLORS = ["#3b82f6", "#10b981", "#f59e0b", "#ef4444", "#8b5cf6", "#ec4899"];
@@ -934,11 +935,7 @@ function TierCard({
 }
 
 function LoadingSpinner() {
-  return (
-    <div className="flex h-[200px] items-center justify-center">
-      <div className="h-8 w-8 animate-spin rounded-full border-2 border-gray-200 border-t-brand-600" />
-    </div>
-  );
+  return <ChartSkeleton height="h-[200px]" />;
 }
 
 function EmptyState({ message }: { message: string }) {

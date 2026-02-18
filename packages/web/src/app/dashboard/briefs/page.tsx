@@ -19,6 +19,7 @@ import {
   Share2,
 } from "lucide-react";
 import { FilterBar, FilterSelect } from "@/components/filters";
+import { CardGridSkeleton } from "@/components/skeletons";
 import { ExportButton } from "@/components/export-button";
 
 interface BriefContent {
@@ -430,11 +431,7 @@ function formatNumber(n: number): string {
 }
 
 function LoadingSpinner() {
-  return (
-    <div className="flex h-[300px] items-center justify-center">
-      <div className="h-8 w-8 animate-spin rounded-full border-2 border-gray-200 border-t-brand-600" />
-    </div>
-  );
+  return <CardGridSkeleton count={3} />;
 }
 
 function EmptyState() {

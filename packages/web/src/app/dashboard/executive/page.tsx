@@ -14,6 +14,8 @@ import {
   Minus,
   Clock,
 } from "lucide-react";
+import { StatCardSkeleton } from "@/components/stat-card";
+import { CardGridSkeleton, TableSkeleton } from "@/components/skeletons";
 import { OrgCard } from "@/components/executive/org-card";
 import { HealthScoreTable } from "@/components/executive/health-score-table";
 import { ActivityHeatmap } from "@/components/executive/activity-heatmap";
@@ -68,7 +70,7 @@ export default function ExecutiveDashboardPage() {
       {kpis.isLoading ? (
         <div className="grid grid-cols-2 gap-4 md:grid-cols-4">
           {Array.from({ length: 4 }).map((_, i) => (
-            <div key={i} className="h-28 animate-pulse rounded-xl bg-gray-100 dark:bg-gray-800" />
+            <StatCardSkeleton key={i} />
           ))}
         </div>
       ) : kpis.data ? (
@@ -101,6 +103,7 @@ export default function ExecutiveDashboardPage() {
       ) : null}
 
       {/* Org Cards Grid */}
+      {orgCards.isLoading && <CardGridSkeleton count={3} />}
       {orgCards.data && orgCards.data.length > 0 && (
         <div>
           <h3 className="mb-3 text-lg font-semibold text-gray-900 dark:text-white">
@@ -115,6 +118,7 @@ export default function ExecutiveDashboardPage() {
       )}
 
       {/* Health Score Ranking */}
+      {healthScores.isLoading && <TableSkeleton rows={5} cols={4} />}
       {healthScores.data && healthScores.data.length > 0 && (
         <div>
           <h3 className="mb-3 text-lg font-semibold text-gray-900 dark:text-white">

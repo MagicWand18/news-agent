@@ -1,6 +1,8 @@
 import { createHash } from "crypto";
 import { prisma, config, getSettingNumber } from "@mediabot/shared";
 import type { NormalizedArticle } from "@mediabot/shared";
+import { publishRealtimeEvent } from "@mediabot/shared/src/realtime-publisher.js";
+import { REALTIME_CHANNELS } from "@mediabot/shared/src/realtime-types.js";
 import { getQueue, QUEUE_NAMES } from "../queues.js";
 import { preFilterArticle } from "../analysis/ai.js";
 
@@ -30,6 +32,15 @@ export async function ingestArticle(article: NormalizedArticle) {
     }
   }
 
+  // Filtrar artículos con publishedAt > 48h (evita ingestar artículos viejos)
+  if (article.publishedAt) {
+    const fortyEightHoursAgo = new Date(Date.now() - 48 * 60 * 60 * 1000);
+    if (new Date(article.publishedAt) < fortyEightHoursAgo) {
+      console.log(`⏭️ Skip (>48h old): ${article.title.slice(0, 50)} (published ${new Date(article.publishedAt).toISOString().split("T")[0]})`);
+      return;
+    }
+  }
+
   // Save article
   const saved = await prisma.article.create({
     data: {
@@ -54,7 +65,7 @@ async function matchArticle(
 ) {
   const keywords = await prisma.keyword.findMany({
     where: { active: true },
-    include: { client: { select: { id: true, name: true, active: true, description: true, industry: true, createdAt: true } } },
+    include: { client: { select: { id: true, name: true, active: true, description: true, industry: true, createdAt: true, orgId: true } } },
   });
 
   const text = `${article.title} ${article.content || ""}`.toLowerCase();
@@ -142,6 +153,16 @@ async function matchArticle(
     });
 
     console.log(`🔔 Mention created: client=${match.clientId} keyword="${match.keyword}"`);
+
+    // Publicar evento realtime
+    publishRealtimeEvent(REALTIME_CHANNELS.MENTION_NEW, {
+      id: mention.id,
+      clientId: match.clientId,
+      orgId: match.client.orgId ?? null,
+      title: article.title,
+      source: article.source,
+      timestamp: new Date().toISOString(),
+    });
 
     // Enqueue for AI analysis
     await analyzeQueue.add("analyze", { mentionId: mention.id }, {

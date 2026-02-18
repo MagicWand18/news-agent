@@ -65,7 +65,7 @@ export async function analyzeMention(params: {
 }): Promise<AIAnalysisResult> {
   const model = getGeminiModel();
 
-  const prompt = `Analiza esta mencion en medios para un cliente de una agencia de PR.
+  const prompt = `Eres un analista de medios para una agencia de relaciones publicas. Analiza esta mencion evaluando el SENTIMIENTO desde la perspectiva del cliente mencionado.
 
 Cliente: ${params.clientName}
 Industria: ${params.clientIndustry || "No especificada"}
@@ -77,16 +77,24 @@ Titulo: ${params.articleTitle}
 Fuente: ${params.source}
 Contenido: ${params.articleContent?.slice(0, 1500) || "No disponible"}
 
+CRITERIOS DE SENTIMIENTO (evalua desde la perspectiva del cliente):
+- NEGATIVE: Criticas, escándalos, denuncias, acusaciones, problemas legales, violencia vinculada, pérdidas, fracasos, controversias, mala imagen publica, investigaciones en contra, protestas, quejas ciudadanas, incumplimiento, corrupción, inseguridad en su jurisdicción
+- POSITIVE: Logros, reconocimientos, inauguraciones, inversiones exitosas, mejoras, alianzas beneficiosas, elogios, avances, buenos resultados, apoyo ciudadano
+- NEUTRAL: Información factual sin carga valorativa clara, notas informativas generales, menciones incidentales sin impacto en reputación
+- MIXED: Articulo que contiene elementos tanto positivos como negativos significativos para el cliente
+
+IMPORTANTE: No confundas neutralidad informativa con impacto reputacional. Una nota periodística puede tener tono informativo pero su contenido ser claramente negativo para el cliente (ej: "Se reportan 15 homicidios en el municipio de X" es NEGATIVO para el alcalde de X).
+
 Responde UNICAMENTE con JSON valido, sin markdown ni texto adicional:
 {
   "summary": "Resumen ejecutivo de 2-3 lineas explicando por que esta mencion es relevante para el cliente",
-  "sentiment": "POSITIVE",
-  "relevance": 8,
+  "sentiment": "NEGATIVE",
+  "relevance": 7,
   "suggestedAction": "Accion concreta sugerida para el equipo de PR"
 }
 
 Valores posibles para sentiment: POSITIVE, NEGATIVE, NEUTRAL, MIXED
-Relevance es un numero del 1 al 10.`;
+Relevance es un numero del 1 al 10 (1=irrelevante, 10=altamente relevante para el cliente).`;
 
   try {
     const result = await model.generateContent({
@@ -101,11 +109,12 @@ Relevance es un numero del 1 al 10.`;
     const parsed = JSON.parse(cleaned) as AIAnalysisResult;
     parsed.relevance = Math.max(1, Math.min(10, Math.round(parsed.relevance)));
     if (!["POSITIVE", "NEGATIVE", "NEUTRAL", "MIXED"].includes(parsed.sentiment)) {
+      console.warn(`[AI] Invalid sentiment "${parsed.sentiment}", defaulting to NEUTRAL`);
       parsed.sentiment = "NEUTRAL";
     }
     return parsed;
   } catch (error) {
-    console.error("[AI] Failed to parse AI response:", error);
+    console.error("[AI] Failed to parse AI response for article:", params.articleTitle?.slice(0, 80), error);
     return {
       summary: "Mencion detectada - analisis automatico no disponible",
       sentiment: "NEUTRAL",

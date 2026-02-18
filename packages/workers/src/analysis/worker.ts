@@ -1,6 +1,8 @@
 import { Worker } from "bullmq";
 import { connection, QUEUE_NAMES, getQueue } from "../queues.js";
 import { prisma, config, getSettingNumber } from "@mediabot/shared";
+import { publishRealtimeEvent } from "@mediabot/shared/src/realtime-publisher.js";
+import { REALTIME_CHANNELS } from "@mediabot/shared/src/realtime-types.js";
 import { analyzeMention } from "./ai.js";
 import { processMentionForCrisis } from "./crisis-detector.js";
 import { findClusterParent } from "./clustering.js";
@@ -68,6 +70,18 @@ export function startAnalysisWorker() {
         },
       });
 
+      // Publicar evento realtime con resultados del análisis
+      publishRealtimeEvent(REALTIME_CHANNELS.MENTION_ANALYZED, {
+        id: mentionId,
+        clientId: mention.clientId,
+        orgId: mention.client.orgId ?? null,
+        title: mention.article.title,
+        source: mention.article.source,
+        sentiment: analysis.sentiment,
+        urgency,
+        timestamp: new Date().toISOString(),
+      });
+
       // Run clustering for relevant mentions
       if (analysis.relevance >= 5) {
         try {
@@ -102,14 +116,25 @@ export function startAnalysisWorker() {
       if (mention.isLegacy || isOldArticle) {
         console.log(`[Analysis] Mention ${mentionId} is ${mention.isLegacy ? "legacy" : "old article"}, skipping notification and crisis check`);
       } else {
-        // Enqueue notification if urgent enough
-        if (urgency === "CRITICAL" || urgency === "HIGH") {
-          await notifyQueue.add("alert", { mentionId }, {
-            priority: urgency === "CRITICAL" ? 1 : 2,
-          });
+        // Verificar si la mención será asignada a un TopicThread
+        // Si tiene topic, la notificación se maneja a nivel de topic thread (NOTIFY_TOPIC)
+        // Si NO tiene topic, mantener NOTIFY_ALERT individual como fallback
+        // Nota: el topic se extrae en el TopicWorker posterior, pero revisamos el existente
+        const mentionWithTopic = await prisma.mention.findUnique({
+          where: { id: mentionId },
+          select: { topicThreadId: true },
+        });
+
+        if (!mentionWithTopic?.topicThreadId) {
+          // Sin topic thread → notificación individual (fallback)
+          if (urgency === "CRITICAL" || urgency === "HIGH") {
+            await notifyQueue.add("alert", { mentionId }, {
+              priority: urgency === "CRITICAL" ? 1 : 2,
+            });
+          }
         }
 
-        // Check for crisis if mention is negative
+        // Check for crisis if mention is negative (siempre, independiente del topic)
         if (analysis.sentiment === "NEGATIVE") {
           try {
             await processMentionForCrisis(mentionId);

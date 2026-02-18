@@ -20,6 +20,7 @@ import {
 } from "recharts";
 import { AlertCircle, BarChart3, Users, Calendar, Tag, Zap, Share2 } from "lucide-react";
 import { FilterBar, FilterSelect } from "@/components/filters";
+import { ChartSkeleton } from "@/components/skeletons";
 import { TIME_PERIOD_OPTIONS } from "@/lib/filter-constants";
 
 const SENTIMENT_COLORS = {
@@ -755,11 +756,7 @@ export default function AnalyticsPage() {
 }
 
 function LoadingSpinner() {
-  return (
-    <div className="flex h-[250px] items-center justify-center">
-      <div className="h-8 w-8 animate-spin rounded-full border-2 border-gray-200 border-t-brand-600" />
-    </div>
-  );
+  return <ChartSkeleton height="h-[250px]" />;
 }
 
 function EmptyState({ message }: { message: string }) {

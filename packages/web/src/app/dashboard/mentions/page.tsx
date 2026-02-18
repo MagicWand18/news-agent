@@ -8,6 +8,7 @@ import { Download, Users, TrendingUp, AlertTriangle, Globe, Clock, Archive } fro
 import { exportMentionsToCsv } from "@/lib/csv-export";
 import { FilterBar, FilterSelect, FilterDateRange, FilterChips } from "@/components/filters";
 import { cn } from "@/lib/cn";
+import { FilterBarSkeleton, TableSkeleton } from "@/components/skeletons";
 
 const SENTIMENT_OPTIONS = [
   { value: "POSITIVE", label: "Positivo" },
@@ -45,11 +46,8 @@ function MentionsPageLoading() {
       <div className="flex items-center justify-between">
         <h2 className="text-2xl font-bold text-gray-900 dark:text-white">Menciones</h2>
       </div>
-      <div className="rounded-xl bg-white dark:bg-gray-800 p-6 shadow-sm dark:shadow-gray-900/20">
-        <div className="flex items-center justify-center py-12">
-          <div className="h-8 w-8 animate-spin rounded-full border-4 border-brand-500 border-t-transparent" />
-        </div>
-      </div>
+      <FilterBarSkeleton />
+      <TableSkeleton rows={8} cols={5} />
     </div>
   );
 }
@@ -248,9 +246,7 @@ function MentionsPageContent() {
       {/* Lista de menciones */}
       <div className="rounded-xl bg-white dark:bg-gray-800 p-6 shadow-sm dark:shadow-gray-900/20">
         {mentions.isLoading && (
-          <div className="flex items-center justify-center py-12">
-            <div className="h-8 w-8 animate-spin rounded-full border-4 border-brand-500 border-t-transparent" />
-          </div>
+          <TableSkeleton rows={8} cols={5} />
         )}
         {mentions.data?.mentions.map((mention) => (
           <MentionRow

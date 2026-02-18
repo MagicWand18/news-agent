@@ -5,6 +5,7 @@ import { useState, useMemo } from "react";
 import { cn } from "@/lib/cn";
 import { Plus, ListFilter, Users, AlertTriangle, Newspaper, Share2 } from "lucide-react";
 import { FilterBar, FilterSelect, FilterChips } from "@/components/filters";
+import { TableSkeleton } from "@/components/skeletons";
 import Link from "next/link";
 
 const statusLabels: Record<string, string> = {
@@ -213,6 +214,9 @@ export default function TasksPage() {
       <FilterChips chips={filterChips} onRemove={handleRemoveChip} />
 
       {/* Tasks table */}
+      {tasks.isLoading ? (
+        <TableSkeleton rows={6} cols={6} />
+      ) : (
       <div className="rounded-xl bg-white shadow-sm dark:bg-gray-800">
         <table className="w-full">
           <thead>
@@ -300,6 +304,7 @@ export default function TasksPage() {
           <p className="p-6 text-center text-gray-500 dark:text-gray-400">No hay tareas.</p>
         )}
       </div>
+      )}
     </div>
   );
 }

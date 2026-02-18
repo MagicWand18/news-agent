@@ -19,6 +19,7 @@ import {
   ChevronUp,
 } from "lucide-react";
 import { FilterBar, FilterSelect } from "@/components/filters";
+import { TableSkeleton } from "@/components/skeletons";
 
 const STATUS_TABS = [
   { value: "", label: "Todos" },
@@ -141,9 +142,7 @@ export default function ResponsesPage() {
       {/* Responses List */}
       <div className="rounded-xl bg-white dark:bg-gray-800 shadow-sm dark:shadow-gray-900/20">
         {responses.isLoading && (
-          <div className="flex items-center justify-center py-12">
-            <div className="h-8 w-8 animate-spin rounded-full border-4 border-brand-500 border-t-transparent" />
-          </div>
+          <TableSkeleton rows={6} cols={4} />
         )}
 
         {responses.isError && (

@@ -6,6 +6,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { Plus, Search, Building2, CheckCircle } from "lucide-react";
 import { FilterBar, FilterSelect, FilterChips } from "@/components/filters";
+import { TableSkeleton } from "@/components/skeletons";
 
 const STATUS_OPTIONS = [
   { value: "active", label: "Activo" },
@@ -128,6 +129,9 @@ export default function ClientsPage() {
       {/* Chips de filtros activos */}
       <FilterChips chips={filterChips} onRemove={handleRemoveChip} />
 
+      {clients.isLoading ? (
+        <TableSkeleton rows={6} cols={6} />
+      ) : (
       <div className="rounded-xl bg-white shadow-sm dark:bg-gray-800" data-tour-id="clients-list">
         <table className="w-full">
           <thead>
@@ -176,6 +180,7 @@ export default function ClientsPage() {
           </p>
         )}
       </div>
+      )}
     </div>
   );
 }

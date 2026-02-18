@@ -1,4 +1,6 @@
 import { prisma, getSettingNumber, config } from "@mediabot/shared";
+import { publishRealtimeEvent } from "@mediabot/shared/src/realtime-publisher.js";
+import { REALTIME_CHANNELS } from "@mediabot/shared/src/realtime-types.js";
 import { getQueue, QUEUE_NAMES } from "../queues.js";
 import type { CrisisTriggerType, CrisisSeverity } from "@prisma/client";
 
@@ -104,6 +106,16 @@ export async function createCrisisAlert(
   console.log(
     `🚨 Crisis alert created: client=${clientId} severity=${severity} mentions=${mentionCount}`
   );
+
+  // Publicar evento realtime de crisis
+  const client = await prisma.client.findUnique({ where: { id: clientId }, select: { orgId: true } });
+  publishRealtimeEvent(REALTIME_CHANNELS.CRISIS_NEW, {
+    id: crisisAlert.id,
+    clientId,
+    orgId: client?.orgId ?? null,
+    severity,
+    timestamp: new Date().toISOString(),
+  });
 
   // Enqueue crisis notification
   const notifyQueue = getQueue(QUEUE_NAMES.NOTIFY_CRISIS);

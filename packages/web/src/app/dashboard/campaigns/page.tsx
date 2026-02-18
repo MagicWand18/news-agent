@@ -17,6 +17,7 @@ import {
   Share2,
   LinkIcon,
 } from "lucide-react";
+import { TableSkeleton } from "@/components/skeletons";
 
 const STATUS_CONFIG: Record<
   string,
@@ -261,9 +262,7 @@ export default function CampaignsPage() {
       {/* Lista de campañas */}
       <div className="rounded-xl bg-white dark:bg-gray-800 shadow-sm dark:shadow-gray-900/20 overflow-hidden">
         {campaigns.isLoading && (
-          <div className="flex items-center justify-center py-12">
-            <div className="h-8 w-8 animate-spin rounded-full border-4 border-brand-500 border-t-transparent" />
-          </div>
+          <TableSkeleton rows={5} cols={6} />
         )}
 
         {campaigns.data && campaigns.data.length === 0 && (

@@ -6,6 +6,7 @@ import { useState, useMemo, useEffect, useCallback, Suspense } from "react";
 import { useSearchParams } from "next/navigation";
 import { Download, Users, TrendingUp, Hash, Share2, Trash2, Loader2, X } from "lucide-react";
 import { FilterBar, FilterSelect, FilterDateRange, FilterChips } from "@/components/filters";
+import { FilterBarSkeleton, TableSkeleton } from "@/components/skeletons";
 
 const PLATFORM_OPTIONS = [
   { value: "INSTAGRAM", label: "Instagram" },
@@ -52,11 +53,8 @@ function SocialMentionsPageLoading() {
           <h2 className="text-2xl font-bold text-gray-900 dark:text-white">Redes Sociales</h2>
         </div>
       </div>
-      <div className="rounded-xl bg-white dark:bg-gray-800 p-6 shadow-sm dark:shadow-gray-900/20">
-        <div className="flex items-center justify-center py-12">
-          <div className="h-8 w-8 animate-spin rounded-full border-4 border-brand-500 border-t-transparent" />
-        </div>
-      </div>
+      <FilterBarSkeleton />
+      <TableSkeleton rows={8} cols={6} />
     </div>
   );
 }

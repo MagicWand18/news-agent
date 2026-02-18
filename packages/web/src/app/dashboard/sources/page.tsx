@@ -28,6 +28,7 @@ import {
   Send,
   FileText,
 } from "lucide-react";
+import { TableSkeleton } from "@/components/skeletons";
 
 type Tab = "sources" | "requests";
 
@@ -233,11 +234,7 @@ export default function SourcesPage() {
   };
 
   if (authStatus === "loading") {
-    return (
-      <div className="flex items-center justify-center py-20">
-        <div className="h-8 w-8 animate-spin rounded-full border-2 border-brand-600 border-t-transparent" />
-      </div>
-    );
+    return <TableSkeleton rows={8} cols={6} />;
   }
 
   if (!session?.user) {
@@ -480,8 +477,8 @@ export default function SourcesPage() {
               <tbody className="divide-y divide-gray-200 dark:divide-gray-700">
                 {sourcesQuery.isLoading ? (
                   <tr>
-                    <td colSpan={7} className="px-4 py-8 text-center text-gray-500">
-                      <div className="mx-auto h-8 w-8 animate-spin rounded-full border-2 border-brand-600 border-t-transparent" />
+                    <td colSpan={7} className="p-0">
+                      <TableSkeleton rows={8} cols={7} />
                     </td>
                   </tr>
                 ) : sourcesQuery.data?.sources.length === 0 ? (
@@ -690,8 +687,8 @@ export default function SourcesPage() {
               <tbody className="divide-y divide-gray-200 dark:divide-gray-700">
                 {requestsQuery.isLoading ? (
                   <tr>
-                    <td colSpan={5} className="px-4 py-8 text-center text-gray-500 dark:text-gray-400">
-                      <div className="mx-auto h-8 w-8 animate-spin rounded-full border-2 border-brand-600 border-t-transparent" />
+                    <td colSpan={5} className="p-0">
+                      <TableSkeleton rows={5} cols={5} />
                     </td>
                   </tr>
                 ) : requestsQuery.data?.requests.length === 0 ? (

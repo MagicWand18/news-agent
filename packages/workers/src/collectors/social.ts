@@ -16,6 +16,9 @@ import {
   config,
   type SocialPost,
 } from "@mediabot/shared";
+import { publishRealtimeEvent } from "@mediabot/shared/src/realtime-publisher.js";
+import { REALTIME_CHANNELS } from "@mediabot/shared/src/realtime-types.js";
+import { getQueue, QUEUE_NAMES } from "../queues.js";
 import type { SocialPlatform as PrismaSocialPlatform } from "@prisma/client";
 
 // Delay entre llamadas a la API para respetar rate limits
@@ -115,7 +118,8 @@ export async function collectSocial(): Promise<CollectionStats> {
             posts,
             clientData.id,
             "HANDLE",
-            account.handle
+            account.handle,
+            clientData.orgId ?? null
           );
           stats.postsCollected += posts.length;
           stats.postsNew += newPosts;
@@ -135,7 +139,7 @@ export async function collectSocial(): Promise<CollectionStats> {
         try {
           // Buscar en todas las plataformas
           const posts = await collectFromHashtag(client, hashtag);
-          const newPosts = await savePosts(posts, clientData.id, "HASHTAG", hashtag);
+          const newPosts = await savePosts(posts, clientData.id, "HASHTAG", hashtag, clientData.orgId ?? null);
           stats.postsCollected += posts.length;
           stats.postsNew += newPosts;
           console.log(`  Hashtag #${hashtag}: ${posts.length} posts, ${newPosts} new`);
@@ -156,7 +160,7 @@ export async function collectSocial(): Promise<CollectionStats> {
 
         try {
           const posts = await collectFromKeyword(client, keyword);
-          const newPosts = await savePosts(posts, clientData.id, "KEYWORD", keyword);
+          const newPosts = await savePosts(posts, clientData.id, "KEYWORD", keyword, clientData.orgId ?? null);
           stats.postsCollected += posts.length;
           stats.postsNew += newPosts;
           console.log(`  Keyword "${keyword}": ${posts.length} posts, ${newPosts} new`);
@@ -296,7 +300,8 @@ async function savePosts(
   posts: SocialPost[],
   clientId: string,
   sourceType: "HANDLE" | "HASHTAG" | "KEYWORD",
-  sourceValue: string
+  sourceValue: string,
+  orgId: string | null = null
 ): Promise<number> {
   let newCount = 0;
 
@@ -326,7 +331,7 @@ async function savePosts(
         });
       } else {
         // Crear nueva mención
-        await prisma.socialMention.create({
+        const created = await prisma.socialMention.create({
           data: {
             clientId,
             platform: post.platform as PrismaSocialPlatform,
@@ -346,6 +351,31 @@ async function savePosts(
           },
         });
         newCount++;
+
+        // Publicar evento realtime
+        publishRealtimeEvent(REALTIME_CHANNELS.SOCIAL_NEW, {
+          id: created.id,
+          clientId,
+          orgId,
+          title: post.content?.slice(0, 100),
+          platform: post.platform,
+          source: post.authorHandle,
+          timestamp: new Date().toISOString(),
+        });
+
+        // Encolar extracción de topic para la social mention (Sprint 19)
+        try {
+          const socialTopicQueue = getQueue(QUEUE_NAMES.ANALYZE_SOCIAL_TOPIC);
+          await socialTopicQueue.add("extract-social-topic", {
+            socialMentionId: created.id,
+          }, {
+            delay: 2000, // Pequeño delay para no saturar
+            attempts: 2,
+            backoff: { type: "exponential", delay: 5000 },
+          });
+        } catch {
+          // No bloquear el flujo si falla el enqueue
+        }
       }
     } catch (error) {
       // Ignorar errores de duplicados (race condition)
@@ -429,7 +459,7 @@ export async function collectSocialForClient(
       await delay(API_DELAY_MS);
       try {
         const posts = await collectFromHandle(apiClient, account.platform, account.handle, null, maxPosts, maxAgeDays);
-        const newPosts = await savePosts(posts, clientId, "HANDLE", account.handle);
+        const newPosts = await savePosts(posts, clientId, "HANDLE", account.handle, clientData.orgId ?? null);
         postsCollected += posts.length;
         postsNew += newPosts;
         console.log(`  Handle @${account.handle} (${account.platform}): ${posts.length} posts, ${newPosts} new`);
@@ -446,7 +476,7 @@ export async function collectSocialForClient(
       await delay(API_DELAY_MS);
       try {
         const posts = await collectFromHashtag(apiClient, hashtag, platforms, maxPosts, maxAgeDays);
-        const newPosts = await savePosts(posts, clientId, "HASHTAG", hashtag);
+        const newPosts = await savePosts(posts, clientId, "HASHTAG", hashtag, clientData.orgId ?? null);
         postsCollected += posts.length;
         postsNew += newPosts;
         console.log(`  Hashtag #${hashtag}: ${posts.length} posts, ${newPosts} new`);

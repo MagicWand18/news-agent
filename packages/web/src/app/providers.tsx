@@ -8,6 +8,7 @@ import { trpc } from "@/lib/trpc";
 import superjson from "superjson";
 import { ThemeProvider } from "@/components/theme-provider";
 import { OnboardingProvider } from "@/components/onboarding";
+import { RealtimeProvider } from "@/components/realtime-provider";
 
 export function Providers({ children }: { children: React.ReactNode }) {
   const [queryClient] = useState(() => new QueryClient());
@@ -27,7 +28,9 @@ export function Providers({ children }: { children: React.ReactNode }) {
       <trpc.Provider client={trpcClient} queryClient={queryClient}>
         <QueryClientProvider client={queryClient}>
           <ThemeProvider>
-            <OnboardingProvider>{children}</OnboardingProvider>
+            <OnboardingProvider>
+              <RealtimeProvider>{children}</RealtimeProvider>
+            </OnboardingProvider>
           </ThemeProvider>
         </QueryClientProvider>
       </trpc.Provider>

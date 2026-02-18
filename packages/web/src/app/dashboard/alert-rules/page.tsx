@@ -18,6 +18,7 @@ import {
   Activity,
   AlertCircle,
 } from "lucide-react";
+import { TableSkeleton } from "@/components/skeletons";
 
 const RULE_TYPES = [
   { value: "NEGATIVE_SPIKE", label: "Pico de menciones negativas", icon: AlertTriangle },
@@ -270,9 +271,7 @@ export default function AlertRulesPage() {
       {/* Tabla de reglas */}
       <div className="rounded-xl bg-white dark:bg-gray-800 shadow-sm dark:shadow-gray-900/20 overflow-hidden">
         {rules.isLoading && (
-          <div className="flex items-center justify-center py-12">
-            <div className="h-8 w-8 animate-spin rounded-full border-4 border-brand-500 border-t-transparent" />
-          </div>
+          <TableSkeleton rows={5} cols={6} />
         )}
 
         {rules.isError && (
